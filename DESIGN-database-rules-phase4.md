@@ -990,8 +990,10 @@ write, drop the admin read) are each caught. All 127 database rules tests and th
 2. `scripts/deploy-database-rules.sh --project dau-footy-tipping-f8a42 --variant r1-compat --dry-run`, then without
    `--dry-run`.
 3. Check: unauthenticated reads of `/AuthIndex.json` and `/TipperPrivate.json` are still refused; the app signs in
-   and a tip saves as before; the tipper list still loads. (Optionally, with a real ID token, read your own
-   `AuthIndex` entry, which is the first time the `root.child` lookups run in production.)
+   and a tip saves as before; the tipper list still loads. (Optionally, with a real ID token for a **linked
+   non-admin**, read your own `TipperPrivate/{id}`. That is the only read that runs the `root.child` lookup for the
+   first time in production. Reading your own `AuthIndex` entry does not, and an allowlisted admin would pass
+   through the admin permission and could miss a broken owner rule.)
 
 **Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
 fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
