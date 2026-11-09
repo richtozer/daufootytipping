@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -25,19 +27,25 @@ class TeamsViewModel extends ChangeNotifier {
     _listenToTeams();
   }
 
+  // Teams need a session under the R2 rules, so the listener opens once a user is
+  // signed in (see authAwareStream), not when this view model is created.
   void _listenToTeams() {
-    _teamsStream = _db.child(p.teamsPathRoot).onValue.listen((event) {
-      if (event.snapshot.exists) {
-        _processTeams(event);
-      } else {
-        log('No teams found in database');
-      }
+    _teamsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: firebaseSignedInStream,
+          open: () => _db.child(p.teamsPathRoot).onValue,
+        ).listen((event) {
+          if (event.snapshot.exists) {
+            _processTeams(event);
+          } else {
+            log('No teams found in database');
+          }
 
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
-      notifyListeners();
-    });
+          if (!_initialLoadCompleter.isCompleted) {
+            _initialLoadCompleter.complete();
+          }
+          notifyListeners();
+        });
   }
 
   void _processTeams(DatabaseEvent event) {
@@ -89,7 +97,8 @@ class TeamsViewModel extends ChangeNotifier {
     Map changed = diff.changed;
     changed.keys.toList().forEach((key) {
       if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-        updates['${p.teamsPathRoot}/${updatedTeam.dbkey}/$key'] = changed[key][1];
+        updates['${p.teamsPathRoot}/${updatedTeam.dbkey}/$key'] =
+            changed[key][1];
       }
     });
 

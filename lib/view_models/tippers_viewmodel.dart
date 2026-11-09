@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
@@ -77,11 +78,17 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  // monitor changes to tippers records in DB and notify listeners of any changes
+  // monitor changes to tippers records in DB and notify listeners of any changes.
+  // The public tipper list needs a session under the R2 rules, so the listener opens
+  // once a user is signed in (see authAwareStream), not when this view model is created.
   void _listenToTippers() {
-    _tippersStream = _db.child(p.tippersPath).onValue.listen((event) {
-      _handleEvent(event);
-    });
+    _tippersStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: firebaseSignedInStream,
+          open: () => _db.child(p.tippersPath).onValue,
+        ).listen((event) {
+          _handleEvent(event);
+        });
   }
 
   Future<void> _handleEvent(DatabaseEvent event) async {

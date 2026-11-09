@@ -1,3 +1,4 @@
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 
@@ -13,9 +14,15 @@ class FirebaseDauCompsRepository implements DauCompsRepository {
 
   FirebaseDatabase get _database => _db ?? configuredRealtimeDatabase;
 
+  /// Opens the listener only once a user is signed in: the competitions need a
+  /// session under the R2 rules, and a listener attached before one is cancelled
+  /// for good (see [authAwareStream]).
   @override
   Stream<DatabaseEvent> streamDauComps(String daucompsPath) {
-    return _database.ref().child(daucompsPath).onValue;
+    return authAwareStream<DatabaseEvent>(
+      signedIn: firebaseSignedInStream,
+      open: () => _database.ref().child(daucompsPath).onValue,
+    );
   }
 
   @override
