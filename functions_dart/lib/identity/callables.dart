@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/identity/admin_update_tipper.dart';
 import 'package:dart_functions/identity/admission.dart';
 import 'package:dart_functions/identity/caller_token.dart';
 import 'package:dart_functions/identity/device_tokens.dart';
@@ -38,8 +39,9 @@ const CallableOptions identityCallableOptions = CallableOptions(
 typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 
 /// Registers `link-or-create-tipper`, `update-tipper-alias`,
-/// `register-device-token`, `unregister-device-token` and `unlink-my-account`
-/// (DESIGN-database-rules-phase4.md, sections 6f and 6h).
+/// `register-device-token`, `unregister-device-token`, `unlink-my-account` and
+/// `admin-update-tipper` (DESIGN-database-rules-phase4.md, sections 6f and 6h).
+/// [adminUids] are the accounts the admin callables accept.
 ///
 /// Every one of them:
 ///
@@ -61,6 +63,7 @@ typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 void registerIdentityCallables(
   Firebase firebase, {
   required IdentityDatabaseOpener openDatabase,
+  required Set<String> adminUids,
   Duration handlerDeadline = handlerSoftDeadline,
 }) {
   firebase.https.onCall(
@@ -153,6 +156,26 @@ void registerIdentityCallables(
         database: call.database,
         caller: call.caller,
         admission: call.admission,
+        checkpoint: call.checkpoint,
+      )).toJson(),
+    ),
+  );
+
+  firebase.https.onCall(
+    name: adminUpdateTipperEndpoint,
+    options: identityCallableOptions,
+    (request, response) => _serve<AdminUpdateTipperRequest>(
+      request,
+      callable: adminUpdateTipperEndpoint,
+      openDatabase: openDatabase,
+      deadline: handlerDeadline,
+      parse: AdminUpdateTipperRequest.fromJson,
+      handle: (call) async => (await adminUpdateTipper(
+        database: call.database,
+        caller: call.caller,
+        request: call.request,
+        admission: call.admission,
+        adminUids: adminUids,
         checkpoint: call.checkpoint,
       )).toJson(),
     ),

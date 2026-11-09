@@ -191,6 +191,7 @@ void main(List<String> args) async {
     registerIdentityCallables(
       firebase,
       openDatabase: () => _openIdentityDatabase(runtimeAdminApp),
+      adminUids: adminAuthUids,
     );
 
     firebase.https.onRequest(

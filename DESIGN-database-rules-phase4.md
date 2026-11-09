@@ -1007,7 +1007,7 @@ non-admin's own `TipperPrivate/{id}`.
 **Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
 fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
 
-### 6h. Progress: M4c, scoped to what the app does (9 November 2026; `unlink-my-account` built and tested, not deployed)
+### 6h. Progress: M4c, scoped to what the app does (9 November 2026; `unlink-my-account` and `admin-update-tipper` built and tested, not deployed)
 
 **Scope, after the scope reset.** The plan listed six admin callables with leases, an operations journal and a
 reaper. Reading the admin screens (`admin_tippers_edit_add.dart`, `admin_tipper_merge.dart`) shows the app does less:
@@ -1053,6 +1053,29 @@ are each caught.
 from an R2 client after that is refused as claimed until an administrator fixes it. This is rare and accepted.
 Deploying the function is a separate go, and as with the last four it may need its public-invoker setting added by hand
 (section 6f, B7 and `docs/backend-scoring-deploy.md`).
+
+**`admin-update-tipper` (built, tested, not deployed).** An administrator changes another tipper's `name`, contact
+`email` or `role` (at least one; the paid-competition list stays a direct write). What to know:
+- **Who:** `requireAdmin` (`lib/identity/admin_gate.dart`), the one place that decides. Until the cutover it is the
+  compile-time allowlist, the same list the rules and the other admin endpoints use, passed in by `server.dart`;
+  at the cutover it becomes the linked tipper's role, a one-place change. Anyone else is refused (`not_admin`) before
+  anything is read or written.
+- **A refusal changes nothing.** Everything that can refuse is checked before the first write (a missing tipper, a
+  record missing a half, a blank or over-long name, an address that is not an address, a demotion that would leave no
+  administrator). The name goes first because it is the one step another tipper's claim can refuse (`alias_taken`),
+  as the same journalled claim move a tipper's own rename uses, so a lost name leaves the email and role untouched.
+  The email and role then go in **one atomic update**, to the private record and, in the legacy modes, the public
+  copy a 1.4.x client still reads (after the purge only the private record). A field already holding the requested
+  value is left alone and not listed in the result, so asking twice, or retrying after a crash, finishes only what was
+  not done.
+- **No journal.** Running the same request again completes an interrupted one.
+- **Accepted limitation:** the last-administrator check and the write are not one atomic step, so two administrators
+  demoting each other in the same instant could both pass it. With four administrators that is repaired by hand.
+- **Tested.** Twenty handler tests plus wrapper-level tests through the real callable pipeline (a tipper who is not an
+  administrator is refused with 403, an administrator renames another tipper, nothing-to-change and unknown-role
+  requests are refused before the database is opened). Six deliberate breakages (admin check skipped, last-admin check
+  skipped, email not mirrored, a name conflict swallowed, the tipper counted as another administrator, role not
+  mirrored) are each caught.
 
 **A mistake of mine, found and fixed on the way.** The earlier replay test skipped its test but not its `setUpAll`,
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy

@@ -160,4 +160,79 @@ void main() {
       expect(() => UnlinkMyAccountResult.fromJson(null), throwsFormatException);
     });
   });
+
+  group('AdminUpdateTipper', () {
+    test('reads the tipper and each field that is given', () {
+      final request = AdminUpdateTipperRequest.fromJson({
+        'tipperId': 't1',
+        'name': 'Pat',
+        'email': 'pat@example.com',
+        'role': 'admin',
+      });
+      expect(request.tipperId, 't1');
+      expect(request.name, 'Pat');
+      expect(request.email, 'pat@example.com');
+      expect(request.role, TipperRole.admin);
+      expect(request.toJson(), {
+        'tipperId': 't1',
+        'name': 'Pat',
+        'email': 'pat@example.com',
+        'role': 'admin',
+      });
+    });
+
+    test('a field not given stays out of the request', () {
+      final request = AdminUpdateTipperRequest.fromJson({
+        'tipperId': 't1',
+        'role': 'tipper',
+      });
+      expect(request.name, isNull);
+      expect(request.toJson(), {'tipperId': 't1', 'role': 'tipper'});
+    });
+
+    test(
+      'rejects a request with nothing to change, no tipper, or a role that does not exist',
+      () {
+        expect(
+          () => AdminUpdateTipperRequest.fromJson({'tipperId': 't1'}),
+          throwsFormatException,
+        );
+        expect(
+          () => AdminUpdateTipperRequest.fromJson({'name': 'Pat'}),
+          throwsFormatException,
+        );
+        expect(
+          () => AdminUpdateTipperRequest.fromJson({
+            'tipperId': 't1',
+            'role': 'superuser',
+          }),
+          throwsFormatException,
+        );
+        expect(
+          () =>
+              AdminUpdateTipperRequest.fromJson({'tipperId': 't1', 'name': 7}),
+          throwsFormatException,
+        );
+      },
+    );
+
+    test('the result lists what changed', () {
+      final result = AdminUpdateTipperResult.fromJson({
+        'tipperId': 't1',
+        'changed': ['name', 'role'],
+      });
+      expect(result.changed, ['name', 'role']);
+      expect(result.toJson(), {
+        'tipperId': 't1',
+        'changed': ['name', 'role'],
+      });
+      expect(
+        () => AdminUpdateTipperResult.fromJson({
+          'tipperId': 't1',
+          'changed': 'name',
+        }),
+        throwsFormatException,
+      );
+    });
+  });
 }

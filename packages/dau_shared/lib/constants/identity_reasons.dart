@@ -41,5 +41,14 @@ const String identityReasonNotLinked = 'not_linked';
 /// The device token is not acceptable.
 const String identityReasonInvalidToken = 'invalid_token';
 
+/// The caller is not an administrator.
+const String identityReasonNotAdmin = 'not_admin';
+
+/// The contact email is not a usable address.
+const String identityReasonInvalidEmail = 'invalid_email';
+
+/// The change would leave no administrator.
+const String identityReasonLastAdmin = 'last_admin';
+
 /// The error `domain` used in every `ErrorInfo` detail.
 const String identityErrorDomain = 'dau-footy-tipping';

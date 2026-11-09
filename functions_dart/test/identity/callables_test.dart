@@ -27,6 +27,7 @@ import '../support/mock_firebase_auth.dart';
 const String _uidA = 'uidA00000000000000000000001';
 const String _uidB = 'uidB00000000000000000000002';
 const String _stranger = 'uidZ00000000000000000000009';
+const String _adminUid = 'uidAdmin000000000000000000001';
 const String _token = 'dXYZ:APA91bExample-0001_aaaaaaaaaaaaaaaa';
 
 /// Every identity callable and a request body that is valid for it.
@@ -36,6 +37,10 @@ final Map<String, Object?> _validBodies = <String, Object?>{
   registerDeviceTokenEndpoint: <String, Object?>{'token': _token},
   unregisterDeviceTokenEndpoint: <String, Object?>{'token': _token},
   unlinkMyAccountEndpoint: <String, Object?>{},
+  adminUpdateTipperEndpoint: <String, Object?>{
+    'tipperId': 't2',
+    'name': 'Samuel',
+  },
 };
 
 /// What came back: the HTTP status and, for an error, its `error` object.
@@ -79,6 +84,7 @@ void main() {
       adminApp: app,
       (firebase) => registerIdentityCallables(
         firebase,
+        adminUids: const <String>{_adminUid},
         openDatabase: () async {
           if (openerFails) {
             throw StateError('the database cannot be opened in this test');
@@ -317,6 +323,24 @@ void main() {
       expect(reply.status, 400);
       expect(reply.errorStatus, 'INVALID_ARGUMENT');
       expect(reply.reason, 'invalid_alias');
+      expect(opened, isEmpty);
+    });
+
+    test('admin-update-tipper with nothing to change', () async {
+      final reply = await bad(adminUpdateTipperEndpoint, <String, Object?>{
+        'tipperId': 't2',
+      });
+      expect(reply.status, 400);
+      expect(reply.errorStatus, 'INVALID_ARGUMENT');
+      expect(opened, isEmpty);
+    });
+
+    test('admin-update-tipper with a role that does not exist', () async {
+      final reply = await bad(adminUpdateTipperEndpoint, <String, Object?>{
+        'tipperId': 't2',
+        'role': 'superuser',
+      });
+      expect(reply.errorStatus, 'INVALID_ARGUMENT');
       expect(opened, isEmpty);
     });
 
@@ -577,6 +601,38 @@ void main() {
           final again = await asPat(unlinkMyAccountEndpoint);
           expect(again.status, 200);
           expect(again.result, <String, Object?>{'unlinked': false});
+        },
+      );
+
+      test(
+        'admin-update-tipper is refused to a signed-in tipper who is not an administrator',
+        () async {
+          final before = canonical(await readRoot(db));
+          final reply = await asPat(adminUpdateTipperEndpoint);
+          expect(reply.status, 403);
+          expect(reply.errorStatus, 'PERMISSION_DENIED');
+          expect(reply.reason, 'not_admin');
+          expect(canonical(await readRoot(db)), before);
+        },
+      );
+
+      test(
+        'admin-update-tipper lets an administrator rename another tipper',
+        () async {
+          final reply = await call(
+            adminUpdateTipperEndpoint,
+            data: <String, Object?>{'tipperId': 't2', 'name': 'Samuel'},
+            idToken: idTokenFor(_adminUid, email: 'admin@example.com'),
+          );
+          expect(reply.status, 200, reason: '${reply.body}');
+          expect(reply.result, <String, Object?>{
+            'tipperId': 't2',
+            'changed': <String>['name'],
+          });
+          final root = await readRoot(db);
+          expect(rowAt(root, 'AllTippers', 't2')['name'], 'Samuel');
+          expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
+          expectIdentityConsistent(root);
         },
       );
 

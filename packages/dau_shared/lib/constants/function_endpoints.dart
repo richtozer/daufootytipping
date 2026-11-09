@@ -52,3 +52,7 @@ const String unregisterDeviceTokenEndpoint = 'unregister-device-token';
 /// (keeping the record and its history), so the account can then be deleted
 /// and the person can later sign up again and be linked to the same record.
 const String unlinkMyAccountEndpoint = 'unlink-my-account';
+
+/// Callable: an administrator changes another tipper's name, contact email or
+/// role.
+const String adminUpdateTipperEndpoint = 'admin-update-tipper';

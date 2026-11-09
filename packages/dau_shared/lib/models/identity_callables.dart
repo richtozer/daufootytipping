@@ -6,6 +6,8 @@
 // problem; the functions turn that into an invalid-argument error. Unknown
 // extra keys are ignored, so a newer client can add fields.
 
+import 'tipperrole.dart';
+
 /// The longest push token accepted. Real tokens are about 160 characters; the
 /// limit keeps a token usable as a database key (768 bytes at most).
 const int maxDeviceTokenLength = 512;
@@ -191,6 +193,87 @@ class UnlinkMyAccountResult {
   }
 
   Map<String, Object?> toJson() => <String, Object?>{'unlinked': unlinked};
+}
+
+/// `admin-update-tipper`: an administrator changes another tipper's name,
+/// contact email or role. At least one of the three must be given; one that is
+/// not given is left alone. The paid-competition list is not here: an
+/// administrator still sets that directly.
+class AdminUpdateTipperRequest {
+  const AdminUpdateTipperRequest({
+    required this.tipperId,
+    this.name,
+    this.email,
+    this.role,
+  });
+
+  final String tipperId;
+  final String? name;
+  final String? email;
+  final TipperRole? role;
+
+  factory AdminUpdateTipperRequest.fromJson(Object? raw) {
+    final map = _asMap(raw, 'the request');
+    final name = _optionalText(map, 'name');
+    final email = _optionalText(map, 'email');
+    final roleText = _optionalText(map, 'role');
+    final TipperRole? role;
+    if (roleText == null) {
+      role = null;
+    } else {
+      final match = TipperRole.values.where((r) => r.name == roleText);
+      if (match.isEmpty) {
+        throw const FormatException('role must be admin or tipper');
+      }
+      role = match.first;
+    }
+    if (name == null && email == null && role == null) {
+      throw const FormatException('give a name, an email or a role to change');
+    }
+    return AdminUpdateTipperRequest(
+      tipperId: _requiredText(map, 'tipperId'),
+      name: name,
+      email: email,
+      role: role,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'tipperId': tipperId,
+    if (name != null) 'name': name,
+    if (email != null) 'email': email,
+    if (role != null) 'role': role!.name,
+  };
+}
+
+class AdminUpdateTipperResult {
+  const AdminUpdateTipperResult({
+    required this.tipperId,
+    required this.changed,
+  });
+
+  final String tipperId;
+
+  /// The fields that were actually changed (`name`, `email`, `role`); a field
+  /// already holding the requested value is not listed.
+  final List<String> changed;
+
+  factory AdminUpdateTipperResult.fromJson(Object? raw) {
+    final map = _asMap(raw, 'the result');
+    final changed = map['changed'];
+    if (changed is! List || changed.any((field) => field is! String)) {
+      throw const FormatException('changed must be a list of field names');
+    }
+    return AdminUpdateTipperResult(
+      tipperId: _requiredText(map, 'tipperId'),
+      changed: List<String>.from(changed),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'tipperId': tipperId,
+    'changed': changed,
+  };
 }
 
 Map<Object?, Object?> _asMap(Object? raw, String what) {
