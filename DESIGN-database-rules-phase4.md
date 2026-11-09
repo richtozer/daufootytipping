@@ -1412,8 +1412,12 @@ expressions are about a thousand characters, so it is worth doing months before 
    allowlist, but the Dart admin endpoints and the new callables still do (`requireAdmin`, the compile-time list);
    changing the rules alone does not retire it. M8 moves them to the validated private role and removes the list.
 
-**Still to do.** The production validation above (owner's go); the real purge and cutover scripts (M8); M7's client
-against these rules.
+**Validated against production (9 November 2026, on the owner's go).** `scripts/validate-database-rules.sh --project
+dau-footy-tipping-f8a42` ran for `freeze` and `r2`: the service reported "rules syntax ... is valid" for both and
+released nothing. Afterwards the live rules were read back and still equal the generated R1-compat exactly, and no
+deployment was recorded. So neither ruleset trips a production limit on length or depth.
+
+**Still to do.** The real purge and cutover scripts (M8); M7's client against these rules.
 
 ### 6k. M7 scoping: the R2 client (9 November 2026; a PROPOSAL, awaiting the owner's go; no client code changed)
 
@@ -1460,6 +1464,17 @@ against these rules.
   a deployed check.
 - **Slice 2 changes how every user signs in.** It is the one to review most carefully, to soak longest, and not to
   squash with the others; the other slices only change what happens after sign-in.
+
+**Slice 1 built (9 November 2026).** `lib/services/identity_service.dart` is the typed wrapper over the seven
+callables, `lib/services/functions_identity_invoker.dart` the `cloud_functions` adapter. Every call returns the
+shared typed result or throws an `IdentityFailure` with a kind (`refused`, `transient`, `unauthenticated`,
+`unexpected`) and the server's machine-readable reason; an answer of the wrong shape is an `unexpected` failure, never
+a crash; a timeout or lost connection is a `transient` one. **Decision taken: how the client finds the callables.**
+They are Cloud Run services, so the `cloudfunctions.net` form does not exist for them; the address is
+`https://{name}-rjp4ue2oxa-as.a.run.app` (the same shape as the admin URLs already in `AppConfig`). The pattern is a
+built-in default with an optional `AppConfig/identityFunctionsURLPattern` override, so the app works with no new
+configuration and an address can still be redirected without a release. Tested with 25 tests; seven deliberate
+breakages caught.
 
 **Decisions wanted.** (1) Go to start with slices 1 and 2. (2) Whether to take the mode to `pilot` for the owner's
 devices once slice 2 is in a TestFlight build.
