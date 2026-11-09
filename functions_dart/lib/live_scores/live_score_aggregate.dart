@@ -47,13 +47,22 @@ class LiveScoreEntry implements Comparable<LiveScoreEntry> {
   final bool gameComplete;
 
   /// The earliest instant microseconds since the epoch can mean here (year
-  /// 2001): anything smaller is not a plausible `t`.
+  /// 2001). A `t` of at least this is read as microseconds.
   static const int _plausibleMicros = 1000000000000000;
+
+  /// Milliseconds since the epoch, for `t` as the R2 rules require it: the
+  /// database's own server timestamp (`t === now`), the one time a client cannot
+  /// choose. From year 2001 up to (not including) the microsecond range; a
+  /// number in seconds is smaller and is not a plausible `t`.
+  static const int _plausibleMillis = 1000000000000;
+  static const int _implausibleMillis = 100000000000000;
 
   /// Reads an entry, or returns null if it cannot be used. The time comes from,
   /// in this order:
   ///
-  /// 1. a numeric `t`, microseconds since the epoch (the R2 client's field);
+  /// 1. a numeric `t`: the database's server timestamp in milliseconds (the R2
+  ///    client's field, which the R2 rules force to equal the server's `now`), or
+  ///    microseconds since the epoch;
   /// 2. the legacy `submittedTimeUTC` text (the 1.4.x client's field, from the
   ///    client's own clock);
   /// 3. the push key itself, which the client builds as `{micros}-{team}`.
@@ -88,8 +97,14 @@ class LiveScoreEntry implements Comparable<LiveScoreEntry> {
 
   static int? _micros(String key, Map raw) {
     final t = raw['t'];
-    if (t is num && t.toInt() >= _plausibleMicros) {
-      return t.toInt();
+    if (t is num) {
+      final value = t.toInt();
+      if (value >= _plausibleMicros) {
+        return value;
+      }
+      if (value >= _plausibleMillis && value < _implausibleMillis) {
+        return value * 1000;
+      }
     }
     final text = raw['submittedTimeUTC'];
     if (text is String) {

@@ -1185,7 +1185,8 @@ spelling of a time are not differences); `live_score_aggregation.dart` is the ha
 
 **The history contract for the R2 client (M7).** An entry is the client's `CrowdSourcedScore.toJson()` shape:
 `submittedTimeUTC`, `tipperID`, `scoreTeam` (`home`/`away`), `interimScore`, `gameComplete` (false). The time used
-for ordering is, in this order: a numeric **`t`, microseconds since the epoch** (plausible only from 2001 on, so a
+for ordering is, in this order: a numeric **`t`**: the database's server timestamp in **milliseconds** (what the R2 rules force,
+`t === now`, so the one time a client cannot choose) or microseconds since the epoch (plausible only from 2001 on, so a
 value in seconds is ignored); else the parsed `submittedTimeUTC`; else the push key's leading microseconds. Equal
 times are broken by key, so the result never depends on delivery order. An entry that cannot be read (no tipper, a
 team that is not home or away, a score that is not a number, no time) is counted and ignored, never guessed at.

@@ -50,9 +50,52 @@ void main() {
       expect(entry.micros, tMicros);
     });
 
+    test(
+      'a t in milliseconds, as the R2 rules force it to be, is read as such',
+      () {
+        final at = _kickoff.add(const Duration(minutes: 5));
+        final entry = LiveScoreEntry.tryParse('-OaBcD', <String, Object?>{
+          't': at.millisecondsSinceEpoch,
+          'tipperID': 'a',
+          'scoreTeam': 'home',
+          'interimScore': 7,
+        })!;
+        expect(entry.micros, at.microsecondsSinceEpoch);
+        expect(entry.toJson()['submittedTimeUTC'], at.toIso8601String());
+      },
+    );
+
+    test(
+      'the server time orders entries, not a push key or a client clock',
+      () {
+        final early = _kickoff.add(const Duration(minutes: 1));
+        final late = _kickoff.add(const Duration(minutes: 9));
+        // The later submission has the key that sorts first, and a client clock
+        // that says it was early; only `t` says when it really was.
+        final aggregate = computeLiveScoreAggregate(<String, Object?>{
+          '-Aaaa': <String, Object?>{
+            't': late.millisecondsSinceEpoch,
+            'submittedTimeUTC': early.toIso8601String(),
+            'tipperID': 'late',
+            'scoreTeam': 'home',
+            'interimScore': 20,
+          },
+          '-Zzzz': <String, Object?>{
+            't': early.millisecondsSinceEpoch,
+            'submittedTimeUTC': late.toIso8601String(),
+            'tipperID': 'early',
+            'scoreTeam': 'home',
+            'interimScore': 10,
+          },
+        });
+        expect(aggregate.snapshot!['homeInterimScore'], 20);
+        expect(aggregate.snapshot!['tipperID'], 'late');
+      },
+    );
+
     test('an implausible t is ignored and the legacy text is used', () {
       final entry = LiveScoreEntry.tryParse('k', <String, Object?>{
-        't': 1772000000, // seconds, not microseconds
+        't': 1772000000, // seconds: neither milliseconds nor microseconds
         'submittedTimeUTC': _kickoff.toIso8601String(),
         'tipperID': 'a',
         'scoreTeam': 'away',
