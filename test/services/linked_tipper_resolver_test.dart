@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/services/linked_tipper_resolver.dart';
 import 'package:dau_shared/dau_shared.dart';
