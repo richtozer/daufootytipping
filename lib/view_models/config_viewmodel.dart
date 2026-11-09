@@ -8,6 +8,7 @@ import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/services/identity_service.dart' show identityFunctionsUrlPatternKey;
 
 /// The startup config read could not reach the database: it timed out, or App
 /// Check kept refusing it. From the device this looks the same as having no
@@ -70,6 +71,11 @@ class ConfigViewModel extends ChangeNotifier {
   String? _adminCheckFixtureUrlURL;
   String? get adminCheckFixtureUrlURL => _adminCheckFixtureUrlURL;
 
+  /// Optional: a replacement for the identity callables' address pattern
+  /// (`https://{name}-....a.run.app`). Absent in production; the built-in default is used.
+  String? _identityFunctionsUrlPattern;
+  String? get identityFunctionsUrlPattern => _identityFunctionsUrlPattern;
+
   Future<String?> loadAdminCheckFixtureUrlURL() async {
     final cachedValue = _adminCheckFixtureUrlURL;
     if (cachedValue != null) {
@@ -117,6 +123,7 @@ class ConfigViewModel extends ChangeNotifier {
       _cloudFunctionsBaseURL = null;
       _adminScoringRescoreURL = null;
       _adminCheckFixtureUrlURL = null;
+      _identityFunctionsUrlPattern = null;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -303,6 +310,9 @@ class ConfigViewModel extends ChangeNotifier {
     );
     _adminCheckFixtureUrlURL = _parseOptionalString(
       _snapshotValue(snapshot, p.adminCheckFixtureUrlURLKey),
+    );
+    _identityFunctionsUrlPattern = _parseOptionalString(
+      _snapshotValue(snapshot, identityFunctionsUrlPatternKey),
     );
   }
 

@@ -97,6 +97,26 @@ class Tipper implements Comparable<Tipper> {
     }, key);
   }
 
+  /// This tipper's public fields (record key, name, photo, paid competitions) with
+  /// the identity fields of [own]: account id, role, email, login, the anonymous
+  /// flag and the account times. For refreshing the signed-in tipper from the
+  /// public list, whose copy no longer carries those fields.
+  Tipper withIdentityOf(Tipper own) {
+    return Tipper(
+      dbkey: dbkey,
+      compsPaidFor: compsPaidFor,
+      photoURL: photoURL,
+      name: name,
+      authuid: own.authuid,
+      email: own.email,
+      logon: own.logon,
+      tipperRole: own.tipperRole,
+      acctCreatedUTC: own.acctCreatedUTC,
+      acctLoggedOnUTC: own.acctLoggedOnUTC,
+      isAnonymous: own.isAnonymous,
+    );
+  }
+
   static Future<List<Tipper?>> fromJsonList(
     dynamic json,
     Future<List<DAUComp>> Function(List) resolveComps,

@@ -1,7 +1,6 @@
-import 'dart:convert';
+import 'dart:async';
 import 'dart:developer';
 
-import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_sign_in_form.dart';
 import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
@@ -10,9 +9,12 @@ import 'package:daufootytipping/pages/user_auth/user_auth_background.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_upgate_app_widget.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/linked_tipper_resolver.dart';
+import 'package:daufootytipping/services/tipper_link_service.dart';
 import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
+import 'package:daufootytipping/view_models/sign_in_link_controller.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -20,7 +22,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
@@ -50,16 +51,20 @@ class UserAuthPageState extends State<UserAuthPage> {
   bool _isExitActionStarted = false;
   String? _exitActionError;
   Future<bool>? _clientVersionOutOfDateFuture;
-  Future<Tipper?>? _existingTipperFuture;
-  Future<bool>? _linkOrCreateTipperFuture;
+  SignInLinkController? _linkController;
   String? _authFlowUid;
-  String? _linkOrCreateTipperKey;
   bool _newTipperDialogShown = false;
 
   @override
   void initState() {
     super.initState();
     _clientVersionOutOfDateFuture = isClientVersionOutOfDate();
+  }
+
+  @override
+  void dispose() {
+    _linkController?.dispose();
+    super.dispose();
   }
 
   Future<bool> isClientVersionOutOfDate() async {
@@ -92,68 +97,6 @@ class UserAuthPageState extends State<UserAuthPage> {
     return false;
   }
 
-  static const String _cachedTipperKey = 'cached_tipper';
-
-  Future<Tipper?> _linkUserToTipper() async {
-    User? authenticatedFirebaseUser = FirebaseAuth.instance.currentUser;
-    if (authenticatedFirebaseUser == null) {
-      return null;
-    }
-
-    // Fast path: return cached tipper if uid matches, so the
-    // FutureBuilder resolves instantly on jetsam restarts.
-    final Tipper? cached = await _loadCachedTipper(
-      authenticatedFirebaseUser.uid,
-    );
-    if (cached != null) {
-      return cached;
-    }
-
-    TippersViewModel tippersViewModel = di<TippersViewModel>();
-    return await tippersViewModel.findExistingTipper();
-  }
-
-  Future<Tipper?> _loadCachedTipper(String currentUid) async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? json = prefs.getString(_cachedTipperKey);
-      if (json == null) return null;
-
-      final Map<String, dynamic> data = Map<String, dynamic>.from(
-        jsonDecode(json) as Map,
-      );
-      if (data['authuid'] != currentUid) return null;
-
-      return Tipper.fromCacheJson(data);
-    } catch (e) {
-      log('UserAuthPage: failed to load cached tipper: $e');
-      return null;
-    }
-  }
-
-  Future<void> _saveCachedTipper(Tipper tipper) async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cachedTipperKey, jsonEncode(tipper.toCacheJson()));
-    } catch (e) {
-      log('UserAuthPage: failed to cache tipper: $e');
-    }
-  }
-
-  Future<void> _clearCachedTipper() async {
-    try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_cachedTipperKey);
-    } catch (e) {
-      log('UserAuthPage: failed to clear cached tipper: $e');
-    }
-  }
-
-  Future<bool> _updateOrCreateTipper(String? name, Tipper? tipper) async {
-    TippersViewModel tippersViewModel = di<TippersViewModel>();
-    return await tippersViewModel.updateOrCreateTipper(name, tipper);
-  }
-
   Future<void> signOut() async {
     if (!kIsWeb && di.isRegistered<FirebaseMessagingService>()) {
       await di<FirebaseMessagingService>().unregisterCurrentToken(
@@ -165,51 +108,50 @@ class UserAuthPageState extends State<UserAuthPage> {
   }
 
   void _resetAuthFlowFutures() {
-    _existingTipperFuture = null;
-    _linkOrCreateTipperFuture = null;
+    _linkController?.dispose();
+    _linkController = null;
     _authFlowUid = null;
-    _linkOrCreateTipperKey = null;
     _newTipperDialogShown = false;
-    _clearCachedTipper();
+    unawaited(di<TipperLinkService>().forget());
   }
 
-  void _ensureAuthFlowForUser(User authenticatedFirebaseUser) {
-    if (_authFlowUid != authenticatedFirebaseUser.uid) {
-      _existingTipperFuture = null;
-      _linkOrCreateTipperFuture = null;
-      _linkOrCreateTipperKey = null;
+  /// Starts linking the signed-in account to its tipper, once per account, after the
+  /// account has passed the email check. The decisions are the controller's (see
+  /// [SignInLinkController]); the page only draws its phase.
+  void _ensureLinkControllerForUser(User user) {
+    if (_authFlowUid != user.uid) {
+      _linkController?.dispose();
+      _linkController = null;
       _newTipperDialogShown = false;
-      _authFlowUid = authenticatedFirebaseUser.uid;
+      _authFlowUid = user.uid;
       StartupProfiling.instant(
         'startup.auth_state_authenticated',
-        arguments: <String, Object?>{
-          'isAnonymous': authenticatedFirebaseUser.isAnonymous,
-        },
+        arguments: <String, Object?>{'isAnonymous': user.isAnonymous},
       );
     }
-    _existingTipperFuture ??= StartupProfiling.trackAsync(
-      'startup.link_user_to_tipper',
-      _linkUserToTipper,
-      arguments: <String, Object?>{
-        'isAnonymous': authenticatedFirebaseUser.isAnonymous,
-      },
+    if (_linkController != null) {
+      return;
+    }
+    final account = LinkAccount(
+      uid: user.uid,
+      isAnonymous: user.isAnonymous,
+      photoUrl: user.photoURL,
     );
-  }
-
-  Future<bool> _ensureLinkOrCreateTipperFuture({
-    required String key,
-    required String? name,
-    required Tipper? tipper,
-  }) {
-    if (_linkOrCreateTipperFuture == null || _linkOrCreateTipperKey != key) {
-      _linkOrCreateTipperKey = key;
-      _linkOrCreateTipperFuture = StartupProfiling.trackAsync(
-        'startup.update_or_create_tipper',
-        () => _updateOrCreateTipper(name, tipper),
-        arguments: <String, Object?>{'hasExistingTipper': tipper != null},
-      );
-    }
-    return _linkOrCreateTipperFuture!;
+    final controller = SignInLinkController(
+      service: di<TipperLinkService>(),
+      adoptTipper: (tipper) =>
+          di<TippersViewModel>().setAuthenticatedTipper(tipper),
+      syncPhoto: (photoUrl) => di<TippersViewModel>().updateOwnPhoto(photoUrl),
+      canCreateTippers: di<TippersViewModel>().canCreateTippers,
+    );
+    _linkController = controller;
+    unawaited(
+      StartupProfiling.trackAsync(
+        'startup.link_user_to_tipper',
+        () => controller.start(account),
+        arguments: <String, Object?>{'isAnonymous': user.isAnonymous},
+      ),
+    );
   }
 
   void _navigateToAppRoot() {
@@ -270,10 +212,8 @@ class UserAuthPageState extends State<UserAuthPage> {
     }
   }
 
-  void _showEditNameDialog(BuildContext context, Tipper? tipper) {
-    final TextEditingController nameController = TextEditingController(
-      text: tipper?.name,
-    );
+  void _showEditNameDialog(BuildContext context) {
+    final TextEditingController nameController = TextEditingController();
     String? errorMessage;
 
     showDialog(
@@ -338,20 +278,21 @@ class UserAuthPageState extends State<UserAuthPage> {
                       return;
                     }
                     try {
-                      // Create and link the new tipper
-                      bool res = await _updateOrCreateTipper(newName, tipper);
-
-                      if (res) {
+                      // Ask the server to create the tipper with this alias. On
+                      // success the page moves on by itself; if the alias is not
+                      // accepted, say why and stay here.
+                      final bool created = await _linkController!.submitAlias(
+                        newName,
+                      );
+                      if (created) {
                         if (context.mounted) {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
-                            ),
-                          );
+                          Navigator.of(context).pop();
                         }
                       } else {
                         setState(() {
-                          errorMessage = 'Failed to create or update tipper.';
+                          errorMessage =
+                              _linkController?.aliasError ??
+                              'Failed to create tipper.';
                         });
                       }
                     } catch (e) {
@@ -395,7 +336,6 @@ class UserAuthPageState extends State<UserAuthPage> {
             if (authenticatedFirebaseUser == null) {
               _resetAuthFlowFutures();
             } else {
-              _ensureAuthFlowForUser(authenticatedFirebaseUser);
               _initializeFirebaseMessagingService();
             }
 
@@ -470,79 +410,10 @@ class UserAuthPageState extends State<UserAuthPage> {
                       : 'unknown',
                 );
 
-                return FutureBuilder<Tipper?>(
-                  future: _existingTipperFuture,
-                  builder: (BuildContext context, AsyncSnapshot<Tipper?> snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const AppLoadingScreen();
-                    } else if (snapshot.hasError) {
-                      return LoginIssueScreen(
-                        message:
-                            'Unexpected error ${snapshot.error}. Contact support: ${p.supportUrl}',
-                      );
-                    } else if (snapshot.data == null) {
-                      // This means no existing Tipper record
-                      if (authenticatedFirebaseUser.isAnonymous) {
-                        // For new anonymous users, bypass edit name dialog
-                        return FutureBuilder<bool>(
-                          future: _ensureLinkOrCreateTipperFuture(
-                            key: 'anonymous-user',
-                            name: null,
-                            tipper: null,
-                          ),
-                          builder:
-                              (
-                                BuildContext context,
-                                AsyncSnapshot<bool> updateSnapshot,
-                              ) {
-                                if (updateSnapshot.connectionState ==
-                                    ConnectionState.waiting) {
-                                  return const AppLoadingScreen();
-                                } else if (updateSnapshot.hasError) {
-                                  return LoginIssueScreen(
-                                    message:
-                                        'Error creating anonymous user: ${updateSnapshot.error}. Contact support.',
-                                  );
-                                } else if (updateSnapshot.data == false) {
-                                  return LoginIssueScreen(
-                                    message: 'Failed to create anonymous user. Contact support.',
-                                  );
-                                } else {
-                                  // Successfully created anonymous user
-                                  return const HomePage();
-                                }
-                              },
-                        );
-                      } else {
-                        // For new non-anonymous users, show edit name dialog as before
-                        if (!_newTipperDialogShown) {
-                          _newTipperDialogShown = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _showEditNameDialog(context, null);
-                          });
-                        }
-                        return Container(); // Return an empty container while waiting for user input
-                      }
-                    } else {
-                      // Existing tipper found — set the authenticated tipper
-                      // immediately so HomePage can render without waiting for
-                      // the background DB metadata update to complete.
-                      final Tipper existingTipper = snapshot.data!;
-                      di<TippersViewModel>().setAuthenticatedTipper(
-                        existingTipper,
-                      );
-                      _saveCachedTipper(existingTipper);
-                      _ensureLinkOrCreateTipperFuture(
-                        key: existingTipper.dbkey ?? existingTipper.authuid,
-                        name: existingTipper.name,
-                        tipper: existingTipper,
-                      ).catchError((Object e) {
-                        log('Background tipper update failed: $e');
-                        return false;
-                      }).ignore();
-                      return const HomePage();
-                    }
-                  },
+                _ensureLinkControllerForUser(authenticatedFirebaseUser);
+                return ListenableBuilder(
+                  listenable: _linkController!,
+                  builder: (context, _) => _buildForLinkPhase(context),
                 );
               },
             );
@@ -550,5 +421,40 @@ class UserAuthPageState extends State<UserAuthPage> {
         ),
       ),
     );
+  }
+
+  /// Draws where linking the account to its tipper has got to.
+  Widget _buildForLinkPhase(BuildContext context) {
+    final controller = _linkController!;
+    switch (controller.phase) {
+      case LinkPhase.resolving:
+        return const AppLoadingScreen();
+      case LinkPhase.ready:
+        return const HomePage();
+      case LinkPhase.needsAlias:
+        // A new account: ask for the alias it will be known by, once.
+        if (!_newTipperDialogShown) {
+          _newTipperDialogShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _showEditNameDialog(context);
+            }
+          });
+        }
+        return Container();
+      case LinkPhase.unavailable:
+        return LoginIssueScreen(
+          message:
+              controller.message ??
+              'Could not sign you in right now. Please try again.',
+          onRetry: controller.retry,
+        );
+      case LinkPhase.refused:
+        return LoginIssueScreen(
+          message:
+              controller.message ??
+              'Something went wrong signing you in. Contact support: ${p.supportUrl}',
+        );
+    }
   }
 }

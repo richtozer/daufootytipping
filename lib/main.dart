@@ -48,6 +48,11 @@ import 'firebase_options.dart';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/services/cached_tipper_store.dart';
+import 'package:daufootytipping/services/functions_identity_invoker.dart';
+import 'package:daufootytipping/services/identity_service.dart';
+import 'package:daufootytipping/services/linked_tipper_resolver.dart';
+import 'package:daufootytipping/services/tipper_link_service.dart';
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
@@ -294,6 +299,9 @@ Future<void> main() async {
       ],
       child: MyApp(
         cloudFunctionsBaseURLOverride: cloudFunctionsBaseURLOverride,
+        identityEmulatorHost: kDebugMode && useFirebaseEmulators
+            ? firebaseEmulatorHost
+            : null,
       ),
     ),
   );
@@ -301,9 +309,17 @@ Future<void> main() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, this.cloudFunctionsBaseURLOverride});
+  const MyApp({
+    super.key,
+    this.cloudFunctionsBaseURLOverride,
+    this.identityEmulatorHost,
+  });
 
   final String? cloudFunctionsBaseURLOverride;
+
+  /// The host of the local Functions emulator in a debug build that uses the
+  /// emulators; null otherwise, and the deployed identity callables are used.
+  final String? identityEmulatorHost;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -600,7 +616,45 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
+    if (!di.isRegistered<TipperLinkService>()) {
+      di.registerLazySingleton<TipperLinkService>(
+        () => _buildTipperLinkService(configViewModel),
+      );
+    }
+
     _scheduleCoreViewModelWarmup();
+  }
+
+  /// Links the signed-in account to its tipper through the identity callables
+  /// (DESIGN-database-rules-phase4.md, P3). The address of the callables is read
+  /// when a call is made, so an override in `AppConfig` applies without a restart.
+  TipperLinkService _buildTipperLinkService(ConfigViewModel configViewModel) {
+    IdentityEndpoints endpoints() {
+      final String? configured = configViewModel.identityFunctionsUrlPattern;
+      if (configured != null) {
+        try {
+          return IdentityEndpoints(pattern: configured);
+        } on ArgumentError catch (error) {
+          log('Ignoring a bad identityFunctionsURLPattern in AppConfig: $error');
+        }
+      }
+      return IdentityEndpoints();
+    }
+
+    return TipperLinkService(
+      resolver: LinkedTipperResolver(
+        reads: DatabaseIdentityReads(),
+        identity: IdentityService(
+          FunctionsIdentityCallableInvoker(
+            endpoints: endpoints,
+            emulatorHost: widget.identityEmulatorHost,
+          ),
+        ),
+        resolveComps: (List compKeys) =>
+            di<DAUCompsViewModel>().resolveCompsList(compKeys),
+      ),
+      cache: CachedTipperStore(),
+    );
   }
 
   /// The app's first screen: the config gate, then the startup screens or

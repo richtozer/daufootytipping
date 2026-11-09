@@ -109,6 +109,41 @@ void main() {
     );
   });
 
+  group('withIdentityOf', () {
+    test(
+      'takes the identity of the signed-in tipper and the public fields of the list\'s copy',
+      () {
+        final fromList = Tipper.fromJson(<String, dynamic>{
+          'name': 'Alice (renamed)',
+          'photoURL': 'new.png',
+        }, 't1');
+        final own = Tipper.fromRecords(
+          key: 't1',
+          authuid: 'uidA',
+          publicRecord: <String, dynamic>{'name': 'Alice'},
+          privateRecord: <String, dynamic>{
+            'tipperRole': 'admin',
+            'email': 'a@example.test',
+            'logon': 'login@example.test',
+            'isAnonymous': false,
+            'acctCreatedUTC': '2026-03-01 04:05:06.000Z',
+            'acctLoggedOnUTC': '2026-03-02 04:05:06.000Z',
+          },
+        );
+        final merged = fromList.withIdentityOf(own);
+        expect(merged.name, 'Alice (renamed)');
+        expect(merged.photoURL, 'new.png');
+        expect(merged.dbkey, 't1');
+        expect(merged.authuid, 'uidA');
+        expect(merged.tipperRole, TipperRole.admin);
+        expect(merged.email, 'a@example.test');
+        expect(merged.logon, 'login@example.test');
+        expect(merged.acctLoggedOnUTC, DateTime.utc(2026, 3, 2, 4, 5, 6));
+        expect(merged == own, true);
+      },
+    );
+  });
+
   group('equality', () {
     Tipper tipper(String? key, String authuid) => Tipper(
       dbkey: key,

@@ -5,7 +5,6 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
@@ -68,6 +67,11 @@ class TippersViewModel extends ChangeNotifier {
   Future<void> get isUserLinked => _isUserLinked.future;
 
   final bool _createLinkedTipper;
+
+  /// Whether `AppConfig/createLinkedTipper` allows new tippers to be created. The
+  /// server enforces it; this lets the sign-in screen say so instead of asking for
+  /// an alias that would be refused.
+  bool get canCreateTippers => _createLinkedTipper;
 
   final Map<String, dynamic> updates = {};
 
@@ -177,9 +181,12 @@ class TippersViewModel extends ChangeNotifier {
 
     final bool isInGodMode =
         _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
-    _authenticatedTipper = freshTipper;
+    // The public list no longer carries the signed-in tipper's role, login or
+    // account id: keep the ones the link established.
+    final Tipper refreshed = freshTipper.withIdentityOf(_authenticatedTipper!);
+    _authenticatedTipper = refreshed;
     if (!isInGodMode) {
-      _selectedTipper = freshTipper;
+      _selectedTipper = refreshed;
     }
   }
 
@@ -323,38 +330,12 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
+  /// The signed-in tipper, if [authuid] is the signed-in account. Other tippers'
+  /// account ids are private under the R2 rules, so no one else can be found this
+  /// way.
   Future<Tipper?> findTipperByUid(String authuid) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbyuid($authuid)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbyuid($authuid)');
-    }
-
-    return _tippers.firstWhereOrNull((tipper) => tipper.authuid == authuid);
-  }
-
-  Future<Tipper?> _findTipperByEmail(String email) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbyemail($email)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbyemail($email)');
-    }
-    return _tippers.firstWhereOrNull((tipper) => tipper.email == email);
-  }
-
-  Future<Tipper?> _findTipperByLogon(String logon) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial tipper load to complete, findtipperbylogon($logon)',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, findtipperbylogon($logon)');
-    }
-    return _tippers.firstWhereOrNull((tipper) => tipper.logon == logon);
+    final tipper = _authenticatedTipper;
+    return tipper != null && tipper.authuid == authuid ? tipper : null;
   }
 
   // this function finds the provided Tipper dbKey in the _tipper list and returns it
@@ -369,32 +350,6 @@ class TippersViewModel extends ChangeNotifier {
     return _tippers.firstWhereOrNull((tipper) => tipper.dbkey == tipperDbKey);
   }
 
-  Future<void> _createNewTipper(Tipper newTipper) async {
-    await _initialLoadCompleter.future;
-
-    if (newTipper.dbkey == null) {
-      log('TippersViewModel() Adding new Tipper record');
-      // add new record to updates Map, create a new db key first
-      DatabaseReference newTipperRecordKey = _db.child(p.tippersPath).push();
-      newTipper.dbkey = newTipperRecordKey.key;
-      updates['${p.tippersPath}/${newTipper.dbkey}'] = newTipper.toJson();
-    } else {
-      throw 'TippersViewModel()._createNewTipper() called with existing Tipper dbkey, should be an update';
-    }
-  }
-
-  bool _isValidEmail(String? email) {
-    if (email == null) {
-      return false;
-    }
-
-    final RegExp regex = RegExp(
-      r'^[a-zA-Z0-9.a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$',
-    );
-
-    return regex.hasMatch(email);
-  }
-
   Tipper _promoteToFreshTipperReference(Tipper tipper) {
     if (!_initialLoadCompleter.isCompleted || tipper.dbkey == null) {
       return tipper;
@@ -403,7 +358,7 @@ class TippersViewModel extends ChangeNotifier {
     final Tipper? freshTipper = _tippers.firstWhereOrNull(
       (t) => t.dbkey == tipper.dbkey,
     );
-    return freshTipper ?? tipper;
+    return freshTipper?.withIdentityOf(tipper) ?? tipper;
   }
 
   Future<void> _completeIsUserLinkedWhenReady({
@@ -503,229 +458,25 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Tipper?> findExistingTipper() async {
-    User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
-    Tipper? foundTipper;
-
-    try {
-      foundTipper = await StartupProfiling.trackAsync(
-        'startup.find_existing_tipper',
-        () => _findExistingTipper(authenticatedFirebaseUser),
-        arguments: <String, Object?>{
-          'isAnonymous': authenticatedFirebaseUser.isAnonymous,
-          'hasEmail': authenticatedFirebaseUser.email?.isNotEmpty ?? false,
-        },
-      );
-      return foundTipper;
-    } catch (e) {
-      log('TippersViewModel().findExistingTipper() Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<bool> updateOrCreateTipper(String? name, Tipper? foundTipper) async {
-    User authenticatedFirebaseUser = FirebaseAuth.instance.currentUser!;
-    bool userIsLinked = false;
-
-    try {
-      if (foundTipper != null) {
-        await _updateExistingTipper(foundTipper, authenticatedFirebaseUser);
-        userIsLinked = true;
-      } else {
-        userIsLinked = await _createNewTipperIfNeeded(
-          authenticatedFirebaseUser,
-          name,
-        );
-      }
-
-      if (userIsLinked) {
-        final Tipper tipperToUse = foundTipper != null
-            ? _promoteToFreshTipperReference(foundTipper)
-            : _authenticatedTipper!;
-        _authenticatedTipper = tipperToUse;
-        _selectedTipper = tipperToUse;
-        await _completeIsUserLinkedWhenReady(awaitMessagingRegistration: true);
-      }
-
-      return userIsLinked;
-    } catch (e) {
-      log('TippersViewModel().updateOrCreateTipper() Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<Tipper?> _findExistingTipper(User authenticatedFirebaseUser) async {
-    if (authenticatedFirebaseUser.isAnonymous) {
-      log(
-        'TippersViewModel().linkUserToTipper() User is anonymous, not looking for an existing tipper by email or logon',
-      );
-      return null; // Anonymous users won't have an existing Tipper
-    }
-    final Stopwatch dbLookupStopwatch = Stopwatch()..start();
-    int queryCount = 0;
-    Tipper? foundTipper = await findTipperByUid(authenticatedFirebaseUser.uid);
-    queryCount += 1;
-
-    if (foundTipper == null) {
-      foundTipper = await _findTipperByLogon(authenticatedFirebaseUser.email!);
-      queryCount += 1;
-    }
-
-    if (foundTipper == null) {
-      foundTipper = await _findTipperByEmail(authenticatedFirebaseUser.email!);
-      queryCount += 1;
-    }
-
-    dbLookupStopwatch.stop();
-    StartupProfiling.instant(
-      'startup.find_existing_tipper.db_lookup_complete',
-      arguments: <String, Object?>{
-        'queries': queryCount,
-        'elapsedMs': dbLookupStopwatch.elapsedMilliseconds,
-        'hit': foundTipper != null,
-      },
-    );
-
-    return foundTipper;
-  }
-
-  Future<void> _updateExistingTipper(
-    Tipper foundTipper,
-    User authenticatedFirebaseUser,
-  ) async {
-    log(
-      'TippersViewModel().linkUserToTipper() Tipper ${foundTipper.name} found using uid: ${authenticatedFirebaseUser.uid}',
-    );
-
-    await updateTipperAttribute(
-      foundTipper.dbkey!,
-      "logon",
-      authenticatedFirebaseUser.email,
-    );
-    await checkEmail(foundTipper, authenticatedFirebaseUser);
-    // Ensure existing users are not marked as anonymous
-    await updateTipperAttribute(foundTipper.dbkey!, "isAnonymous", false);
-    await saveBatchOfTipperChangesToDb();
-
-    await _updateTipperDetails(foundTipper, authenticatedFirebaseUser);
-  }
-
-  Future<void> _updateTipperDetails(
-    Tipper foundTipper,
-    User authenticatedFirebaseUser,
-  ) async {
-    if (authenticatedFirebaseUser.isAnonymous) {
-      log(
-        'TippersViewModel().linkUserToTipper() User is anonymous, not updating photoURL or timestamps',
-      );
+  /// Keeps the signed-in tipper's photo in step with their account's. A tipper
+  /// writes only their own photo; a guest has no record to write to. Failure is
+  /// logged and ignored: a stale photo is not worth interrupting anyone for.
+  Future<void> updateOwnPhoto(String? photoUrl) async {
+    final tipper = _authenticatedTipper;
+    if (tipper == null ||
+        tipper.dbkey == null ||
+        tipper.isAnonymous ||
+        photoUrl == null ||
+        photoUrl.isEmpty ||
+        tipper.photoURL == photoUrl) {
       return;
     }
-    if (foundTipper.photoURL != authenticatedFirebaseUser.photoURL) {
-      await updateTipperAttribute(
-        foundTipper.dbkey!,
-        "photoURL",
-        authenticatedFirebaseUser.photoURL,
-      );
-    }
-
-    if (foundTipper.acctLoggedOnUTC !=
-        authenticatedFirebaseUser.metadata.lastSignInTime) {
-      await updateTipperAttribute(
-        foundTipper.dbkey!,
-        "acctLoggedOnUTC",
-        authenticatedFirebaseUser.metadata.lastSignInTime?.toIso8601String(),
-      );
-    }
-
-    if (foundTipper.acctCreatedUTC !=
-        authenticatedFirebaseUser.metadata.creationTime) {
-      await updateTipperAttribute(
-        foundTipper.dbkey!,
-        "acctCreatedUTC",
-        authenticatedFirebaseUser.metadata.creationTime?.toIso8601String(),
-      );
-    }
-
-    await saveBatchOfTipperChangesToDb();
-  }
-
-  Future<bool> _createNewTipperIfNeeded(
-    User authenticatedFirebaseUser,
-    String? name,
-  ) async {
-    if (_createLinkedTipper == false) {
-      log(
-        'TippersViewModel().linkUserToTipper() createLinkedTipper is false, not creating a new tipper',
-      );
-      return false;
-    }
-
-    log(
-      'TippersViewModel().linkUserToTipper() createLinkedTipper is true, creating a new tipper for user ${authenticatedFirebaseUser.email}',
-    );
-
-    // Prevent duplicate aliases (normalised to ignore case, emoji, symbols, spacing)
-    if (name != null) {
-      final normalisedNew = normaliseAlias(name);
-      if (_tippers.any(
-        (tipper) => normaliseAlias(tipper.name) == normalisedNew,
-      )) {
-        throw 'Tipper name $name is too similar to an existing alias. Please choose a different alias.';
-      }
-    }
-
-    Tipper newTipper = Tipper(
-      name: authenticatedFirebaseUser.isAnonymous
-          ? authenticatedFirebaseUser.uid.substring(
-              0,
-              5,
-            ) // Use UID for anonymous name
-          : name!, // For non-anonymous, name is expected to be non-null (comes from dialog)
-      email: authenticatedFirebaseUser.isAnonymous
-          ? null // Anonymous users don't have an email
-          : authenticatedFirebaseUser
-                .email, // Non-anonymous users have an email
-      logon: authenticatedFirebaseUser.isAnonymous
-          ? null // Anonymous users don't have a logon email
-          : authenticatedFirebaseUser
-                .email, // Non-anonymous users use their email for logon
-      authuid: authenticatedFirebaseUser.uid,
-      photoURL: authenticatedFirebaseUser.photoURL,
-      tipperRole: TipperRole.tipper,
-      isAnonymous: authenticatedFirebaseUser.isAnonymous, // Set this flag
-      compsPaidFor: [],
-      acctCreatedUTC: authenticatedFirebaseUser.metadata.creationTime,
-      acctLoggedOnUTC: authenticatedFirebaseUser.metadata.lastSignInTime,
-    );
-
-    // Anonymous users stay local-only. They can browse in read-only mode
-    // without creating a persisted tipper record.
-    if (!authenticatedFirebaseUser.isAnonymous) {
-      log(
-        'TippersViewModel().linkUserToTipper() User is not anonymous, creating a persisted tipper',
-      );
-
-      await _createNewTipper(newTipper);
-      await saveBatchOfTipperChangesToDb();
-    }
-
-    _authenticatedTipper = newTipper;
-    _selectedTipper = newTipper;
-
-    return true;
-  }
-
-  Future<void> checkEmail(
-    Tipper foundTipper,
-    User authenticatedFirebaseUser,
-  ) async {
-    // if existing email null or invalid? if so, make it the same as logon email from firebase
-    if (foundTipper.email == null || !_isValidEmail(foundTipper.email)) {
-      await updateTipperAttribute(
-        foundTipper.dbkey!,
-        "email",
-        authenticatedFirebaseUser.email,
-      );
+    try {
+      await _db
+          .child('${p.tippersPath}/${tipper.dbkey}/photoURL')
+          .set(photoUrl);
+    } on Object catch (error) {
+      log('TippersViewModel().updateOwnPhoto() failed: $error');
     }
   }
 

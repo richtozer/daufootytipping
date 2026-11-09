@@ -331,6 +331,21 @@ void main() {
     });
   });
 
+  test('competitions that never load do not hold up signing in: the tipper arrives without the paid ones', () async {
+    aliceIsLinked();
+    final slow = LinkedTipperResolver(
+      reads: reads,
+      identity: IdentityService(invoker),
+      resolveComps: (List keys) => Completer<List<DAUComp>>().future,
+      compsTimeout: const Duration(milliseconds: 20),
+      delay: (Duration d) async {},
+    );
+    final resolution = await slow.resolve(_alice);
+    expect(resolution.status, LinkStatus.linked);
+    expect(resolution.tipper!.compsPaidFor, isEmpty);
+    expect(resolution.tipper!.tipperRole, TipperRole.admin);
+  });
+
   group('a failed read is never "missing"', () {
     test(
       'a read that fails twice and then works is retried with a back-off',

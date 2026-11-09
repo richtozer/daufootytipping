@@ -27,7 +27,8 @@ class FunctionsIdentityCallableInvoker implements IdentityCallableInvoker {
     this.emulatorPort = 9229,
   });
 
-  final IdentityEndpoints endpoints;
+  /// Evaluated on each call, so an address changed in `AppConfig` applies at once.
+  final IdentityEndpoints Function() endpoints;
   final String region;
   final String? emulatorHost;
   final int emulatorPort;
@@ -45,7 +46,7 @@ class FunctionsIdentityCallableInvoker implements IdentityCallableInvoker {
       return functions.httpsCallable(endpoint, options: options);
     }
     return FirebaseFunctions.instance.httpsCallableFromUrl(
-      endpoints.urlFor(endpoint),
+      endpoints().urlFor(endpoint),
       options: options,
     );
   }

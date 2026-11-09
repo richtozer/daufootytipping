@@ -139,6 +139,7 @@ class LinkedTipperResolver {
       Duration(seconds: 2),
     ],
     this.readTimeout = const Duration(seconds: 10),
+    this.compsTimeout = const Duration(seconds: 15),
     Future<void> Function(Duration)? delay,
   }) : _reads = reads,
        _identity = identity,
@@ -151,6 +152,12 @@ class LinkedTipperResolver {
   final Future<List<DAUComp>> Function(List compKeys) _resolveComps;
   final List<Duration> _retryDelays;
   final Duration readTimeout;
+
+  /// How long to wait for the competitions to load before carrying on without the
+  /// tipper's paid ones. The public tipper list brings them in a moment later (the
+  /// same as for a tipper opened from the kept copy), so waiting forever would only
+  /// trade a brief gap for a sign-in that never finishes.
+  final Duration compsTimeout;
   final Future<void> Function(Duration) _delay;
 
   Future<LinkResolution> resolve(LinkAccount account, {String? alias}) async {
@@ -214,10 +221,15 @@ class LinkedTipperResolver {
       publicRecord: publicRecord,
       privateRecord: privateRecord,
     );
-    await tipper.loadCompsPaidFor(
-      publicRecord['compsParticipatedIn'],
-      _resolveComps,
-    );
+    try {
+      await tipper
+          .loadCompsPaidFor(publicRecord['compsParticipatedIn'], _resolveComps)
+          .timeout(compsTimeout);
+    } on TimeoutException {
+      log(
+        'LinkedTipperResolver: the competitions have not loaded; carrying on without the paid ones',
+      );
+    }
     return LinkResolution.linked(tipper, outcome: outcome);
   }
 

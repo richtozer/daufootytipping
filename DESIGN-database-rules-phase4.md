@@ -1476,6 +1476,45 @@ built-in default with an optional `AppConfig/identityFunctionsURLPattern` overri
 configuration and an address can still be redirected without a release. Tested with 25 tests; seven deliberate
 breakages caught.
 
+**Slice 2 built (9 November 2026), in four commits.**
+- *2a, the model.* `Tipper.fromJson` read `authuid` as a non-nullable string, so one purged public record would have
+  crashed the whole tipper list for an R2 client. A missing `authuid` now reads as `''`. Equality compares the record
+  key when both tippers have one (only the signed-in tipper's own object knows its account id). `Tipper.fromRecords`
+  builds the signed-in user's own tipper from the public record with the private one over it; `withIdentityOf`
+  carries those identity fields across every refresh from the public list (found in review of my own change: without
+  it an administrator would have lost the admin menu at the first refresh after the purge).
+- *2b, listeners.* `authAwareStream` opens a listener only while a user is signed in, closes it on sign-out, and
+  reopens it on the next token event after a failure (never on a timer). The tipper list, teams and competitions use
+  it; nothing awaits their first load before sign-in.
+- *2c, linking.* `LinkedTipperResolver` reads the caller's own `AuthIndex` entry and the private record it names and
+  calls `link-or-create-tipper` only when there is no valid link; a failed read is retried and is **never "missing"**
+  (the server is asked to link only after a read that worked and found nothing). `CachedTipperStore` and
+  `TipperLinkService` hold the kept-tipper rules already decided: open from it, confirm in the background, a delay
+  keeps it, a refusal or an unlinked account throws it away, a first link that fails is never answered from a cache.
+- *2d, wiring.* `SignInLinkController` holds the sign-in page's linking state (the page only draws it); the old
+  scan-and-write code in `TippersViewModel` (`findExistingTipper`, `updateOrCreateTipper`, the finders by email and
+  login, `checkEmail`, the creation) is deleted; the services are registered in `main.dart`, built lazily so the
+  optional `AppConfig` address override and the competitions lookup are read when needed. A competitions load that
+  stalls no longer holds up sign-in: the tipper arrives without the paid comps and the public list supplies them.
+
+**What changes for people, and what to confirm.**
+1. *The R2 client no longer writes `logon`, `email` or `isAnonymous` at sign-in* (they are server-owned), and it
+   **does not refresh `acctLoggedOnUTC`**: the server stamps it only when `link-or-create-tipper` runs, and a linked user
+   never calls it. The admin tipper list's "last login" column will stop moving for R2 users. **Decision for the owner:**
+   accept that, or have the client call the callable once per session (which would make every sign-in depend on it).
+2. *A linked account signs in on production already, with the mode `off`:* it needs only the two reads R1-compat
+   allows. A new account, or one with no `AuthIndex` entry, needs the callable and is told "Signing in is not available
+   right now" until the mode leaves `off`.
+3. *A kept tipper whose link is refused or has gone* now closes the app on a message ("sign out and sign in again")
+   instead of carrying on silently.
+4. A guest is unchanged.
+
+**Tested.** 25 + 11 + 11 + 3 + 18 + 17 + 23 + 5 new tests in the app and shared package, and 36 breakages caught across
+them; the whole app suite passes (1006) apart from the two live support-site network tests, which fail the same way
+without these changes. **Not tested by anything automatic:** the sign-in page's drawing and the registration in
+`main.dart`, because they need Firebase Auth. The decisions are in the controller (tested); the page maps its phase to a
+screen. They need a run on a device or the emulators; a checklist is in the slice 2 hand-over to the owner.
+
 **Decisions wanted.** (1) Go to start with slices 1 and 2. (2) Whether to take the mode to `pilot` for the owner's
 devices once slice 2 is in a TestFlight build.
 
