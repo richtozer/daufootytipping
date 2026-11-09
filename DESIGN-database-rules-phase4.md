@@ -1271,7 +1271,9 @@ command type it does not know and the wrapper logs a warning. The aggregator sta
 `/ServerConfig/liveScores/mode` does not exist; in `shadow` the only effect is a log line per submission.
 Production `shadow` establishes that the services deploy and stay healthy; there is no need to manufacture
 production activity, and the synthetic end-to-end run is the functional evidence until real submissions exist in
-March. **Switching to `active` or `compat` is a separate decision**, taken after the R2 rules are live (section 3).
+March. **Neither `active` nor `compat` is enabled by this deployment; each is a separate decision of the owner's.**
+`compat` is the prepared fallback for while 1.4.x clients can still write `current`, which can be before the R2 rules
+(section 3, Gate B). `active` belongs after the R2 rules have closed those writes.
 
 ## 7. Timeline, back-planned from the season
 

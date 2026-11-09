@@ -181,8 +181,26 @@ with the same secret. The Dart worker derives the game's `current` snapshot from
 - **Mode** is `/ServerConfig/liveScores/mode`: `shadow` (the default, and what a
   missing or unrecognised value means) writes nothing and logs one
   `[liveScores] shadow ...` line per submission; `active` and `compat` write
-  `current`. Switching mode is a separate, deliberate decision (see
-  `DESIGN-database-rules-phase4.md`, section 6i).
+  `current`. `compat` is the fallback for while 1.4.x clients can still write
+  `current` (possibly before the R2 rules); `active` belongs after the R2 rules close
+  those writes. Each is the owner's separate decision and neither is enabled by a
+  deployment (see `DESIGN-database-rules-phase4.md`, section 6i).
+- **Deploying it in shadow**, in this order, treating every CLI "timed out after
+  30000ms" as inconclusive:
+  1. Read `/ServerConfig/liveScores/mode` (expect `null`, or `"shadow"`). If it holds
+     anything else, stop.
+  2. `scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only dart`, then
+     check `gcloud run services list` (every service created and ready, a new revision
+     for `backend-scoring-command`), each endpoint's unauthenticated response, and
+     `gcloud run services get-iam-policy` for any service that reports an error. Send the
+     worker a command with a wrong secret: expect `403`.
+  3. `scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only default`, then
+     confirm `liveScoreHistoryWrittenBackendScoring` exists in `asia-southeast1` with the
+     trigger on `.../history/{entryKey}`, and that the other TypeScript triggers still
+     have theirs (`firebase functions:list`).
+  4. Read the mode again (still `null` or `"shadow"`). There are no live games to
+     exercise it until March; the first real submission will log one
+     `[liveScores] shadow ...` line and change nothing.
 - **Correcting a game by hand:** remove `current`, then fix or delete the bad
   `history` entry. That is an event, and with no `current` left the aggregator
   writes a fresh one from what remains (only in `active` or `compat`).
