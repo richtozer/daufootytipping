@@ -430,6 +430,88 @@ void main() {
       );
     });
 
+    group('a clash with a third tipper is refused before anything moves', () {
+      const preview = AdminMergeTippersRequest(
+        originalId: 'tNew',
+        targetId: 'tOld',
+        mergeTips: true,
+        mergeLogon: true,
+        dryRun: true,
+      );
+
+      test(
+        'the login address is already held by a third tipper: the preview and the merge both refuse',
+        () async {
+          await db
+              .ref('LogonIndex/${logonIndexKey('pat.new@example.com')}')
+              .set('t2');
+          await refusedWithoutWriting(
+            () => merge(preview),
+            refusedAs('claimed'),
+          );
+          await refusedWithoutWriting(
+            () => merge(_everything),
+            refusedAs('claimed'),
+          );
+
+          final tips = (await readRoot(db))['AllTips'] as Map;
+          expect(((tips['c1'] as Map)['tOld'] as Map).keys.toSet(), {
+            'g1',
+            'g2',
+          }, reason: 'no tip has moved');
+          expect((tips['c1'] as Map).containsKey('tNew'), true);
+        },
+        skip: skip,
+      );
+
+      test(
+        'the same state is no clash when the login address is not being moved',
+        () async {
+          await db
+              .ref('LogonIndex/${logonIndexKey('pat.new@example.com')}')
+              .set('t2');
+          final result = await merge(
+            const AdminMergeTippersRequest(
+              originalId: 'tNew',
+              targetId: 'tOld',
+              mergeTips: true,
+            ),
+          );
+          expect(result.tipsMoved, 3);
+          expect(
+            ((await readRoot(db))['LogonIndex'] as Map)[logonIndexKey(
+              'pat.new@example.com',
+            )],
+            't2',
+            reason: 'the third tipper keeps what is theirs',
+          );
+        },
+        skip: skip,
+      );
+
+      test(
+        'the account is already held by a third tipper: the preview and the merge both refuse',
+        () async {
+          await db.ref('AuthIndex/$_uidNew').set('t2');
+          await refusedWithoutWriting(
+            () => merge(preview),
+            refusedAs('claimed'),
+          );
+          await refusedWithoutWriting(
+            () => merge(_everything),
+            refusedAs('claimed'),
+          );
+        },
+        skip: skip,
+      );
+
+      test('the preview of a merge with no clash still goes through', () async {
+        final plan = await merge(preview);
+        expect(plan.dryRun, true);
+        expect(plan.tipsMoved, 3);
+      }, skip: skip);
+    });
+
     group('a refusal changes nothing', () {
       test('only an administrator may merge', () async {
         await refusedWithoutWriting(

@@ -303,6 +303,53 @@ void main() {
       }, skip: skip);
     });
 
+    group(
+      'only an administrator who can sign in counts as another administrator',
+      () {
+        test(
+          'a historical administrator record with no account does not',
+          () async {
+            // Someone who was marked an administrator years ago and has no working account.
+            await seed(
+              baseline()
+                ..tipper('tHist', name: 'Hist', logon: 'hist@example.com'),
+            );
+            await setRole('tHist', 'admin');
+            await refusedWithoutWriting(
+              () => update(
+                const AdminUpdateTipperRequest(
+                  tipperId: 'tA',
+                  role: TipperRole.tipper,
+                ),
+              ),
+              refusedAs('last_admin'),
+            );
+          },
+          skip: skip,
+        );
+
+        test(
+          'a record whose account points elsewhere in the index does not either',
+          () async {
+            await setRole('t2', 'admin');
+            await db
+                .ref('AuthIndex/$_uidSam')
+                .set('t1'); // Sam's account now reaches someone else
+            await refusedWithoutWriting(
+              () => update(
+                const AdminUpdateTipperRequest(
+                  tipperId: 'tA',
+                  role: TipperRole.tipper,
+                ),
+              ),
+              refusedAs('last_admin'),
+            );
+          },
+          skip: skip,
+        );
+      },
+    );
+
     group('the role', () {
       test('promotes a tipper, in both halves', () async {
         final result = await update(

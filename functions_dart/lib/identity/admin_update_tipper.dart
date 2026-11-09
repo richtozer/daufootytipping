@@ -32,7 +32,8 @@ import 'package:dau_shared/dau_shared.dart';
 /// in the result, so asking twice changes nothing the second time and a retry
 /// after a crash finishes whatever was not done.
 ///
-/// A role change cannot leave the database with no administrator. That check
+/// A role change cannot leave the database with no administrator, and only an
+/// administrator with a working sign-in account counts. That check
 /// and the write are not one atomic step, so two administrators demoting each
 /// other in the same moment could both pass it; with a handful of
 /// administrators that is accepted and repaired by hand.
@@ -97,11 +98,15 @@ Future<AdminUpdateTipperResult> adminUpdateTipper({
       final demoting =
           role == TipperRole.tipper && currentRole == TipperRole.admin.name;
       if (demoting) {
-        final othersAdmin = records.values.any(
-          (record) =>
-              record.id != tipperId &&
-              record.fields['tipperRole'] == TipperRole.admin.name,
-        );
+        var othersAdmin = false;
+        for (final record in records.values) {
+          if (record.id != tipperId &&
+              record.fields['tipperRole'] == TipperRole.admin.name &&
+              await _hasUsableAccount(database, record.id)) {
+            othersAdmin = true;
+            break;
+          }
+        }
         if (!othersAdmin) {
           throw FailedPreconditionError(
             'That would leave no administrator.',
@@ -166,6 +171,24 @@ Future<AdminUpdateTipperResult> adminUpdateTipper({
       return AdminUpdateTipperResult(tipperId: tipperId, changed: changed);
     },
   );
+}
+
+/// Whether the record has a sign-in account that works: its private `authuid`
+/// is a real account and `/AuthIndex` points that account back at it. A
+/// historical administrator record nobody can sign in to does not count as
+/// "another administrator".
+Future<bool> _hasUsableAccount(RestDatabase database, String tipperId) async {
+  final uid =
+      (await database
+              .ref('${paths.tipperPrivatePath}/$tipperId/authuid')
+              .once())
+          .value;
+  if (uid is! String || !isValidRtdbKey(uid)) {
+    return false;
+  }
+  final indexed =
+      (await database.ref('${paths.authIndexPath}/$uid').once()).value;
+  return indexed == tipperId;
 }
 
 String _root(String path) => path.substring(1);

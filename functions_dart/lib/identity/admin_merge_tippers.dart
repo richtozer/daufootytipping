@@ -65,6 +65,7 @@ Future<AdminMergeTippersResult> adminMergeTippers({
 
   if (request.dryRun) {
     final pair = await _loadPair(database, originalId, targetId);
+    await _refuseKnownConflicts(database, request, pair.original);
     final tips = await _tipsToMove(database, originalId, targetId);
     return AdminMergeTippersResult(
       targetId: targetId,
@@ -113,6 +114,9 @@ Future<AdminMergeTippersResult> _merge(
   final pair = await _loadPair(database, originalId, targetId);
   final original = pair.original;
   final target = pair.target;
+
+  // A clash that can be seen now is refused now, before any tip has moved.
+  await _refuseKnownConflicts(database, request, original);
 
   // 1. Tips.
   var tipsMoved = 0;
@@ -266,6 +270,46 @@ Future<AdminMergeTippersResult> _merge(
     dryRun: false,
   );
 }
+
+/// Refuses, before anything has moved, a merge that would clash with a third
+/// tipper: the original's login address (when it is being moved) or its
+/// sign-in account is already held by a record that is neither the original nor
+/// the target. The preview and the merge share this, so a preview that says yes
+/// does not turn into a refusal after the history has already changed. The
+/// steps still guard against a clash that appears in the meantime.
+Future<void> _refuseKnownConflicts(
+  RestDatabase database,
+  AdminMergeTippersRequest request,
+  TipperRecord original,
+) async {
+  bool heldByThird(Object? holder) =>
+      holder != null &&
+      holder != request.originalId &&
+      holder != request.targetId;
+
+  if (request.mergeLogon && _hasLogon(original)) {
+    final key = logonIndexKey(original.logon!);
+    final holder =
+        (await database.ref('${paths.logonIndexPath}/$key').once()).value;
+    if (heldByThird(holder)) {
+      throw _clash();
+    }
+  }
+  final uid = await _accountOf(database, original);
+  if (uid != null) {
+    final holder =
+        (await database.ref('${paths.authIndexPath}/$uid').once()).value;
+    if (heldByThird(holder)) {
+      throw _clash();
+    }
+  }
+}
+
+FailedPreconditionError _clash() => FailedPreconditionError(
+  'This merge would clash with another tipper: the login address or the '
+  'account is already held by someone else. Nothing was changed.',
+  reason: identityReasonClaimed,
+);
 
 class _Pair {
   const _Pair(this.original, this.target);

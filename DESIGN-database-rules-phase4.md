@@ -1114,9 +1114,33 @@ cached tipper (the M7 rule). A merge touches several competitions in separate up
 original in place for a re-run to finish. If someone else claims the original's login address in the instant between
 its release and the target's claim, the merge stops with `claimed` and can be run again.
 
-**M4c is complete.** Remaining on the server: deploy the three callables in mode `off` (a separate go; each new
-function may need `allUsers` `roles/run.invoker` added by hand after the CLI's timeout, section 6f B7), then M5 (live
-score aggregator, shadow first) and M6's freeze and R2 rulesets, then the client (M7) and the cutover (M8).
+**M4c: the three callables are built and tested; none is deployed.** Remaining on the server: deploy them in mode
+`off` (a separate go; each new function may need `allUsers` `roles/run.invoker` added by hand after the CLI's timeout,
+section 6f B7), then M5 (live score aggregator, shadow first) and M6's freeze and R2 rulesets, then the client (M7) and
+the cutover (M8). **The server identity work is not "finished" until the cutover items below are done.**
+
+**Corrections after a seventh review (9 November 2026).**
+1. *The merge refuses a known clash before it moves anything.* The preview used to check only that both records
+   exist, so a successful preview could be followed by a refusal after the tips had already moved. One check is now
+   shared by the preview and the merge, and runs before the first write: the original's login address (when it is being
+   moved) or its sign-in account already held by a third record is refused as `claimed`, with nothing changed. A clash
+   that appears in the instant between the check and the step is still caught by the step. A login held by a third
+   record is no clash when the login is not being moved.
+2. *"Another administrator" means one who can sign in.* The last-administrator check counted any record marked
+   `admin`, including a historical one nobody can sign in to. It now counts only an administrator whose private
+   `authuid` is a real account that `/AuthIndex` points back at.
+3. *The client's delete flow is still to be written (M7), and I overstated it.* The app today deletes the sign-in
+   account first and does not call `unlink-my-account`. When it does, the order is: reauthenticate if the account
+   needs it, unregister the push token, `unlink-my-account`, then delete the sign-in account. Reauthentication comes
+   **before** unlinking, so a user who cancels it is not left half-unlinked. The tests must cover a deletion that fails
+   after the unlink and is then retried: the person is signed in but unlinked, the next `link-or-create-tipper`
+   links them back (`linked`), and unlinking twice is harmless (`unlinked: false`).
+4. *Administrator access is still the compile-time allowlist.* `requireAdmin` is the one place that decides, and it
+   uses the list the rules and the other admin endpoints use. **Until it is switched to the validated private role at
+   the cutover (part of the M8 exit "allowlist removed"), a role change made by `admin-update-tipper` changes what the
+   admin screens show and who counts as an administrator in the data, but not who may call the admin endpoints.**
+   Promoting or demoting someone does not yet grant or remove their access.
+
 
 **A mistake of mine, found and fixed on the way.** The earlier replay test skipped its test but not its `setUpAll`,
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy
