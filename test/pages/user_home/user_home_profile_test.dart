@@ -4,6 +4,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -28,17 +29,27 @@ void main() {
   late StreamController<bool?> connection;
   late ConnectionLossMonitor monitor;
 
-  Future<void> pumpProfile(WidgetTester tester, {required double width}) async {
+  /// [signedIn] is the tipper the link established (the one that carries the
+  /// login, role and anonymous flag). [publicListCopy] is that tipper's entry
+  /// in the public list, which after the purge carries none of those.
+  Future<void> pumpProfile(
+    WidgetTester tester, {
+    required double width,
+    Tipper? signedIn,
+    Tipper? publicListCopy,
+  }) async {
     await di.reset();
-    tipper = Tipper(
-      dbkey: 'tipper-1',
-      authuid: 'auth-1',
-      email: 'comm@example.com',
-      logon: 'toaster@example.com',
-      name: 'toaster',
-      tipperRole: TipperRole.tipper,
-      compsPaidFor: const [],
-    );
+    tipper =
+        signedIn ??
+        Tipper(
+          dbkey: 'tipper-1',
+          authuid: 'auth-1',
+          email: 'comm@example.com',
+          logon: 'toaster@example.com',
+          name: 'toaster',
+          tipperRole: TipperRole.tipper,
+          compsPaidFor: const [],
+        );
     final comp = DAUComp(
       dbkey: 'comp-1',
       name: 'DAU Footy Tipping 2026',
@@ -50,7 +61,7 @@ void main() {
     when(() => tippers.addListener(any())).thenReturn(null);
     when(() => tippers.removeListener(any())).thenReturn(null);
     when(() => tippers.authenticatedTipper).thenReturn(tipper);
-    when(() => tippers.tippers).thenReturn([tipper]);
+    when(() => tippers.tippers).thenReturn([publicListCopy ?? tipper]);
     when(() => tippers.selectedTipper).thenReturn(tipper);
     final comps = _MockDAUCompsViewModel();
     when(() => comps.addListener(any())).thenReturn(null);
@@ -102,6 +113,68 @@ void main() {
         kFormContentWidth,
       );
     }
+  });
+
+  group('after the purge, the public list copy has no identity fields', () {
+    Tipper purgedListCopy() => Tipper(
+      dbkey: 'tipper-1',
+      authuid: '',
+      email: null,
+      name: 'toaster',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const [],
+    );
+
+    testWidgets('the login comes from the signed-in tipper', (tester) async {
+      await pumpProfile(tester, width: 1000, publicListCopy: purgedListCopy());
+
+      expect(find.text('toaster@example.com'), findsOneWidget);
+    });
+
+    testWidgets('an administrator still gets the admin functions', (
+      tester,
+    ) async {
+      final admin = Tipper(
+        dbkey: 'tipper-1',
+        authuid: 'auth-1',
+        email: 'comm@example.com',
+        logon: 'toaster@example.com',
+        name: 'toaster',
+        tipperRole: TipperRole.admin,
+        compsPaidFor: const [],
+      );
+      await pumpProfile(
+        tester,
+        width: 1000,
+        signedIn: admin,
+        publicListCopy: purgedListCopy(),
+      );
+
+      expect(find.byType(AdminFunctionsWidget), findsOneWidget);
+    });
+
+    testWidgets('a guest cannot edit an alias', (tester) async {
+      final guest = Tipper(
+        dbkey: 'tipper-1',
+        authuid: 'auth-1',
+        email: null,
+        name: 'toaster',
+        tipperRole: TipperRole.tipper,
+        compsPaidFor: const [],
+        isAnonymous: true,
+      );
+      await pumpProfile(
+        tester,
+        width: 1000,
+        signedIn: guest,
+        publicListCopy: purgedListCopy(),
+      );
+
+      final edit = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Edit'),
+      );
+      expect(edit.onPressed, isNull);
+    });
   });
 
   testWidgets('a long prompt flows in the width available, not a fixed box', (

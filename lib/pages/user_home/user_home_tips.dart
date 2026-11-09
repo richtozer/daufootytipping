@@ -211,6 +211,13 @@ class TipsTabState extends State<TipsTab> {
       scrollController.jumpTo(clampedOffset);
       _hasJumpedOnce = true;
       if (!_hasPlacedOnce) {
+        StartupProfiling.instant(
+          'startup.tips_placed',
+          arguments: <String, Object?>{
+            'heldFrames': _startupHoldFrames,
+            'retries': _startupScrollRetryCount,
+          },
+        );
         setState(() {
           _hasPlacedOnce = true;
         });
@@ -226,6 +233,13 @@ class TipsTabState extends State<TipsTab> {
           (_lastStartupMaxScrollExtent - maxScrollExtent).abs() <= 8;
       if (hitTarget && (!targetBeyondCurrentMax || maxScrollExtentStable)) {
         _startupScrollSettled = true;
+        StartupProfiling.instant(
+          'startup.tips_settled',
+          arguments: <String, Object?>{
+            'heldFrames': _startupHoldFrames,
+            'retries': _startupScrollRetryCount,
+          },
+        );
         StartupProfiling.end('startup.tips_page_stable');
         return;
       }

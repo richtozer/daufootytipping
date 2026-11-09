@@ -53,15 +53,19 @@ class Profile extends StatelessWidget with WatchItMixin {
                   Tipper? authenticatedTipper =
                       tippersViewModelConsumer.authenticatedTipper;
 
-                  // Use the tipper from the tippers list (always fresh from
-                  // the Firebase stream with populated compsPaidFor) rather
-                  // than authenticatedTipper which may be a stale cached copy.
-                  Tipper? profileTipper = authenticatedTipper != null
+                  // The tippers list is always fresh from the Firebase stream,
+                  // with the name, photo and paid competitions, but it carries
+                  // none of the signed-in tipper's login, role or anonymous
+                  // flag: those come from the link, so take them from there.
+                  final Tipper? listCopy = authenticatedTipper != null
                       ? tippersViewModelConsumer.tippers.firstWhereOrNull(
                           (t) => t.dbkey == authenticatedTipper.dbkey,
                         )
                       : null;
-                  profileTipper ??= authenticatedTipper;
+                  final Tipper? profileTipper =
+                      authenticatedTipper != null && listCopy != null
+                      ? listCopy.withIdentityOf(authenticatedTipper)
+                      : authenticatedTipper;
 
                   List<DAUComp> compsForDropdown = [];
                   if (profileTipper != null) {
