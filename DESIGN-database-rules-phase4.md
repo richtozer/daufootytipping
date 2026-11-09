@@ -1164,6 +1164,61 @@ existing admin endpoints, or the legacy client writes that R1 and R1-compat stil
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy
 script's test gate. It is now skipped as a group, and the suite passes with and without the variable.
 
+### 6i. Progress: M5, the live-score aggregator (9 November 2026; calculation and handler built and tested, not wired, not deployed)
+
+**What it is.** The 1.4.x client builds the `current` live-score snapshot from its own local list and writes it beside
+`history`. The R2 client will write `history` only, so the server derives `current` from it. The rule is the one the
+client has always applied: each team keeps its **three most recent** submissions; a team's displayed score is its
+**latest**; the snapshot's time, tipper and completion flag are those of the latest submission of either team; an
+**official score overrides all of it**. `gameComplete` is never set to true. The scoring worker already reads
+`current` and a write to it already triggers a rescore, so nothing downstream changes.
+
+**Built** (`functions_dart/lib/live_scores/`): `live_score_aggregate.dart` is the pure calculation, from a game's
+`history` to the snapshot, plus a comparison that names how two snapshots differ (the list's order, the count and the
+spelling of a time are not differences); `live_score_aggregation.dart` is the handler and the mode flag.
+
+**The history contract for the R2 client (M7).** An entry is the client's `CrowdSourcedScore.toJson()` shape:
+`submittedTimeUTC`, `tipperID`, `scoreTeam` (`home`/`away`), `interimScore`, `gameComplete` (false). The time used
+for ordering is, in this order: a numeric **`t`, microseconds since the epoch** (plausible only from 2001 on, so a
+value in seconds is ignored); else the parsed `submittedTimeUTC`; else the push key's leading microseconds. Equal
+times are broken by key, so the result never depends on delivery order. An entry that cannot be read (no tipper, a
+team that is not home or away, a score that is not a number, no time) is counted and ignored, never guessed at.
+
+**The handler.** Mode lives at `/ServerConfig/liveScores/mode`: `shadow` (the default, and what anything missing,
+unreadable or unrecognised means), `active`, `compat`. **In `shadow` nothing is written**: it compares with the
+`current` already there and logs `match=true/false` and how it differs. In `active` and `compat` (the same write; the
+difference is the owner's decision to enable `compat` while legacy writers exist) the write is a compare-and-set that
+is skipped when `current` already shows this game (a rewrite would only trigger a pointless rescore) or records that
+it was computed from at least as much history (`basedOnCount`), so a slow, older computation cannot undo a newer one.
+A snapshot a legacy client wrote has no count and is replaced if it differs. A game with an official score is left
+alone; if one arrives *while* the write is in flight, the snapshot is removed again. Every run recomputes from the
+whole of `history`, so duplicated, shuffled or simultaneous runs agree.
+
+**Tested.** The calculation is held to a faithful port of the client's own submit-and-trim logic
+(`test/support/client_live_score_oracle.dart`, using the shared `Scoring.currentScore`): **three hundred random game
+days** with several tippers whose clocks disagree, so some arrive out of order, with the history shuffled before it is
+handed over, must show the same game as the client's own `current`. Also: each ordering rule; keys that sort against
+time; entries that cannot be read; equal times. Against the emulator: shadow never writes; the version guard; an
+unchanged snapshot, from the aggregator or from a legacy client, is not rewritten; an official score up front, and
+arriving mid-write; simultaneous runs; and **twenty random games with two legacy clients overwriting `current` from
+their own stale lists, the aggregator running after every submission**: it put `current` right every time and then
+changed nothing (it does not flap), and the test insists the clients really did disagree so it cannot pass vacuously.
+Eleven breakages of the calculation and handler were each caught; two survived at first, and each taught something (a
+test where push keys sort against time, which the oracle's own keys never do; and one for a legacy snapshot that
+already shows the game).
+
+**One consequence worth knowing.** A 1.4.x client writes `current` from its *local* list, so two tippers submitting at
+nearly the same moment can overwrite each other's scores in `current` while `history` has both. The aggregator
+corrects that. In `compat` it will therefore sometimes change a displayed score back to what the history says, which
+is the intended convergence.
+
+**Not built yet.** The wiring: a TypeScript trigger on `Stats/{comp}/live_scores_backend_v1/{game}/history/{key}` that
+sends the existing worker a new command, and the worker calling the handler. It touches production scoring, so it is
+reviewed with the owner before it is deployed. **A production canary cannot be run yet:** live scores flow only while
+games are on, and none are until March. The synthetic replays above are the evidence until then; the aggregator is
+switched to `active` only after the R2 rules are live (section 3), and `current` is never written while the mode is
+`shadow`.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
