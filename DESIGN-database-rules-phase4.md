@@ -1167,7 +1167,7 @@ existing admin endpoints, or the legacy client writes that R1 and R1-compat stil
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy
 script's test gate. It is now skipped as a group, and the suite passes with and without the variable.
 
-### 6i. Progress: M5, the live-score aggregator (9 November 2026; built, wired and exercised end to end on the emulators; not deployed)
+### 6i. Progress: M5, the live-score aggregator (9 November 2026; built, wired, exercised end to end on the emulators, and DEPLOYED IN SHADOW)
 
 **What it is.** The 1.4.x client builds the `current` live-score snapshot from its own local list and writes it beside
 `history`. The R2 client will write `history` only, so the server derives `current` from it. The rule is the one the
@@ -1274,6 +1274,28 @@ production activity, and the synthetic end-to-end run is the functional evidence
 March. **Neither `active` nor `compat` is enabled by this deployment; each is a separate decision of the owner's.**
 `compat` is the prepared fallback for while 1.4.x clients can still write `current`, which can be before the R2 rules
 (section 3, Gate B). `active` belongs after the R2 rules have closed those writes.
+
+**Deployed in shadow (9 November 2026, from `a1351b8d`, which has the code of `3e7f3849`; the owner ran both deploys).**
+Order: the Dart codebase, then the TypeScript one.
+
+- *Mode first:* `/ServerConfig/liveScores/mode` read `null` (missing), and again `null` after both deploys, so the
+  aggregator runs in `shadow`. Neither `active` nor `compat` was enabled.
+- *Dart:* the CLI ended with "Failed to update" for four services (`admin-check-fixture-url`,
+  `scheduled-fixture-download`, `link-or-create-tipper`, `admin-merge-tippers`), all 30-second timeouts. Checked
+  directly instead: all 13 services on a revision created 11:16 to 11:19 UTC, ready; `allUsers` invoker intact on all
+  13; unauthenticated `GET` 405 everywhere, `POST` 401 (callables) or 403 (secret-guarded); the new command type with
+  a wrong secret 403; no error-level log entries.
+- *TypeScript:* the first two attempts failed before touching any function (a storage upload error, then "An unexpected
+  error has occurred" at the same early stage); production was checked unchanged between attempts, and the third
+  attempt completed. `liveScoreHistoryWrittenBackendScoring` exists in `asia-southeast1` (1st Gen, `ref.write`) on
+  `Stats/{compKey}/live_scores_backend_v1/{gameKey}/history/{entryKey}`; `liveScoreWrittenBackendScoring` is still on
+  `.../current`; the other triggers are unchanged; all 11 TypeScript functions are `ACTIVE`; the new function has the
+  same environment variable names as its siblings; no error-level log entries since.
+- *Not exercised in production:* there are no live games until March, so the first real submission will be the first
+  `[liveScores] shadow ...` line. The emulator end-to-end run is the functional evidence until then.
+- *To check before March:* the Firebase CLI warns that the `functions.config()` API and Runtime Config shut down in
+  March 2027. Nothing in this repository calls it, but whether the project still holds Runtime Config values has not
+  been checked.
 
 ## 7. Timeline, back-planned from the season
 
