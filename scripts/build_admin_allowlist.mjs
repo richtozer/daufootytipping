@@ -12,6 +12,12 @@
 //                                                     needs (own AuthIndex entry, own TipperPrivate
 //                                                     record, admins read TipperPrivate); no new
 //                                                     write permission (DESIGN-database-rules-phase4.md)
+//   config/generated/database.rules.freeze.json       R1-compat with every identity-bearing write closed
+//                                                     to all clients, admins included (cutover step A1)
+//   config/generated/database.rules.r2.json           the final rules, from their own template
+//                                                     (config/database.rules.r2.template.json). They do
+//                                                     NOT use the allowlist: an admin is the validated
+//                                                     private role, checked through AuthIndex both ways.
 //   functions_dart/bin/admin_allowlist.g.dart         compile-time constant for the Dart
 //                                                     admin endpoints
 //
@@ -25,6 +31,8 @@
 //   --record <rules|functions> [--variant]
 //                               append a line to config/deployments/allowlist-deployments.jsonl
 //   --revision                  print the allowlist revision
+//   --last-rules-variant        print the variant of the last rules deployment in the deployment log, or
+//                               `none`; the deploy script uses it to keep the cutover rulesets in order
 //   --allow-empty               only for --check/generation during development; never for deploy
 //
 // An EMPTY list is refused for anything that could be deployed: with no admins every admin-only
@@ -41,15 +49,18 @@ const repoRoot = resolve(here, "..");
 export const PATHS = {
   config: resolve(repoRoot, "config/admin-auth-uids.json"),
   template: resolve(repoRoot, "config/database.rules.r1.template.json"),
+  r2Template: resolve(repoRoot, "config/database.rules.r2.template.json"),
   rulesOut: resolve(repoRoot, "config/generated/database.rules.r1.json"),
   recoveryOut: resolve(repoRoot, "config/generated/database.rules.r1-recovery.json"),
   compatOut: resolve(repoRoot, "config/generated/database.rules.r1-compat.json"),
+  freezeOut: resolve(repoRoot, "config/generated/database.rules.freeze.json"),
+  r2Out: resolve(repoRoot, "config/generated/database.rules.r2.json"),
   dartOut: resolve(repoRoot, "functions_dart/bin/admin_allowlist.g.dart"),
   firebaseJson: resolve(repoRoot, "firebase.json"),
   deployLog: resolve(repoRoot, "config/deployments/allowlist-deployments.jsonl"),
 };
 
-export const VARIANTS = ["r1", "r1-recovery", "r1-compat"];
+export const VARIANTS = ["r1", "r1-recovery", "r1-compat", "freeze", "r2"];
 
 // Firebase accepts any UID of 1 to 128 characters (28 alphanumerics is only the format it
 // generates), so that is the rule. Control characters are refused; everything else is escaped.
@@ -181,17 +192,94 @@ export function addCompatReads(rules, uids) {
   return out;
 }
 
-/** Substitute the allowlist into the template. Returns a rules object for the variant. */
+/**
+ * The freeze ruleset (cutover step A1, DESIGN-database-rules-phase4.md section 8): R1-compat with every
+ * identity-bearing write closed to ALL clients, administrators included, so the reconcile reads a state
+ * that cannot move under it. Closed: creating and deleting a tipper record (and any whole-node write of
+ * `AllTippers`), `name`, `email`, `logon`, `isAnonymous`, and the tipper-level write of `AllTips` (a tip-node
+ * merge or delete). `authuid` and `tipperRole` have no leaf write even in R1.
+ *
+ * Kept, because tippers keep using the app during the freeze: reading, tipping (the game-level tip write),
+ * the paid toggle (`compsParticipatedIn`, now a leaf write for administrators, which is all the whole-node
+ * write was used for besides identity), photos, login timestamps, and device tokens. Everything outside
+ * `AllTippers` and the tipper level of `AllTips` is exactly as in R1-compat.
+ */
+export function closeIdentityWrites(compatRules, uids) {
+  const out = structuredClone(compatRules);
+
+  const tippers = out.rules.AllTippers;
+  delete tippers[".write"];
+  const tipper = tippers.$tipperId;
+  delete tipper[".write"];
+  for (const field of ["name", "email", "logon", "isAnonymous"]) delete tipper[field][".write"];
+  tipper.compsParticipatedIn[".write"] = isAdminExpr(uids);
+
+  for (const comp of Object.values(out.rules.AllTips)) {
+    if (comp && typeof comp === "object") {
+      for (const perTipper of Object.values(comp)) {
+        if (perTipper && typeof perTipper === "object") delete perTipper[".write"];
+      }
+    }
+  }
+  return out;
+}
+
+const R2_CALLER = "root.child('AuthIndex').child(auth.uid).val()";
+const R2_VALID_CALLER =
+  `(${SIGNED_IN_EXPR} && root.child('AuthIndex').child(auth.uid).exists() && ` +
+  `root.child('TipperPrivate').child(${R2_CALLER}).child('authuid').val() === auth.uid)`;
+const R2_KICKOFF = "root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').val()";
+const R2_MACROS = {
+  SIGNED_IN: SIGNED_IN_EXPR,
+  CALLER: R2_CALLER,
+  VALID_CALLER: R2_VALID_CALLER,
+  // The caller's tipper, validated both ways: AuthIndex[uid] names a record whose authuid is the uid.
+  IS_OWNER: `(${R2_VALID_CALLER} && ${R2_CALLER} === $tipperId)`,
+  IS_ADMIN: `(${R2_VALID_CALLER} && root.child('TipperPrivate').child(${R2_CALLER}).child('tipperRole').val() === 'admin')`,
+  // Kickoff as a number of milliseconds; a missing or non-numeric one makes every comparison fail closed.
+  KICKOFF: R2_KICKOFF,
+  OFFICIAL_SCORE:
+    "root.child('DAUCompsGames').child($comp).child($game).child('HomeTeamScore').exists() && " +
+    "root.child('DAUCompsGames').child($comp).child($game).child('AwayTeamScore').exists()",
+};
+
+/**
+ * The R2 (final) rules. They take no allowlist: the R1 allowlist is retired, and an administrator is
+ * the validated private role (`TipperPrivate[AuthIndex[uid]].tipperRole === 'admin'` where that record's
+ * `authuid` is the uid). A missing index entry, a record naming someone else or a missing record grants
+ * nothing; every lookup is guarded with `exists()` so that no outcome depends on a rule error.
+ */
+export function buildR2Rules(templateText) {
+  const asJsonFragment = (text) => JSON.stringify(text).slice(1, -1);
+  let text = templateText;
+  for (const [name, expression] of Object.entries(R2_MACROS)) {
+    text = text.replaceAll(`{{${name}}}`, asJsonFragment(expression));
+  }
+  if (text.includes("{{")) throw new Error("Unresolved placeholder left in the R2 rules template");
+  return JSON.parse(text);
+}
+
+/**
+ * Substitute the allowlist into the template. Returns a rules object for the variant. The template is
+ * the R1 template for every variant except `r2`, which has its own and ignores the allowlist.
+ */
 export function buildRules(templateText, uids, { variant = "r1" } = {}) {
   if (!VARIANTS.includes(variant)) throw new Error(`Unknown variant: ${variant}`);
+  if (variant === "r2") return buildR2Rules(templateText);
   const rules = substitute(templateText, uids);
   if (variant === "r1-recovery") return relaxForRecovery(rules);
   if (variant === "r1-compat") return addCompatReads(rules, uids);
+  if (variant === "freeze") return closeIdentityWrites(addCompatReads(rules, uids), uids);
   return rules;
 }
 
 export function renderRulesFile(templateText, uids, options = {}) {
   return `${JSON.stringify(buildRules(templateText, uids, options), null, 2)}\n`;
+}
+
+/** The template text a variant is generated from. */
+export function templateFor(variant) {
+  return readFileSync(variant === "r2" ? PATHS.r2Template : PATHS.template, "utf8");
 }
 
 export function renderDartAllowlist(uids) {
@@ -213,7 +301,12 @@ export function loadConfig(path = PATHS.config) {
 }
 
 const outputFor = (variant) =>
-  ({ "r1-recovery": PATHS.recoveryOut, "r1-compat": PATHS.compatOut })[variant] ?? PATHS.rulesOut;
+  ({
+    "r1-recovery": PATHS.recoveryOut,
+    "r1-compat": PATHS.compatOut,
+    freeze: PATHS.freezeOut,
+    r2: PATHS.r2Out,
+  })[variant] ?? PATHS.rulesOut;
 
 /** The rules file Firebase deploys, per firebase.json. */
 export function deployedRulesPath() {
@@ -224,6 +317,18 @@ export function deployedRulesPath() {
 }
 
 const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+
+/** The variant of the most recent rules deployment in the log, or "none". */
+export function lastRulesVariant(logPath = PATHS.deployLog) {
+  if (!existsSync(logPath)) return "none";
+  let last = "none";
+  for (const line of readFileSync(logPath, "utf8").split("\n")) {
+    if (line.trim() === "") continue;
+    const entry = JSON.parse(line);
+    if (entry.kind === "rules" && typeof entry.variant === "string") last = entry.variant;
+  }
+  return last;
+}
 
 function git(...args) {
   try {
@@ -254,16 +359,20 @@ function main() {
   const allowEmpty = flags.has("--allow-empty") && !deployMode;
   const uids = validateUids(loadConfig(), { allowEmpty });
   const revision = allowlistRevision(uids);
-  const template = readFileSync(PATHS.template, "utf8");
 
   if (flags.has("--revision")) {
     console.log(revision);
     return;
   }
 
+  if (flags.has("--last-rules-variant")) {
+    console.log(lastRulesVariant());
+    return;
+  }
+
   if (flags.has("--check-deploy")) {
     const target = deployedRulesPath();
-    const expected = renderRulesFile(template, uids, { variant });
+    const expected = renderRulesFile(templateFor(variant), uids, { variant });
     const actual = existsSync(target) ? readFileSync(target, "utf8") : null;
     if (actual !== expected) {
       throw new Error(
@@ -276,7 +385,7 @@ function main() {
 
   if (flags.has("--install-rules")) {
     const target = deployedRulesPath();
-    writeFileSync(target, renderRulesFile(template, uids, { variant }));
+    writeFileSync(target, renderRulesFile(templateFor(variant), uids, { variant }));
     console.log(`installed ${variant} rules (allowlist revision ${revision}) at ${target}`);
     return;
   }
@@ -284,7 +393,7 @@ function main() {
   if (values["--record"] !== undefined) {
     const kind = values["--record"];
     if (!["rules", "functions"].includes(kind)) throw new Error("--record must be 'rules' or 'functions'");
-    const rulesText = renderRulesFile(template, uids, { variant });
+    const rulesText = renderRulesFile(templateFor(variant), uids, { variant });
     const entry = {
       at: new Date().toISOString(),
       kind,
@@ -304,9 +413,7 @@ function main() {
   }
 
   const outputs = [
-    [PATHS.rulesOut, renderRulesFile(template, uids, { variant: "r1" })],
-    [PATHS.recoveryOut, renderRulesFile(template, uids, { variant: "r1-recovery" })],
-    [PATHS.compatOut, renderRulesFile(template, uids, { variant: "r1-compat" })],
+    ...VARIANTS.map((v) => [outputFor(v), renderRulesFile(templateFor(v), uids, { variant: v })]),
     [PATHS.dartOut, renderDartAllowlist(uids)],
   ];
 

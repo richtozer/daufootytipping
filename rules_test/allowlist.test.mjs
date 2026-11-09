@@ -9,12 +9,13 @@
 // scripts/deploy-database-rules.sh and scripts/deploy-functions.sh call them.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   PATHS,
+  VARIANTS,
   allowlistRevision,
   buildRules,
   dartLiteral,
@@ -180,6 +181,44 @@ describe('compat variant (R1 plus the two reads the R2 client needs)', () => {
   });
 });
 
+describe('freeze and r2 variants', () => {
+  const r2Template = readFileSync(PATHS.r2Template, 'utf8');
+  const compat = buildRules(template, [UID_A], { variant: 'r1-compat' }).rules;
+  const freeze = buildRules(template, [UID_A], { variant: 'freeze' }).rules;
+  const r2 = buildRules(r2Template, [UID_A], { variant: 'r2' }).rules;
+
+  it('freeze is R1-compat with the identity writes removed: the same nodes, only AllTippers and AllTips changed', () => {
+    assert.deepEqual(Object.keys(freeze).sort(), Object.keys(compat).sort());
+    const changed = Object.keys(compat).filter((k) => JSON.stringify(compat[k]) !== JSON.stringify(freeze[k]));
+    assert.deepEqual(changed.sort(), ['AllTippers', 'AllTips']);
+  });
+
+  it('freeze keeps the allowlist for the admin paid toggle, and an empty allowlist leaves it false, never open', () => {
+    assert.ok(freeze.AllTippers.$tipperId.compsParticipatedIn['.write'].includes(`auth.uid === '${UID_A}'`));
+    const empty = buildRules(template, [], { variant: 'freeze' }).rules;
+    assert.equal(empty.AllTippers.$tipperId.compsParticipatedIn['.write'], 'false');
+  });
+
+  it('r2 takes no allowlist: the same rules whatever the list, and no uid literal in them', () => {
+    for (const uids of [[], [UID_A], [UID_A, UID_B]]) {
+      assert.deepEqual(buildRules(r2Template, uids, { variant: 'r2' }).rules, r2);
+    }
+    assert.doesNotMatch(JSON.stringify(r2), /auth\.uid === '/);
+    assert.ok(!JSON.stringify(r2).includes(UID_A));
+  });
+
+  it('r2 leaves no placeholder behind, and refuses a template with an unknown one', () => {
+    assert.ok(!JSON.stringify(r2).includes('{{'));
+    assert.throws(() => buildRules('{"rules":{"x":{".read":"{{NOPE}}"}}}', [], { variant: 'r2' }), /Unresolved placeholder/);
+  });
+
+  it('there are five variants, each written to its own file', () => {
+    assert.deepEqual([...VARIANTS], ['r1', 'r1-recovery', 'r1-compat', 'freeze', 'r2']);
+    const files = [PATHS.rulesOut, PATHS.recoveryOut, PATHS.compatOut, PATHS.freezeOut, PATHS.r2Out];
+    assert.equal(new Set(files).size, 5);
+  });
+});
+
 describe('committed outputs match config/admin-auth-uids.json', () => {
   const uids = validateUids(loadConfig(), { allowEmpty: true });
 
@@ -187,6 +226,11 @@ describe('committed outputs match config/admin-auth-uids.json', () => {
     assert.equal(readFileSync(PATHS.rulesOut, 'utf8'), renderRulesFile(template, uids));
     assert.equal(readFileSync(PATHS.recoveryOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-recovery' }));
     assert.equal(readFileSync(PATHS.compatOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-compat' }));
+    assert.equal(readFileSync(PATHS.freezeOut, 'utf8'), renderRulesFile(template, uids, { variant: 'freeze' }));
+    assert.equal(
+      readFileSync(PATHS.r2Out, 'utf8'),
+      renderRulesFile(readFileSync(PATHS.r2Template, 'utf8'), uids, { variant: 'r2' }),
+    );
     assert.equal(readFileSync(PATHS.dartOut, 'utf8'), renderDartAllowlist(uids));
   });
   it('rules, recovery rules and Dart name exactly the same UIDs', () => {
@@ -197,6 +241,8 @@ describe('committed outputs match config/admin-auth-uids.json', () => {
     assert.deepEqual(norm(fromRules(PATHS.rulesOut)), norm(inDart));
     assert.deepEqual(norm(fromRules(PATHS.recoveryOut)), norm(inDart));
     assert.deepEqual(norm(fromRules(PATHS.compatOut)), norm(inDart));
+    assert.deepEqual(norm(fromRules(PATHS.freezeOut)), norm(inDart));
+    assert.deepEqual(fromRules(PATHS.r2Out), [], 'R2 names no allowlisted uid at all');
     assert.deepEqual(norm(inDart), norm(uids));
   });
 });
@@ -272,6 +318,42 @@ describe('the generator CLI and the deployment guard', () => {
       assert.equal(run(dir, '--check-deploy', '--variant', 'r1-compat').status, 0);
       assert.equal(run(dir, '--check-deploy', '--variant', 'r1').status, 1, 'compat installed is not R1');
       assert.equal(run(dir, '--check-deploy', '--variant', 'r1-recovery').status, 1, 'compat installed is not recovery');
+    });
+  });
+
+  it('--check detects a hand-edited freeze or r2 ruleset, and --check-deploy tells all five variants apart', () => {
+    withSandbox([UID_A], (dir) => {
+      run(dir);
+      for (const name of ['freeze', 'r2']) {
+        const path = join(dir, 'config', 'generated', `database.rules.${name}.json`);
+        const original = readFileSync(path, 'utf8');
+        writeFileSync(path, original.replace('"auth != null"', '"true"'));
+        assert.equal(run(dir, '--check').status, 1, `a hand-edited ${name} ruleset must be caught`);
+        writeFileSync(path, original);
+        assert.equal(run(dir, '--check').status, 0);
+      }
+      const variants = ['r1', 'r1-recovery', 'r1-compat', 'freeze', 'r2'];
+      for (const installed of variants) {
+        run(dir, '--install-rules', '--variant', installed);
+        for (const asked of variants) {
+          assert.equal(
+            run(dir, '--check-deploy', '--variant', asked).status,
+            asked === installed ? 0 : 1,
+            `${installed} installed, ${asked} asked`,
+          );
+        }
+      }
+    });
+  });
+
+  it('--last-rules-variant reads the deployment log: the last rules entry, ignoring functions, or none', () => {
+    withSandbox([UID_A], (dir) => {
+      assert.equal(run(dir, '--last-rules-variant').stdout.trim(), 'none');
+      const log = join(dir, 'config', 'deployments', 'allowlist-deployments.jsonl');
+      mkdirSync(join(dir, 'config', 'deployments'), { recursive: true });
+      const line = (kind, variant) => `${JSON.stringify({ kind, variant })}\n`;
+      writeFileSync(log, line('rules', 'r1') + line('rules', 'freeze') + line('functions', null));
+      assert.equal(run(dir, '--last-rules-variant').stdout.trim(), 'freeze');
     });
   });
 

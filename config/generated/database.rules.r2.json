@@ -1,0 +1,116 @@
+{
+  "rules": {
+    "AppConfig": {
+      ".read": "true",
+      ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')"
+    },
+    "Teams": {
+      ".read": "auth != null",
+      ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')"
+    },
+    "AllDAUComps": {
+      ".read": "auth != null",
+      ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')"
+    },
+    "DAUCompsGames": {
+      ".read": "auth != null",
+      ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+      "$compDBKey": {
+        ".indexOn": "DateUtc"
+      }
+    },
+    "AllTippers": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "authuid",
+        "email",
+        "logon"
+      ],
+      "$tipperId": {
+        ".validate": "newData.hasChild('name')",
+        "photoURL": {
+          ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('AuthIndex').child(auth.uid).val() === $tipperId)",
+          ".validate": "newData.isString() && newData.val().length <= 2048"
+        },
+        "compsParticipatedIn": {
+          ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+          ".validate": "newData.hasChildren() || newData.val() === null"
+        }
+      }
+    },
+    "AuthIndex": {
+      "$uid": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && auth.uid === $uid"
+      }
+    },
+    "TipperPrivate": {
+      ".read": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+      "$tipperId": {
+        ".read": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('AuthIndex').child(auth.uid).val() === $tipperId)"
+      }
+    },
+    "AllTips": {
+      "$comp": {
+        ".read": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+        "$tipperId": {
+          ".read": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('AuthIndex').child(auth.uid).val() === $tipperId) || (((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+          ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+          "$game": {
+            ".read": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('AuthIndex').child(auth.uid).val() === $tipperId) || (((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin') || (auth != null && now >= root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').val())",
+            ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin') || ((((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('AuthIndex').child(auth.uid).val() === $tipperId) && now < root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').val())",
+            ".validate": "(newData.hasChildren(['r', 't']) && newData.child('t').val() <= now / 1000 + 86400) || newData.hasChildren(['gameResult', 'submittedTimeUTC'])",
+            "r": {
+              ".validate": "newData.isString() && newData.val().matches(/^[a-ez]$/)"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            "gameResult": {
+              ".validate": "newData.isString()"
+            },
+            "submittedTimeUTC": {
+              ".validate": "newData.isString()"
+            },
+            "legacyTip": {},
+            "$other": {
+              ".validate": "false"
+            }
+          }
+        }
+      }
+    },
+    "Stats": {
+      ".read": "auth != null",
+      "$comp": {
+        "live_scores_backend_v1": {
+          "$game": {
+            "history": {
+              "$entry": {
+                ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin') || (((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && !data.exists() && newData.child('tipperID').val() === root.child('AuthIndex').child(auth.uid).val() && now >= root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').val() && !(root.child('DAUCompsGames').child($comp).child($game).child('HomeTeamScore').exists() && root.child('DAUCompsGames').child($comp).child($game).child('AwayTeamScore').exists()))",
+                ".validate": "newData.hasChildren(['tipperID', 'scoreTeam', 'interimScore', 't'])",
+                "tipperID": {
+                  ".validate": "newData.isString()"
+                },
+                "scoreTeam": {
+                  ".validate": "newData.val() === 'home' || newData.val() === 'away'"
+                },
+                "interimScore": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 300 && newData.val() % 1 === 0"
+                },
+                "t": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      ".read": "auth != null"
+    }
+  }
+}

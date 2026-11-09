@@ -1,0 +1,112 @@
+{
+  "rules": {
+    "AppConfig": {
+      ".read": "true",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "Teams": {
+      ".read": "auth != null",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "AllDAUComps": {
+      ".read": "auth != null",
+      ".write": "{{IS_ADMIN}}"
+    },
+    "DAUCompsGames": {
+      ".read": "auth != null",
+      ".write": "{{IS_ADMIN}}",
+      "$compDBKey": {
+        ".indexOn": "DateUtc"
+      }
+    },
+    "AllTippers": {
+      ".read": "auth != null",
+      ".indexOn": ["authuid", "email", "logon"],
+      "$tipperId": {
+        ".validate": "newData.hasChild('name')",
+        "photoURL": {
+          ".write": "{{IS_OWNER}}",
+          ".validate": "newData.isString() && newData.val().length <= 2048"
+        },
+        "compsParticipatedIn": {
+          ".write": "{{IS_ADMIN}}",
+          ".validate": "newData.hasChildren() || newData.val() === null"
+        }
+      }
+    },
+    "AuthIndex": {
+      "$uid": {
+        ".read": "{{SIGNED_IN}} && auth.uid === $uid"
+      }
+    },
+    "TipperPrivate": {
+      ".read": "{{IS_ADMIN}}",
+      "$tipperId": {
+        ".read": "{{IS_OWNER}}"
+      }
+    },
+    "AllTips": {
+      "$comp": {
+        ".read": "{{IS_ADMIN}}",
+        "$tipperId": {
+          ".read": "{{IS_OWNER}} || {{IS_ADMIN}}",
+          ".write": "{{IS_ADMIN}}",
+          "$game": {
+            ".read": "{{IS_OWNER}} || {{IS_ADMIN}} || (auth != null && now >= {{KICKOFF}})",
+            ".write": "{{IS_ADMIN}} || ({{IS_OWNER}} && now < {{KICKOFF}})",
+            ".validate": "(newData.hasChildren(['r', 't']) && newData.child('t').val() <= now / 1000 + 86400) || newData.hasChildren(['gameResult', 'submittedTimeUTC'])",
+            "r": {
+              ".validate": "newData.isString() && newData.val().matches(/^[a-ez]$/)"
+            },
+            "t": {
+              ".validate": "newData.isNumber() && newData.val() > 0"
+            },
+            "gameResult": {
+              ".validate": "newData.isString()"
+            },
+            "submittedTimeUTC": {
+              ".validate": "newData.isString()"
+            },
+            "legacyTip": {},
+            "$other": {
+              ".validate": "false"
+            }
+          }
+        }
+      }
+    },
+    "Stats": {
+      ".read": "auth != null",
+      "$comp": {
+        "live_scores_backend_v1": {
+          "$game": {
+            "history": {
+              "$entry": {
+                ".write": "{{IS_ADMIN}} || ({{VALID_CALLER}} && !data.exists() && newData.child('tipperID').val() === {{CALLER}} && now >= {{KICKOFF}} && !({{OFFICIAL_SCORE}}))",
+                ".validate": "newData.hasChildren(['tipperID', 'scoreTeam', 'interimScore', 't'])",
+                "tipperID": {
+                  ".validate": "newData.isString()"
+                },
+                "scoreTeam": {
+                  ".validate": "newData.val() === 'home' || newData.val() === 'away'"
+                },
+                "interimScore": {
+                  ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 300 && newData.val() % 1 === 0"
+                },
+                "t": {
+                  ".validate": "newData.isNumber() && newData.val() === now"
+                },
+                "$other": {
+                  ".validate": "false"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Diagnostics": {
+      ".read": "auth != null"
+    }
+  }
+}

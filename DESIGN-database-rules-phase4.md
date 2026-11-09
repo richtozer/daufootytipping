@@ -1298,6 +1298,99 @@ Order: the Dart codebase, then the TypeScript one.
   March 2027. Nothing in this repository calls it, but whether the project still holds Runtime Config values has not
   been checked.
 
+### 6j. Progress: M6, the freeze and R2 rulesets and the rollback rehearsal (9 November 2026; built and tested, not installed, not deployed)
+
+**Built** (nothing is installed in `database.rules.json`, which is still R1-compat; nothing is deployed):
+- Two more variants of the rules generator (`scripts/build_admin_allowlist.mjs`), written to
+  `config/generated/database.rules.freeze.json` and `database.rules.r2.json`. `freeze` is derived from R1-compat.
+  `r2` has its own template, `config/database.rules.r2.template.json`, and takes **no allowlist**: an administrator
+  is the validated private role (`TipperPrivate[AuthIndex[uid]].tipperRole === 'admin'` where that record's `authuid`
+  is the uid), every lookup guarded with `exists()` so no outcome rests on a rule error. The output is identical
+  whatever the allowlist holds, and a test asserts no uid literal appears in it.
+- `scripts/deploy-database-rules.sh` accepts both and **enforces the cutover order from the deployment log**:
+  `freeze` only straight after `r1-compat`, `r2` only straight after `freeze` (redeploying the same one, and rolling
+  back to `r1-compat` or `r1`, are never refused). `--out-of-order` overrides it with a warning; a dry run reports
+  the refusal too. Each prints what it is.
+
+**Freeze (cutover step A1).** R1-compat with every identity-bearing write closed to all clients, administrators
+included: no record created, deleted or replaced, no whole-node `AllTippers` write, `name`, `email`, `logon` and
+`isAnonymous` closed, and the tipper-level `AllTips` write (a tip-node merge or delete) closed. Kept: reads, tipping at
+the game level, photos, login timestamps, device tokens, live-score entries, the admin-only reference data, and the
+paid toggle, now a narrow leaf write for allowlisted administrators on `compsParticipatedIn`. **Known cost, accepted:**
+a 1.4.x client writes `logon`/`isAnonymous` at sign-in only when they differ from the stored record, so a settled
+account signs in normally, but an account whose stored `logon` differs from its email has its whole sign-in batch
+refused for the length of the window (tested; the window is about 30 minutes at 04:00 and by February few 1.4.x
+clients remain).
+
+**R2, rule by rule** (original design D1 to D9, as built):
+- *Administrator and owner:* the validated private role and the two-way link, as above. A retired allowlist uid, a
+  user whose PUBLIC record says admin, a tampered index, an anonymous session with a perfect link and an unlinked user
+  are none of them administrators or owners.
+- *`AllTippers`:* readable by any session (an anonymous one included), not before sign-in. **No client creates,
+  deletes, replaces or renames a record, administrators included.** The only direct writes are the owner's `photoURL`
+  (a string of at most 2048 characters) and an administrator's `compsParticipatedIn` (the paid toggle). The login
+  timestamps are not client writes: the callables stamp them. The record must keep its `name`.
+- *`AuthIndex` and `TipperPrivate`:* as in R1-compat, but the administrator read is the validated role. No client
+  writes either.
+- *`AllTips`:* the competition level is administrators only; a tipper's own node is readable by the owner and
+  administrators; a single game's tip is readable by anyone **with a session** once the game has started, and by its
+  owner and administrators before. The owner writes only before kickoff (the numeric `DateUtcEpochMs`, to the
+  millisecond); administrators write at any time and may merge or delete a whole node. A missing or non-numeric
+  kickoff fails closed for both. The shape is the R1 shape (compact or legacy) with `t` no more than a day ahead of
+  server time.
+- *`Stats`:* readable by any session. The **only** client write is a live-score `history` entry: create-only (no
+  overwrite, no delete by a tipper), by a validated linked tipper for themselves (`tipperID` is their own), only once
+  the game has started and before it has an official score, with `t` equal to the database's own `now`, a whole-number
+  score from 0 to 300, `scoreTeam` home or away, and nothing else in the entry. `current` and every scoring branch
+  are server-only. An administrator may delete an entry (a correction).
+- *Closed to every client by absence from the rules:* `AliasIndex`, `LogonIndex`, `Placeholders`, `ServerConfig`,
+  `ClaimMoves`, `TokenOwners`, `CreateIntents`, `IdentityLocks`, `IdentityOps` and `AllTippersTokens`, and anything
+  not named (default deny).
+- *Deliberate differences from the original text:* a started tip is readable only **with a session** (the design's
+  `now >= kickoff` alone would have let an unauthenticated request read it); `Diagnostics` is readable by any session
+  rather than administrators only, because the Android resume diagnostic reads it; the history entry takes the
+  server's `t` in **milliseconds**, and the aggregator now reads that (a follow-up to M5: it had treated only
+  microseconds as plausible and would have ignored the one time a client cannot choose).
+
+**Tested.** Against the rules engine: `r2.rules.test.mjs` (67), `freeze.rules.test.mjs` (36), and
+`client_matrix.rules.test.mjs`, **156 cells: 38 operations a 1.4.x client or an R2 client performs against each of R1,
+R1-compat, freeze and R2, every cell stated before it was run**, with each refusal also checked to leave the data
+exactly as it was. All 156 matched. Tooling: the generator, drift detection, the five variants told apart, and the
+deploy order guard (`allowlist.test.mjs`, `deploy_scripts.test.mjs`). **Twenty deliberate breakages of the rules were
+each caught** (administrator read from the public record, the uid comparison dropped, the ownership check dropped,
+anonymous sessions let in, started tips readable without a session, the kickoff lock dropped, history made
+overwritable or naming another tipper or accepting a client time or accepted after an official score, a client write
+on `current`, a rename and a photo for anyone, the allowlist back in; and in freeze: the whole-node write, record
+creation, rename, tip-node merges left open, and the paid toggle open to anyone or lost). One real finding came from
+the first run: the unauthenticated read of a started tip.
+
+**The rollback rehearsal and restore tool (design section 9).** `functions_dart/bin/identity_restore.dart` plans, and
+with `--apply --project <id>` writes, the copy of each purged field from `/TipperPrivate` back to the public record. It
+never overwrites a field the public record has, writes `authuid: ''` for an unlinked tipper (the legacy way of saying
+"no account"; 1.4.x reads the field as text), does not bring back the deleted legacy `active` and `tipperID`, and
+**blocks without writing** for a tipper with no public record or no role. `--apply` also refuses unless the identity
+mode is `freeze` or `off` and nothing is in flight, re-reads and requires the identical plan, writes one update with
+triggers suppressed, then re-reads and requires an empty plan. It prints counts and opaque ids only; its `--out` patch
+holds email addresses and belongs under `test/data/`. Tested as a planner (12), as a CLI against in-memory stores (17,
+including the Firebase CLI store through a fake runner), and as a **rehearsal on the emulator** (9): a realistic
+pre-cutover database (linked, administrator, unlinked, no-alias, anonymous, legacy-field tippers), a model of cutover
+step B (the plan's own definition), the restore through the same code the owner runs, and a comparison with what was
+there before: identical bar the two deleted legacy fields and the placeholder name. Eleven breakages of the restore
+were each caught. **The real purge tool is M8's**; its tests should run this same round trip with it in place of the
+model in the rehearsal.
+
+**For M7 and M8, from the rules.** The R2 client must: write a history entry as `{tipperID, scoreTeam, interimScore,
+t: ServerValue.timestamp}` and nothing else; read other tippers' tips game by game after kickoff, never at the tipper
+or competition level; never write `name`, `email`, `logon`, the timestamps or tokens; and sign in (anonymously, for
+browsing) before attaching any listener other than `AppConfig`. The admin screens that edit a tipper must call the
+M4c callables, not write the record.
+
+**Still to do before the cutover.** (1) **Validate both rulesets against production without deploying** (the Firebase
+CLI's `deploy --only database --dry-run` checks the rules syntax with the service): production's rules compiler has
+limits (expression length, depth) that the emulator may not enforce, and R2's longest expressions are about a thousand
+characters. It contacts production, so it needs the owner's separate go; the sooner the better, so a limit is found
+months before the window. (2) The rehearsal of the real purge in M8. (3) M7's client against these rules.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the

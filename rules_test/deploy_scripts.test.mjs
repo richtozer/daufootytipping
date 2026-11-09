@@ -329,6 +329,96 @@ describe('deploy-database-rules.sh', () => {
     });
   });
 
+  describe('the cutover rulesets go out in order', () => {
+    const install = (sb, variant) => {
+      node(sb, '--install-rules', '--variant', variant);
+      commitAll(sb);
+    };
+    const go = (sb, variant, ...extra) => deploy(sb, ['--yes', '--variant', variant, ...DEMO, ...extra]);
+
+    it('r1-compat, then freeze, then r2, each recorded, each saying what it is', () => {
+      withSandbox([UID_A], (sb) => {
+        prepare(sb, 'r1-compat');
+        assert.equal(go(sb, 'r1-compat').status, 0);
+
+        install(sb, 'freeze');
+        const frozen = go(sb, 'freeze');
+        assert.equal(frozen.status, 0, frozen.stdout + frozen.stderr);
+        assert.match(frozen.stdout, /FREEZE ruleset/);
+
+        install(sb, 'r2');
+        const final = go(sb, 'r2');
+        assert.equal(final.status, 0, final.stdout + final.stderr);
+        assert.match(final.stdout, /R2 \(FINAL\) ruleset/);
+        assert.match(final.stdout, /Rollback is r1-compat, never plain r1/);
+
+        assert.deepEqual(recordLines(sb).map((entry) => entry.variant), ['r1-compat', 'freeze', 'r2']);
+      });
+    });
+
+    it('r2 is refused straight after r1-compat, with the reason, and nothing is deployed', () => {
+      withSandbox([UID_A], (sb) => {
+        prepare(sb, 'r1-compat');
+        assert.equal(go(sb, 'r1-compat').status, 0);
+        install(sb, 'r2');
+        const refused = go(sb, 'r2');
+        assert.equal(refused.status, 1);
+        assert.match(refused.stderr, /deployed straight after freeze/);
+        assert.match(refused.stderr, /last recorded rules\s+deployment is 'r1-compat'/);
+        assert.equal(recordLines(sb).length, 1, 'only the r1-compat deployment is recorded');
+      });
+    });
+
+    it('freeze is refused when nothing is recorded, or when the last deployment was r1', () => {
+      withSandbox([UID_A], (sb) => {
+        prepare(sb, 'freeze');
+        const none = go(sb, 'freeze');
+        assert.equal(none.status, 1);
+        assert.equal(deployed(sb), '');
+        assert.match(none.stderr, /'none'/);
+      });
+      withSandbox([UID_A], (sb) => {
+        prepare(sb, 'r1');
+        assert.equal(go(sb, 'r1').status, 0);
+        install(sb, 'freeze');
+        assert.equal(go(sb, 'freeze').status, 1);
+      });
+    });
+
+    it('--out-of-order overrides the order, with a warning, and the dry run checks the order too', () => {
+      withSandbox([UID_A], (sb) => {
+        prepare(sb, 'r2');
+        assert.equal(go(sb, 'r2', '--dry-run').status, 1, 'a dry run must tell you it would be refused');
+        const forced = go(sb, 'r2', '--out-of-order');
+        assert.equal(forced.status, 0, forced.stdout + forced.stderr);
+        assert.match(forced.stdout, /WARNING: --out-of-order/);
+        assert.equal(recordLines(sb)[0].variant, 'r2');
+      });
+    });
+
+    it('redeploying the same cutover ruleset, and rolling back to r1-compat, are never refused', () => {
+      withSandbox([UID_A], (sb) => {
+        // A deploy leaves the log uncommitted, and the script refuses a dirty tree, so commit between.
+        const goClean = (variant) => {
+          const result = go(sb, variant);
+          commitAll(sb);
+          return result.status;
+        };
+        prepare(sb, 'r1-compat');
+        assert.equal(goClean('r1-compat'), 0);
+        install(sb, 'freeze');
+        assert.equal(goClean('freeze'), 0);
+        assert.equal(goClean('freeze'), 0, 'a retry of the same ruleset');
+        install(sb, 'r2');
+        assert.equal(goClean('r2'), 0);
+        assert.equal(goClean('r2'), 0, 'a retry of r2');
+        install(sb, 'r1-compat');
+        assert.equal(goClean('r1-compat'), 0, 'the rollback target');
+        assert.deepEqual(recordLines(sb).map((entry) => entry.variant), ['r1-compat', 'freeze', 'freeze', 'r2', 'r2', 'r1-compat']);
+      });
+    });
+  });
+
   it('rejects an unknown variant', () => {
     withSandbox([UID_A], (sb) => {
       const r = deploy(sb, ['--yes', '--variant', 'open', ...DEMO]);
