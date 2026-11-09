@@ -131,6 +131,17 @@
     },
     "Diagnostics": {
       ".read": "true"
+    },
+    "AuthIndex": {
+      "$uid": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && auth.uid === $uid"
+      }
+    },
+    "TipperPrivate": {
+      ".read": "(auth != null && (auth.uid === 'pxxLNwpafXPsHOcKEiWk6JOtudi2' || auth.uid === 'UTKZKKqcGkcWvc8xv8zaoGwVFkg1' || auth.uid === '7sjTXDkaYoRFwLSWzrCgcXuyTSD2' || auth.uid === '2lnOuVShdqdEhnGp28GZYcViuok1'))",
+      "$tipperId": {
+        ".read": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).val() === $tipperId && data.child('authuid').val() === auth.uid"
+      }
     }
   }
 }
