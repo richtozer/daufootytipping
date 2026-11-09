@@ -292,6 +292,27 @@ void main() {
     );
 
     test(
+      'a purged public record whose private copy is missing blocks the whole restore',
+      () async {
+        await db.ref('TipperPrivate/tLinked').remove();
+        final purged = await tippersNow();
+        final run = await restore(<String>[
+          '--apply',
+          '--project',
+          'demo-dau-rules',
+        ]);
+        expect(run.code, 1);
+        expect(run.err, contains('tLinked'));
+        expect(run.err, contains('no private one'));
+        expect(
+          await tippersNow(),
+          purged,
+          reason: 'nothing is written while any tipper is blocked',
+        );
+      },
+    );
+
+    test(
       'a tipper whose public record is missing blocks the whole restore',
       () async {
         await db.ref('AllTippers/tAdmin').remove();

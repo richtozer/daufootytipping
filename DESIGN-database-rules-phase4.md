@@ -1385,11 +1385,35 @@ or competition level; never write `name`, `email`, `logon`, the timestamps or to
 browsing) before attaching any listener other than `AppConfig`. The admin screens that edit a tipper must call the
 M4c callables, not write the record.
 
-**Still to do before the cutover.** (1) **Validate both rulesets against production without deploying** (the Firebase
-CLI's `deploy --only database --dry-run` checks the rules syntax with the service): production's rules compiler has
-limits (expression length, depth) that the emulator may not enforce, and R2's longest expressions are about a thousand
-characters. It contacts production, so it needs the owner's separate go; the sooner the better, so a limit is found
-months before the window. (2) The rehearsal of the real purge in M8. (3) M7's client against these rules.
+**Review fix: the restore also checks the records that have no private copy.** The planner first looked only at
+`TipperPrivate`, so a purged public record whose private copy was missing would have been skipped and the run reported
+as verified. It now checks both sets of ids and **blocks** a public record that has no private copy to restore from
+and lacks `authuid` or `tipperRole` (what the legacy shape requires); one that already has both is left alone. Tested
+as a planner, in the CLI and in the emulator rehearsal; removing the check fails four tests.
+
+**Validating the rules against production, without deploying.** `scripts/validate-database-rules.sh --project <id>`
+(default: `freeze` and `r2`; `--variant all` for the five) runs `firebase deploy --only database --dry-run` for each,
+from a throwaway `firebase.json` that points straight at the generated file. The Firebase CLI submits the rules to the
+service for validation (`dryRun: true`) and skips the release. `--dry-run` is hard-coded, `database.rules.json` is
+never touched (nothing to install or put back), the project must be named, and it refuses stale generated rules.
+Tested against the stub firebase (7 tests). **It contacts the project, so it runs only on the owner's explicit go.**
+Production's rules compiler has limits (expression length, depth) the emulator may not enforce, and R2's longest
+expressions are about a thousand characters, so it is worth doing months before the window rather than in it.
+
+**Dependencies to keep before the cutover** (from the review of `91543eff`):
+1. **Deploy the aggregator's millisecond-`t` support before any R2 client sends that format.** It is committed
+   (`a20fa8f4`) but not deployed; the next Dart release carries it. Until then the deployed aggregator would ignore
+   the server time and fall back to the client's clock.
+2. **M7 must send exactly the allowed history fields** with a server timestamp: `{tipperID, scoreTeam, interimScore,
+   t}`. The client's existing serialized score object (`CrowdSourcedScore.toJson()`) carries `submittedTimeUTC` and
+   `gameComplete`, which the R2 rules reject, so the new client builds the entry itself and does not reuse it.
+3. **Rehearse the rollback again with the real purge tool** once M8 builds it, in place of the model.
+4. **Switch the server's administrator check in the same window as the R2 rules.** The rules no longer use the
+   allowlist, but the Dart admin endpoints and the new callables still do (`requireAdmin`, the compile-time list);
+   changing the rules alone does not retire it. M8 moves them to the validated private role and removes the list.
+
+**Still to do.** The production validation above (owner's go); the real purge and cutover scripts (M8); M7's client
+against these rules.
 
 ## 7. Timeline, back-planned from the season
 

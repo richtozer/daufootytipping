@@ -168,6 +168,102 @@ describe('test isolation (these must hold before anything is deployed)', () => {
   });
 });
 
+describe('validate-database-rules.sh (asks the service to validate; never deploys)', () => {
+  const validate = (sb, args) =>
+    spawnSync('/bin/bash', [join(sb.dir, 'scripts', 'validate-database-rules.sh'), ...args], {
+      cwd: sb.dir,
+      encoding: 'utf8',
+      env: sb.env,
+    });
+  const calls = (sb) => deployed(sb).split('\n').filter(Boolean);
+
+  it('validates freeze and r2 by default, each as a dry run to the explicit project', () => {
+    withSandbox([UID_A], (sb) => {
+      node(sb);
+      const r = validate(sb, DEMO);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.deepEqual(calls(sb), [
+        `deploy --only database --project ${SANDBOX_PROJECT_ID} --dry-run`,
+        `deploy --only database --project ${SANDBOX_PROJECT_ID} --dry-run`,
+      ]);
+      assert.match(r.stdout, /Validating 'freeze'/);
+      assert.match(r.stdout, /Validating 'r2'/);
+      assert.match(r.stdout, /Nothing was deployed/);
+    });
+  });
+
+  it('points each validation at the generated file, and never touches database.rules.json or the record', () => {
+    withSandbox([UID_A], (sb) => {
+      prepare(sb, 'r1-compat'); // the installed ruleset is r1-compat, as in production
+      const installed = read(sb, 'database.rules.json');
+      const r = validate(sb, [...DEMO, '--variant', 'freeze', '--variant', 'r2']);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /rules file: .*config\/generated\/database\.rules\.freeze\.json/);
+      assert.match(r.stdout, /rules file: .*config\/generated\/database\.rules\.r2\.json/);
+      assert.doesNotMatch(r.stdout, /rules file: .*\/database\.rules\.json\b(?!\.)/);
+      assert.equal(read(sb, 'database.rules.json'), installed, 'the installed rules are not replaced');
+      assert.equal(sb.git('diff', '--stat').stdout.trim(), '', 'no tracked file is changed');
+      assert.equal(sb.git('diff', '--cached', '--stat').stdout.trim(), '');
+      assert.equal(recordLines(sb).length, 0, 'validation records no deployment');
+    });
+  });
+
+  it('--variant all validates the five, and every call is a dry run', () => {
+    withSandbox([UID_A], (sb) => {
+      node(sb);
+      const r = validate(sb, [...DEMO, '--variant', 'all']);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.equal(calls(sb).length, 5);
+      for (const call of calls(sb)) assert.match(call, /--dry-run$/);
+    });
+  });
+
+  it('a variant the service rejects fails the run, and the others are still reported', () => {
+    withSandbox([UID_A], (sb) => {
+      node(sb);
+      // The stub refuses any project that is not a demo- one, standing in for a rejection.
+      const r = validate(sb, ['--project', 'not-a-demo-project']);
+      assert.equal(r.status, 1);
+      assert.match(r.stderr, /RESULT freeze: FAILED/);
+      assert.match(r.stderr, /RESULT r2: FAILED/);
+      assert.match(r.stderr, /At least one rule set was rejected/);
+      assert.equal(deployed(sb), '', 'the stub recorded no deploy');
+    });
+  });
+
+  it('requires an explicit project and a known variant, and calls firebase for neither', () => {
+    withSandbox([UID_A], (sb) => {
+      node(sb);
+      const noProject = validate(sb, []);
+      assert.equal(noProject.status, 2);
+      assert.match(noProject.stderr, /--project <id> is required/);
+      const unknown = validate(sb, [...DEMO, '--variant', 'open']);
+      assert.equal(unknown.status, 2);
+      assert.equal(deployed(sb), '');
+    });
+  });
+
+  it('refuses when the generated rules are stale, validating nothing', () => {
+    withSandbox([UID_A], (sb) => {
+      node(sb);
+      const path = join(sb.dir, 'config', 'generated', 'database.rules.r2.json');
+      writeFileSync(path, readFileSync(path, 'utf8').replace('"auth != null"', '"true"'));
+      const r = validate(sb, DEMO);
+      assert.equal(r.status, 1);
+      assert.match(r.stderr, /STALE/);
+      assert.equal(deployed(sb), '');
+    });
+  });
+
+  it('cannot release rules: the dry-run flag is in the script, not an option', () => {
+    const source = readFileSync(join(repoRoot, 'scripts', 'validate-database-rules.sh'), 'utf8');
+    const deployLines = source.split('\n').filter((line) => /deploy --only database/.test(line) && !line.trimStart().startsWith('#'));
+    assert.equal(deployLines.length, 1);
+    assert.match(deployLines[0], /--dry-run/);
+    assert.doesNotMatch(source, /--yes|--force|--install-rules/);
+  });
+});
+
 describe('deploy-database-rules.sh', () => {
   it('refuses an empty allowlist and never reaches firebase deploy', () => {
     withSandbox([], (sb) => {

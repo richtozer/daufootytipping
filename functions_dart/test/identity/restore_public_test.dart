@@ -220,6 +220,72 @@ void main() {
       expect(plan.patch.keys.where((k) => k.endsWith('/name')), isEmpty);
     });
 
+    group('a public record with no private copy', () {
+      test('that lacks what the legacy shape requires blocks the restore', () {
+        final plan = planPublicIdentityRestore(
+          tippers: <String, Object?>{
+            't1': <String, Object?>{'name': 'Alice'},
+            't2': <String, Object?>{'name': 'Bob'},
+          },
+          tipperPrivate: <String, Object?>{'t2': privateOf('uidB')},
+        );
+        expect(plan.isBlocked, true);
+        expect(plan.blocking.single.tipperId, 't1');
+        expect(
+          plan.blocking.single.problem,
+          contains('authuid and tipperRole'),
+        );
+        expect(plan.blocking.single.problem, contains('no private one'));
+      });
+
+      test('names only what is missing', () {
+        final plan = planPublicIdentityRestore(
+          tippers: <String, Object?>{
+            'tNoRole': <String, Object?>{'name': 'A', 'authuid': 'uid'},
+            'tNoUid': <String, Object?>{'name': 'B', 'tipperRole': 'tipper'},
+          },
+          tipperPrivate: const <String, Object?>{},
+        );
+        final problems = {for (final f in plan.blocking) f.tipperId: f.problem};
+        expect(problems['tNoRole'], contains('tipperRole'));
+        expect(problems['tNoRole'], isNot(contains('authuid')));
+        expect(problems['tNoUid'], contains('authuid'));
+        expect(problems['tNoUid'], isNot(contains('tipperRole')));
+      });
+
+      test(
+        'that already has both is fine: it was never purged, and nothing is written for it',
+        () {
+          final plan = planPublicIdentityRestore(
+            tippers: <String, Object?>{
+              't1': <String, Object?>{
+                'name': 'A',
+                'authuid': '',
+                'tipperRole': 'tipper',
+              },
+            },
+            tipperPrivate: const <String, Object?>{},
+          );
+          expect(plan.isBlocked, false);
+          expect(plan.isEmpty, true);
+        },
+      );
+
+      test(
+        'a private entry that is not a record counts as no private copy',
+        () {
+          final plan = planPublicIdentityRestore(
+            tippers: <String, Object?>{
+              't1': <String, Object?>{'name': 'A'},
+            },
+            tipperPrivate: <String, Object?>{'t1': 'junk'},
+          );
+          expect(plan.isBlocked, true);
+          expect(plan.blocking.single.tipperId, 't1');
+        },
+      );
+    });
+
     test('is not confused by an empty or missing database, or by junk', () {
       for (final nothing in <Object?>[
         null,
@@ -237,11 +303,16 @@ void main() {
       }
       final plan = planPublicIdentityRestore(
         tippers: <String, Object?>{
-          't1': <String, Object?>{'name': 'A'},
+          't1': <String, Object?>{
+            'name': 'A',
+            'authuid': 'u',
+            'tipperRole': 'tipper',
+          },
         },
         tipperPrivate: <String, Object?>{'t1': 'not a record', 't2': null},
       );
       expect(plan.isEmpty, true);
+      expect(plan.isBlocked, false);
     });
 
     test('plans in a fixed order, whatever order the database returns', () {

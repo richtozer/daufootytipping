@@ -62,7 +62,10 @@ class RestorePlan {
 /// - The legacy fields in [tipperLegacyFieldNames] are not brought back; the
 ///   purge deleted them on purpose.
 /// - A tipper with no `tipperRole`, or with no public record at all, cannot be
-///   restored and blocks the plan.
+///   restored and blocks the plan. So does a public record that has no private
+///   copy to restore from *and* lacks `authuid` or `tipperRole` (the fields the
+///   legacy shape requires): it was purged, and nothing can put it back. Both
+///   sets of ids are checked, not only the private ones.
 ///
 /// [tippers] and [tipperPrivate] are the two nodes as read, `null` when absent.
 /// Running the plan on data that has already been restored gives an empty plan.
@@ -75,7 +78,10 @@ RestorePlan planPublicIdentityRestore({
       ? tipperPrivate
       : const <Object?, Object?>{};
 
-  final ids = privateRecords.keys.map((key) => key.toString()).toList()..sort();
+  final ids = <String>{
+    ...privateRecords.keys.map((key) => key.toString()),
+    ...publicRecords.keys.map((key) => key.toString()),
+  }.toList()..sort();
   final patch = <String, Object?>{};
   final blocking = <RestoreFinding>[];
   var recordsToRestore = 0;
@@ -85,6 +91,24 @@ RestorePlan planPublicIdentityRestore({
     final privateRecord = privateRecords[id];
     final publicRecord = publicRecords[id];
     if (privateRecord is! Map) {
+      // Nothing to restore from. Fine if the public record already has what the
+      // legacy shape requires (it was never purged); otherwise it cannot be put right.
+      if (publicRecord is Map) {
+        final lacks = <String>[
+          if (publicRecord['authuid'] is! String) 'authuid',
+          if (publicRecord['tipperRole'] is! String ||
+              (publicRecord['tipperRole'] as String).isEmpty)
+            'tipperRole',
+        ];
+        if (lacks.isNotEmpty) {
+          blocking.add(
+            RestoreFinding(
+              id,
+              'has a public record but no private one to restore ${lacks.join(' and ')} from',
+            ),
+          );
+        }
+      }
       continue;
     }
     if (publicRecord is! Map) {
