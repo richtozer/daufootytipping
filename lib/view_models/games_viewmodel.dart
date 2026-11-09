@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -26,7 +27,6 @@ class GamesViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _gamesStream;
   int _gamesListenerGeneration = 0;
   Future<void> _gamesSnapshotProcessing = Future<void>.value();
-  Completer<void>? _pendingGamesRefreshCompleter;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -38,21 +38,16 @@ class GamesViewModel extends ChangeNotifier {
 
   final DAUCompsViewModel _dauCompsViewModel;
 
-  final Duration _postWriteRefreshTimeout;
-  bool _isSavingBatch = false;
-
   // Constructor
   GamesViewModel(
     this.selectedDAUComp,
     this._dauCompsViewModel, {
     TeamsViewModel? teamsViewModel,
     DatabaseReference? database,
-    Duration postWriteRefreshTimeout = const Duration(seconds: 5),
     bool autoInitialize = true,
   }) : _ownsTeamsViewModel =
            teamsViewModel == null && !di.isRegistered<TeamsViewModel>(),
-       _db = database ?? configuredDatabaseRef(),
-       _postWriteRefreshTimeout = postWriteRefreshTimeout {
+       _db = database ?? configuredDatabaseRef() {
     _teamsViewModel =
         teamsViewModel ??
         (di.isRegistered<TeamsViewModel>()
@@ -175,9 +170,7 @@ class GamesViewModel extends ChangeNotifier {
         },
       );
       if (snapshot.exists) {
-        final allGames = Map<String, dynamic>.from(
-          snapshot.value as dynamic,
-        );
+        final allGames = Map<String, dynamic>.from(snapshot.value as dynamic);
 
         // Deserialize the games
         List<Game> gamesList = allGames.entries.map((entry) {
@@ -260,11 +253,9 @@ class GamesViewModel extends ChangeNotifier {
           ),
         );
       }
-      _completePendingGamesRefresh();
-    } catch (e, stackTrace) {
+    } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
-      _completePendingGamesRefresh(error: e, stackTrace: stackTrace);
       rethrow;
     } finally {
       notifyListeners();
@@ -275,128 +266,6 @@ class GamesViewModel extends ChangeNotifier {
           details: <String, Object?>{'source': source},
         );
       }
-    }
-  }
-
-  void _completePendingGamesRefresh({Object? error, StackTrace? stackTrace}) {
-    final completer = _pendingGamesRefreshCompleter;
-    if (completer == null || completer.isCompleted) {
-      return;
-    }
-    if (error != null) {
-      completer.completeError(error, stackTrace);
-    } else {
-      completer.complete();
-    }
-  }
-
-  final Map<String, dynamic> updates = {};
-  static const Set<String> _ignoredFixtureAttributes = <String>{
-    'Winner',
-  };
-
-  Future<void> updateGameAttribute(
-    String gameDbKey,
-    String attributeName,
-    dynamic attributeValue,
-    String league,
-  ) async {
-    await initialLoadComplete;
-
-    if (_ignoredFixtureAttributes.contains(attributeName)) {
-      return;
-    }
-
-    //make sure the related team records exist
-    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
-      Team team = Team(
-        dbkey: '$league-$attributeValue',
-        name: attributeValue,
-        league: League.values.firstWhere((e) => e.name == league),
-      );
-      //make sure the related team records exist
-      _teamsViewModel.addTeam(team);
-    }
-
-    //find the game in the local list. it it's there, compare the attribute value and update if different
-    Game? gameToUpdate = await findGame(gameDbKey);
-    if (gameToUpdate != null) {
-      dynamic oldValue = gameToUpdate.toJson()[attributeName];
-      if (_fixtureAttributeDiffers(
-        attributeName,
-        oldValue,
-        attributeValue,
-      )) {
-        log(
-          'Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue',
-        );
-        updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
-            attributeValue;
-      }
-    } else {
-      log('Game: $gameDbKey not found in local list. adding full game record');
-      // add new record to updates Map
-      updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
-          attributeValue;
-    }
-  }
-
-  bool _fixtureAttributeDiffers(
-    String attributeName,
-    dynamic oldValue,
-    dynamic newValue,
-  ) {
-    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
-      return _normalizedFixtureText(oldValue) != _normalizedFixtureText(newValue);
-    }
-    return oldValue != newValue;
-  }
-
-  String _normalizedFixtureText(dynamic value) {
-    return value
-        ?.toString()
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .toLowerCase() ??
-        '';
-  }
-
-  Future<void> saveBatchOfGameAttributes() async {
-    if (_isSavingBatch) return; // Prevent re-entrant updates
-    _isSavingBatch = true;
-    try {
-      // check if there are any updates to save
-      if (updates.isEmpty) {
-        log('GamesViewModel_saveBatchOfGameAttributes: no updates to save');
-        return;
-      }
-      await initialLoadComplete;
-      // turn off listeners
-      await _cancelGamesListener(reason: 'batch_write');
-      await _db.update(updates);
-      updates.clear();
-      // turn listeners back on
-      final refreshCompleter = Completer<void>();
-      _pendingGamesRefreshCompleter = refreshCompleter;
-      _listenToGames();
-      try {
-        await refreshCompleter.future.timeout(_postWriteRefreshTimeout);
-      } on TimeoutException {
-        log(
-          'GamesViewModel_saveBatchOfGameAttributes: timed out waiting for refreshed games snapshot after DB update. Loading current snapshot directly.',
-        );
-        await _applyGamesSnapshot(
-          await _db.child(_gamesPath).get(),
-          source: 'post_write_direct_get',
-        );
-      } finally {
-        if (identical(_pendingGamesRefreshCompleter, refreshCompleter)) {
-          _pendingGamesRefreshCompleter = null;
-        }
-      }
-    } finally {
-      log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
-      _isSavingBatch = false;
     }
   }
 
@@ -510,10 +379,7 @@ class GamesViewModel extends ChangeNotifier {
       if (AppResumeDiagnostics.enabled) {
         AppResumeDiagnostics.record(
           'games_listener_cancel_failed',
-          details: <String, Object?>{
-            ...details,
-            'error': error.toString(),
-          },
+          details: <String, Object?>{...details, 'error': error.toString()},
           anomalous: true,
         );
       }

@@ -4,7 +4,9 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_failure_message.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
+import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -220,33 +222,37 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         return _SaveOutcome.notSaved;
       }
 
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "name",
-        _tipperNameController.text,
-      );
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "email",
-        _tipperEmailController.text,
-      );
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "tipperRole",
-        admin == true
-            ? TipperRole.admin.toString().split('.').last
-            : TipperRole.tipper.toString().split('.').last,
-      );
+      // Name, email and role belong to the server, which checks them (a name
+      // another tipper has, an invalid email, the last administrator) and
+      // changes them together. Only what was edited is sent.
+      final String newName = _tipperNameController.text;
+      final String newEmail = _tipperEmailController.text;
+      final bool nameChanged = newName != _originalName;
+      final bool emailChanged = newEmail != _originalEmail;
+      final bool roleChanged = admin != _originalAdmin;
+      if (nameChanged || emailChanged || roleChanged) {
+        await di<IdentityService>().adminUpdateTipper(
+          tipperId: tipper.dbkey!,
+          name: nameChanged ? newName : null,
+          email: emailChanged ? newEmail : null,
+          role: roleChanged
+              ? (admin ? TipperRole.admin : TipperRole.tipper)
+              : null,
+        );
+      }
 
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "compsParticipatedIn",
-        _paidCompKeys.toList(),
-      );
-
-      await tippersViewModel.saveBatchOfTipperChangesToDb(
-        acknowledgementLimit: defaultWriteAcknowledgementLimit,
-      );
+      // Paid competitions are the one thing an administrator still writes
+      // directly.
+      if (!setEquals(_paidCompKeys, _originalPaidCompKeys)) {
+        await tippersViewModel.updateTipperAttribute(
+          tipper.dbkey!,
+          "compsParticipatedIn",
+          _paidCompKeys.toList(),
+        );
+        await tippersViewModel.saveBatchOfTipperChangesToDb(
+          acknowledgementLimit: defaultWriteAcknowledgementLimit,
+        );
+      }
 
       return _SaveOutcome.saved;
     } on WriteNotConfirmedException catch (e) {
@@ -261,6 +267,25 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         );
       }
       return _SaveOutcome.queued;
+    } on IdentityFailure catch (e) {
+      log('The server refused the change to tipper ${tipper.dbkey}: $e');
+      if (context.mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: Text(adminFailureMessage(e)),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return _SaveOutcome.notSaved;
     } on Exception catch (e) {
       log('Failed to update tipper ${tipper.dbkey}: $e');
       if (context.mounted) {

@@ -117,6 +117,18 @@ class Tipper implements Comparable<Tipper> {
     );
   }
 
+  /// This tipper with the identity fields of its private record (the entry for
+  /// this tipper under `/TipperPrivate`) laid over the public ones: account id,
+  /// role, email, login, the anonymous flag and the account times. For an
+  /// administrator, who may read every private record. A field the private
+  /// record lacks reads as it does in [Tipper.fromJson] (an empty account id, a
+  /// tipper's role), not as whatever the public record still holds.
+  Tipper withPrivateRecord(Map<String, dynamic> privateRecord) {
+    return withIdentityOf(
+      Tipper.fromJson(<String, dynamic>{...privateRecord, 'name': name}, dbkey),
+    );
+  }
+
   static Future<List<Tipper?>> fromJsonList(
     dynamic json,
     Future<List<DAUComp>> Function(List) resolveComps,

@@ -390,9 +390,6 @@ void main() {
 
       expect(vm.isDownloading, isFalse);
       expect(vm.lastFixtureDownloadRanViaCloudFunction, isFalse);
-      verifyNever(
-        () => gamesViewModel.updateGameAttribute(any(), any(), any(), any()),
-      );
     });
 
     test('cloudFunctionFixtureDownloadMessage handles response shapes', () {

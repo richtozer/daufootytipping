@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:dau_shared/constants/identity_reasons.dart' as reasons;
+import 'package:dau_shared/dau_shared.dart' show AdminUpdateTipperResult;
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
+import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -20,9 +23,12 @@ class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
 class MockTippersViewModel extends Mock implements TippersViewModel {}
 
+class MockIdentityService extends Mock implements IdentityService {}
+
 void main() {
   late MockDAUCompsViewModel mockDauCompsViewModel;
   late MockTippersViewModel mockTippersViewModel;
+  late MockIdentityService identity;
   late Tipper tipper;
   late AppControlsViewModel appControls;
 
@@ -86,7 +92,21 @@ void main() {
       ),
     ).thenAnswer((_) async {});
 
+    identity = MockIdentityService();
+    when(
+      () => identity.adminUpdateTipper(
+        tipperId: any(named: 'tipperId'),
+        name: any(named: 'name'),
+        email: any(named: 'email'),
+        role: any(named: 'role'),
+      ),
+    ).thenAnswer(
+      (_) async =>
+          const AdminUpdateTipperResult(tipperId: 'tipper-1', changed: []),
+    );
+
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
+    di.registerSingleton<IdentityService>(identity);
   });
 
   tearDown(() async {
@@ -165,82 +185,21 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a save the server has not answered tells the user it is queued and lets them leave',
-    (tester) async {
-      when(
-        () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
-          acknowledgementLimit: any(named: 'acknowledgementLimit'),
-        ),
-      ).thenThrow(const WriteNotConfirmedException('tipper update'));
-      await pumpEditPage(tester);
+  Future<void> editEmail(WidgetTester tester, String email) async {
+    await tester.enterText(
+      find.byKey(TipperAdminEditPage.emailFieldKey),
+      email,
+    );
+    await tester.pump();
+    await tester.pump();
+  }
 
-      await tester.enterText(
-        find.byKey(TipperAdminEditPage.emailFieldKey),
-        'updated@example.com',
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.tap(find.byIcon(Icons.save));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('is queued on this device'), findsOneWidget);
-      expect(
-        find.byKey(TipperAdminEditPage.emailFieldKey),
-        findsNothing,
-        reason: 'the screen closes instead of staying on a busy indicator',
-      );
-      verify(
-        () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
-          acknowledgementLimit: defaultWriteAcknowledgementLimit,
-        ),
-      ).called(1);
-    },
-  );
-
-  testWidgets('a save the server rejects keeps the user on the screen', (
+  testWidgets('save sends an email change to the server, and never the logon', (
     tester,
   ) async {
-    when(
-      () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
-        acknowledgementLimit: any(named: 'acknowledgementLimit'),
-      ),
-    ).thenAnswer((_) async => throw Exception('permission denied'));
     await pumpEditPage(tester);
 
-    await tester.enterText(
-      find.byKey(TipperAdminEditPage.emailFieldKey),
-      'updated@example.com',
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.save));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Failed to update Tipper record'), findsOneWidget);
-    expect(find.byKey(TipperAdminEditPage.emailFieldKey), findsOneWidget);
-  });
-
-  testWidgets('save does not persist logon updates', (tester) async {
-    await pumpEditPage(tester);
-
-    await tester.enterText(
-      find.byKey(TipperAdminEditPage.emailFieldKey),
-      'updated@example.com',
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(
-      tester
-          .widget<InkResponse>(
-            find.ancestor(
-              of: find.byIcon(Icons.save),
-              matching: find.byType(InkResponse),
-            ),
-          )
-          .onTap,
-      isNotNull,
-    );
+    await editEmail(tester, 'updated@example.com');
     await tester.tap(find.byIcon(Icons.save));
     await tester.pumpAndSettle();
 
@@ -252,14 +211,150 @@ void main() {
       ),
     ).called(1);
     verify(
-      () => mockTippersViewModel.updateTipperAttribute(
-        'tipper-1',
-        'email',
-        'updated@example.com',
+      () => identity.adminUpdateTipper(
+        tipperId: 'tipper-1',
+        name: null,
+        email: 'updated@example.com',
+        role: null,
       ),
     ).called(1);
     verifyNever(
-      () => mockTippersViewModel.updateTipperAttribute(any(), 'logon', any()),
+      () => mockTippersViewModel.updateTipperAttribute(any(), any(), any()),
+    );
+  });
+
+  testWidgets('a name change is sent on its own', (tester) async {
+    await pumpEditPage(tester);
+
+    await tester.enterText(
+      find.byKey(TipperAdminEditPage.nameFieldKey),
+      'New Name',
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.save));
+    await tester.pumpAndSettle();
+
+    verify(
+      () => identity.adminUpdateTipper(
+        tipperId: 'tipper-1',
+        name: 'New Name',
+        email: null,
+        role: null,
+      ),
+    ).called(1);
+  });
+
+  testWidgets('taking away the admin role sends the role', (tester) async {
+    await pumpEditPage(tester);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.save));
+    await tester.pumpAndSettle();
+
+    verify(
+      () => identity.adminUpdateTipper(
+        tipperId: 'tipper-1',
+        name: null,
+        email: null,
+        role: TipperRole.tipper,
+      ),
+    ).called(1);
+  });
+
+  testWidgets('an unchanged form sends nothing', (tester) async {
+    await pumpEditPage(tester);
+
+    expect(
+      tester
+          .widget<InkResponse>(
+            find.ancestor(
+              of: find.byIcon(Icons.save),
+              matching: find.byType(InkResponse),
+            ),
+          )
+          .onTap,
+      isNull,
+    );
+    verifyNever(
+      () => identity.adminUpdateTipper(
+        tipperId: any(named: 'tipperId'),
+        name: any(named: 'name'),
+        email: any(named: 'email'),
+        role: any(named: 'role'),
+      ),
+    );
+  });
+
+  testWidgets(
+    'a refusal from the server is explained and keeps the user here',
+    (tester) async {
+      when(
+        () => identity.adminUpdateTipper(
+          tipperId: any(named: 'tipperId'),
+          name: any(named: 'name'),
+          email: any(named: 'email'),
+          role: any(named: 'role'),
+        ),
+      ).thenThrow(
+        const IdentityFailure(
+          kind: IdentityFailureKind.refused,
+          code: 'failed-precondition',
+          message: 'server words',
+          reason: reasons.identityReasonLastAdmin,
+        ),
+      );
+      await pumpEditPage(tester);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('at least one administrator'), findsOneWidget);
+      expect(find.textContaining('server words'), findsNothing);
+      expect(find.byKey(TipperAdminEditPage.emailFieldKey), findsOneWidget);
+    },
+  );
+
+  testWidgets('a duplicate email is still caught before anything is sent', (
+    tester,
+  ) async {
+    final other = Tipper(
+      dbkey: 'tipper-2',
+      authuid: 'auth-2',
+      email: 'taken@example.com',
+      name: 'Other',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const [],
+    );
+    when(
+      () => mockTippersViewModel.isEmailOrLogonAlreadyAssigned(
+        'taken@example.com',
+        'login@example.com',
+        tipper,
+      ),
+    ).thenAnswer((_) async => other);
+    await pumpEditPage(tester);
+
+    await editEmail(tester, 'taken@example.com');
+    await tester.tap(find.byIcon(Icons.save));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('is already assigned to tipper Other'),
+      findsOneWidget,
+    );
+    verifyNever(
+      () => identity.adminUpdateTipper(
+        tipperId: any(named: 'tipperId'),
+        name: any(named: 'name'),
+        email: any(named: 'email'),
+        role: any(named: 'role'),
+      ),
     );
   });
 
@@ -313,6 +408,135 @@ void main() {
       await tester.tap(find.byIcon(Icons.save));
       await tester.pumpAndSettle();
 
+      verify(
+        () => mockTippersViewModel.updateTipperAttribute(
+          'tipper-1',
+          'compsParticipatedIn',
+          <String>['comp-2026'],
+        ),
+      ).called(1);
+    });
+
+    testWidgets(
+      'a paid change the server has not answered tells the user it is queued and lets them leave',
+      (tester) async {
+        when(
+          () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+            acknowledgementLimit: any(named: 'acknowledgementLimit'),
+          ),
+        ).thenThrow(const WriteNotConfirmedException('tipper update'));
+        await pumpEditPage(tester);
+
+        await tickComp(tester);
+        await tester.tap(find.byIcon(Icons.save));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('is queued on this device'), findsOneWidget);
+        expect(
+          find.byKey(TipperAdminEditPage.emailFieldKey),
+          findsNothing,
+          reason: 'the screen closes instead of staying on a busy indicator',
+        );
+        verify(
+          () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+            acknowledgementLimit: defaultWriteAcknowledgementLimit,
+          ),
+        ).called(1);
+      },
+    );
+
+    testWidgets(
+      'a paid change the server rejects keeps the user on the screen',
+      (tester) async {
+        when(
+          () => mockTippersViewModel.saveBatchOfTipperChangesToDb(
+            acknowledgementLimit: any(named: 'acknowledgementLimit'),
+          ),
+        ).thenAnswer((_) async => throw Exception('permission denied'));
+        await pumpEditPage(tester);
+
+        await tickComp(tester);
+        await tester.tap(find.byIcon(Icons.save));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Failed to update Tipper record'), findsOneWidget);
+        expect(find.byKey(TipperAdminEditPage.emailFieldKey), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an identity change and a paid change are both made, in that order',
+      (tester) async {
+        await pumpEditPage(tester);
+
+        await editEmail(tester, 'updated@example.com');
+        await tickComp(tester);
+        await tester.tap(find.byIcon(Icons.save));
+        await tester.pumpAndSettle();
+
+        verifyInOrder([
+          () => identity.adminUpdateTipper(
+            tipperId: 'tipper-1',
+            name: null,
+            email: 'updated@example.com',
+            role: null,
+          ),
+          () => mockTippersViewModel.updateTipperAttribute(
+            'tipper-1',
+            'compsParticipatedIn',
+            <String>['comp-2026'],
+          ),
+        ]);
+      },
+    );
+
+    testWidgets('a refused identity change leaves the paid change unmade', (
+      tester,
+    ) async {
+      when(
+        () => identity.adminUpdateTipper(
+          tipperId: any(named: 'tipperId'),
+          name: any(named: 'name'),
+          email: any(named: 'email'),
+          role: any(named: 'role'),
+        ),
+      ).thenThrow(
+        const IdentityFailure(
+          kind: IdentityFailureKind.refused,
+          code: 'invalid-argument',
+          message: 'no',
+          reason: reasons.identityReasonInvalidEmail,
+        ),
+      );
+      await pumpEditPage(tester);
+
+      await editEmail(tester, 'updated@example.com');
+      await tickComp(tester);
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pumpAndSettle();
+
+      verifyNever(
+        () => mockTippersViewModel.updateTipperAttribute(any(), any(), any()),
+      );
+    });
+
+    testWidgets('a paid change alone makes no identity call to the server', (
+      tester,
+    ) async {
+      await pumpEditPage(tester);
+
+      await tickComp(tester);
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pumpAndSettle();
+
+      verifyNever(
+        () => identity.adminUpdateTipper(
+          tipperId: any(named: 'tipperId'),
+          name: any(named: 'name'),
+          email: any(named: 'email'),
+          role: any(named: 'role'),
+        ),
+      );
       verify(
         () => mockTippersViewModel.updateTipperAttribute(
           'tipper-1',

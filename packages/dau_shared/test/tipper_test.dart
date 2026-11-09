@@ -109,6 +109,60 @@ void main() {
     );
   });
 
+  group('withPrivateRecord', () {
+    Tipper publicOnly() => Tipper(
+      dbkey: 't1',
+      compsPaidFor: const [],
+      photoURL: 'a.png',
+      authuid: '',
+      email: null,
+      name: 'Alice',
+      tipperRole: TipperRole.tipper,
+    );
+
+    test(
+      'lays the identity fields of the private record over the public ones',
+      () {
+        final merged = publicOnly().withPrivateRecord(<String, dynamic>{
+          'authuid': 'uidA',
+          'tipperRole': 'admin',
+          'email': 'a@example.test',
+          'logon': 'login@example.test',
+          'isAnonymous': true,
+          'acctCreatedUTC': '2025-01-02 03:04:05.000Z',
+          'acctLoggedOnUTC': '2026-02-03 04:05:06.000Z',
+        });
+
+        expect(merged.authuid, 'uidA');
+        expect(merged.tipperRole, TipperRole.admin);
+        expect(merged.email, 'a@example.test');
+        expect(merged.logon, 'login@example.test');
+        expect(merged.isAnonymous, isTrue);
+        expect(merged.acctCreatedUTC, DateTime.utc(2025, 1, 2, 3, 4, 5));
+        expect(merged.acctLoggedOnUTC, DateTime.utc(2026, 2, 3, 4, 5, 6));
+      },
+    );
+
+    test('keeps the public name, photo, paid competitions and key', () {
+      final merged = publicOnly().withPrivateRecord(<String, dynamic>{
+        'authuid': 'uidA',
+        'tipperRole': 'admin',
+      });
+
+      expect(merged.dbkey, 't1');
+      expect(merged.name, 'Alice');
+      expect(merged.photoURL, 'a.png');
+    });
+
+    test('a private record without a role is an ordinary tipper', () {
+      final merged = publicOnly().withPrivateRecord(<String, dynamic>{
+        'authuid': 'uidA',
+      });
+
+      expect(merged.tipperRole, TipperRole.tipper);
+    });
+  });
+
   group('withIdentityOf', () {
     test(
       'takes the identity of the signed-in tipper and the public fields of the list\'s copy',

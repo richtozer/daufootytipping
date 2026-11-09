@@ -12,7 +12,11 @@ void main() {
     late Tipper godModeTipper;
 
     setUp(() {
-      viewModel = TippersViewModel(true, skipInit: true);
+      viewModel = TippersViewModel(
+        true,
+        skipInit: true,
+        signedIn: () => const Stream<bool>.empty(),
+      );
       adminTipper = Tipper(
         dbkey: 'admin-1',
         authuid: 'auth-admin',

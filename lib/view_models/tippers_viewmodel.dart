@@ -2,9 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:collection/collection.dart';
-import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
@@ -12,8 +11,6 @@ import 'package:daufootytipping/services/firebase_messaging_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/games_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +21,16 @@ import 'package:dau_shared/services/identity_keys.dart' show normaliseAlias;
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
   List<Tipper> get tippers => _tippers;
+
+  /// The public tipper list as read, before an administrator's private records
+  /// are laid over it. [_tippers] is always rebuilt from this.
+  List<Tipper> _publicTippers = [];
+
+  /// Every tipper's private record, read only while the signed-in tipper is an
+  /// administrator (nobody else may). The admin screens need each tipper's login,
+  /// email, role and last login, which the public list no longer carries.
+  Map<String, Map<String, dynamic>> _adminPrivateRecords = {};
+  StreamSubscription<DatabaseEvent>? _adminPrivateStream;
 
   late Tipper _selectedTipper;
   Tipper get selectedTipper => _selectedTipper;
@@ -53,9 +60,12 @@ class TippersViewModel extends ChangeNotifier {
   bool get inGodMode => _selectedTipper.dbkey != _authenticatedTipper!.dbkey;
 
   // Lazily access database reference to avoid Firebase initialization in pure unit tests.
-  DatabaseReference get _db => configuredDatabaseRef();
+  DatabaseReference get _db => _database ?? configuredDatabaseRef();
 
-  late StreamSubscription<DatabaseEvent> _tippersStream;
+  final DatabaseReference? _database;
+  final Stream<bool> Function() _signedIn;
+
+  StreamSubscription<DatabaseEvent>? _tippersStream;
 
   bool _savingTipper = false;
   bool get savingTipper => _savingTipper;
@@ -76,7 +86,13 @@ class TippersViewModel extends ChangeNotifier {
   final Map<String, dynamic> updates = {};
 
   //constructor
-  TippersViewModel(this._createLinkedTipper, {bool skipInit = false}) {
+  TippersViewModel(
+    this._createLinkedTipper, {
+    bool skipInit = false,
+    DatabaseReference? database,
+    Stream<bool> Function()? signedIn,
+  }) : _database = database,
+       _signedIn = signedIn ?? firebaseSignedInStream {
     if (!skipInit) {
       _listenToTippers();
     }
@@ -88,7 +104,7 @@ class TippersViewModel extends ChangeNotifier {
   void _listenToTippers() {
     _tippersStream =
         authAwareStream<DatabaseEvent>(
-          signedIn: firebaseSignedInStream,
+          signedIn: _signedIn,
           open: () => _db.child(p.tippersPath).onValue,
         ).listen((event) {
           _handleEvent(event);
@@ -121,13 +137,13 @@ class TippersViewModel extends ChangeNotifier {
         di<DAUCompsViewModel>().resolveCompsList,
       );
 
-      _tippers = tippersList
+      _publicTippers = tippersList
           .where((tipper) => tipper != null)
           .cast<Tipper>()
           .toList();
 
-      // do a default sort by login date
-      _sortTippersByLogin(false);
+      // lay an administrator's private records over it, and sort by login date
+      _rebuildTippers();
 
       // Keep _authenticatedTipper and _selectedTipper in sync with the
       // fresh Tipper objects from the stream. Without this, these
@@ -150,6 +166,73 @@ class TippersViewModel extends ChangeNotifier {
         'firstLoad': isFirstLoad,
       },
     );
+    notifyListeners();
+  }
+
+  /// The working list: the public list, with each tipper's private record laid
+  /// over it where an administrator has read them, most recent login first.
+  void _rebuildTippers() {
+    _tippers = <Tipper>[
+      for (final Tipper tipper in _publicTippers) _withPrivateRecord(tipper),
+    ];
+    _sortTippersByLogin(false);
+  }
+
+  Tipper _withPrivateRecord(Tipper tipper) {
+    final String? key = tipper.dbkey;
+    final Map<String, dynamic>? record = key == null
+        ? null
+        : _adminPrivateRecords[key];
+    if (record == null) {
+      return tipper;
+    }
+    try {
+      return tipper.withPrivateRecord(record);
+    } on Object catch (error) {
+      log('TippersViewModel() ignoring an unreadable private record: $error');
+      return tipper;
+    }
+  }
+
+  /// An administrator reads every private record, so that the admin screens can
+  /// show and check logins, emails and roles. Anyone else does not listen (the
+  /// rules would refuse), and what an administrator read is dropped as soon as
+  /// the signed-in tipper is no longer one. Called whenever that may have changed.
+  void _syncAdminPrivateListener() {
+    final Tipper? signedIn = _authenticatedTipper;
+    final bool isAdmin =
+        signedIn != null &&
+        !signedIn.isAnonymous &&
+        signedIn.tipperRole == TipperRole.admin;
+    if (!isAdmin) {
+      unawaited(_adminPrivateStream?.cancel());
+      _adminPrivateStream = null;
+      if (_adminPrivateRecords.isNotEmpty) {
+        _adminPrivateRecords = {};
+        _rebuildTippers();
+        _refreshAuthenticatedTipperReference();
+      }
+      return;
+    }
+    _adminPrivateStream ??= authAwareStream<DatabaseEvent>(
+      signedIn: _signedIn,
+      open: () => _db.child(p.tipperPrivatePath).onValue,
+      onSourceError: (Object error, StackTrace stackTrace) => log(
+        'TippersViewModel() cannot read the private tipper records: $error',
+      ),
+    ).listen(_applyAdminPrivateSnapshot);
+  }
+
+  void _applyAdminPrivateSnapshot(DatabaseEvent event) {
+    final Object? value = event.snapshot.exists ? event.snapshot.value : null;
+    _adminPrivateRecords = <String, Map<String, dynamic>>{
+      if (value is Map)
+        for (final MapEntry<Object?, Object?> entry in value.entries)
+          if (entry.value is Map)
+            entry.key.toString(): Map<String, dynamic>.from(entry.value as Map),
+    };
+    _rebuildTippers();
+    _refreshAuthenticatedTipperReference();
     notifyListeners();
   }
 
@@ -416,9 +499,12 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   @visibleForTesting
+  void syncAdminPrivateListenerForTest() => _syncAdminPrivateListener();
+
+  @visibleForTesting
   void applyTippersSnapshotForTest(List<Tipper> tippers) {
-    _tippers = List<Tipper>.from(tippers);
-    _sortTippersByLogin(false);
+    _publicTippers = List<Tipper>.from(tippers);
+    _rebuildTippers();
     _refreshAuthenticatedTipperReference();
     if (!_initialLoadCompleter.isCompleted) {
       _initialLoadCompleter.complete();
@@ -450,6 +536,7 @@ class TippersViewModel extends ChangeNotifier {
     if (!keepGodModeSelection) {
       _selectedTipper = tipper;
     }
+    _syncAdminPrivateListener();
     // Cached tipper with empty compsPaidFor should not unblock stats until
     // the Firebase tippers stream has populated fresh references.
     unawaited(
@@ -477,132 +564,6 @@ class TippersViewModel extends ChangeNotifier {
           .set(photoUrl);
     } on Object catch (error) {
       log('TippersViewModel().updateOwnPhoto() failed: $error');
-    }
-  }
-
-  // mergeTipper method to merge two tippers into one. This is used when a user logs in with a different account
-  // to the one in the the legacy tipping service.
-  //
-  // inputs are original tipper and target tipper. There are 2 bool flags:
-  // mergeLogon - if true, the logon of the original tipper will be copied to the target tipper
-  // mergeTips - if true, the tips of the original tipper will be copied to the target tipper
-  Future<void> mergeTippers(
-    Tipper originalTipper,
-    Tipper targetTipper,
-    bool mergeLogon,
-    bool mergeTips, {
-    bool trialMode = false,
-  }) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel().Waiting for initial Tipper load to complete in mergeTippers()',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel().tipper load complete, mergeTippers()');
-    }
-
-    try {
-      List<DAUComp> comps = await di<DAUCompsViewModel>().getDAUcomps();
-      int totalTipsMerged = 0;
-
-      // loop through all comps
-      for (DAUComp dauComp in comps) {
-        if (mergeTips) {
-          int tipsMerged = await mergeTipsForComp(
-            originalTipper,
-            targetTipper,
-            dauComp,
-            trialMode: trialMode,
-          );
-          totalTipsMerged += tipsMerged;
-        }
-      }
-
-      if (trialMode) {
-        log(
-          'TippersViewModel() Trial mode: $totalTipsMerged tips would be merged',
-        );
-        return;
-      }
-
-      if (mergeLogon) {
-        // update the email of the target tipper to the email of the original tipper
-        await updateTipperAttribute(
-          targetTipper.dbkey!,
-          "logon",
-          originalTipper.logon,
-        );
-        await saveBatchOfTipperChangesToDb();
-        log(
-          'TippersViewModel() Tipper ${targetTipper.name} logon updated to ${originalTipper.logon}',
-        );
-      }
-
-      // now delete source tipper
-      await _db.child(p.tippersPath).child(originalTipper.dbkey!).remove();
-      log('TippersViewModel() Tipper ${originalTipper.name} deleted');
-
-      // copy over the uid
-      await updateTipperAttribute(
-        targetTipper.dbkey!,
-        "authuid",
-        originalTipper.authuid,
-      ); // update the authuid of the target tipper
-      await saveBatchOfTipperChangesToDb();
-      log(
-        'TippersViewModel() Tipper ${targetTipper.name} authuid updated to ${originalTipper.authuid}',
-      );
-    } catch (e) {
-      log('TippersViewModel().mergeTippers() Error: $e');
-      rethrow;
-    }
-  }
-
-  Future<int> mergeTipsForComp(
-    Tipper originalTipper,
-    Tipper targetTipper,
-    DAUComp dauComp, {
-    bool trialMode = false,
-  }) async {
-    // Init GamesViewModel
-    GamesViewModel gamesViewModel = GamesViewModel(
-      dauComp,
-      di<DAUCompsViewModel>(),
-    );
-    // get the tips for this comp
-    TipsViewModel allTips = TipsViewModel(
-      di<TippersViewModel>(),
-      dauComp,
-      gamesViewModel,
-    );
-
-    // wait for the tips to be loaded
-    await allTips.initialLoadCompleted;
-
-    log('TippersViewModel() Merging tips in comp ${dauComp.name}');
-    // call the getTipsForTipper method to get the list of tips for the original tipper
-    List<Tip?> originalTips = allTips.getTipsForTipper(originalTipper);
-
-    if (trialMode) {
-      // Return the number of tips that would be merged
-      return originalTips.length;
-    } else {
-      // loop through the list of tips (if any) and update the tipper dbkey to the target tipper dbkey
-      await Future.forEach(originalTips, (Tip? tip) async {
-        if (tip != null) {
-          tip.tipper = targetTipper;
-          await allTips.updateTip(tip);
-          log(
-            'TippersViewModel() Tip ${tip.dbkey} updated to tipper ${targetTipper.dbkey}',
-          );
-        }
-      });
-      // delete the tips for the original tipper by deleting the tipper dbkey
-      await allTips.deleteAllTipsForTipper(originalTipper);
-      log(
-        'TippersViewModel() All tips for tipper ${originalTipper.dbkey} deleted',
-      );
-      return originalTips.length;
     }
   }
 
@@ -756,46 +717,8 @@ class TippersViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _tippersStream.cancel(); // stop listening to stream
+    unawaited(_tippersStream?.cancel()); // stop listening to stream
+    unawaited(_adminPrivateStream?.cancel());
     super.dispose();
-  }
-
-  Future<void> setTipperEmail(String tipperDbKey, String? newEmail) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial Tipper load to complete, setTipperName()',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, setTipperName()');
-    }
-
-    Tipper? tipperToUpdate = await findTipper(tipperDbKey);
-
-    if (tipperToUpdate == null) {
-      log('TippersViewModel() TipperToUpdate is null. Skipping update.');
-      return;
-    }
-
-    if (tipperToUpdate.email == newEmail) {
-      log('Tipper: $tipperDbKey already has email: $newEmail');
-      return;
-    }
-
-    if (newEmail == null || newEmail.isEmpty) {
-      throw 'Tipper email cannot be empty';
-    }
-
-    if (_tippers.any(
-      (tipper) => (tipper.email ?? '').toLowerCase() == newEmail.toLowerCase(),
-    )) {
-      throw 'Tipper email $newEmail already exists';
-    }
-
-    await updateTipperAttribute(tipperDbKey, "email", newEmail);
-    await saveBatchOfTipperChangesToDb();
-
-    notifyListeners();
-
-    log('TippersViewModel() Tipper: $tipperDbKey email updated to: $newEmail');
   }
 }

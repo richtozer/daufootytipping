@@ -1547,6 +1547,34 @@ devices once slice 2 is in a TestFlight build.
   three in the home page. A rejection that arrives in the instant between the limit and the record being written
   would be missed (accepted: the next launch's settle still reports it).
 
+**Slice 6 built (9 November 2026): the admin tipper screens.**
+- *Reading.* While the signed-in tipper is an administrator, `TippersViewModel` also listens to `/TipperPrivate` (which
+  only administrators may read) and lays each record over the public list (`Tipper.withPrivateRecord`), so the admin
+  list, edit and merge screens and the duplicate-email check see each tipper's login, email, role and last login
+  exactly as before. Anyone else, and a guest whatever role it carries, never listens; what an administrator read is
+  dropped the moment the signed-in tipper is not one. An unreadable private record is skipped, not fatal. 8 tests,
+  six deliberate breakages caught (one weak test found and strengthened).
+- *Editing.* Name, email and role go through `admin-update-tipper` (one call, only what was edited); the server checks
+  a name another tipper has, an invalid email and the last administrator, and the page says so in words from the
+  reason (`admin_failure_message.dart`). Paid competitions stay a direct leaf write (R2 allows an administrator that
+  one). The identity change is made first and the paid write only if it succeeded; a retry resends the same values,
+  which the server treats as no change. A paid change alone makes no call to the server. 20 page tests.
+- *Merging.* The merge page asks the server for a dry run when a target is chosen and shows what would happen (tips
+  moved, tips that replace the target's for the same game, login and account moving, the source deleted); Merge stays
+  off until the preview has arrived, asks to confirm, waits for the answer, and goes back to the list. A merge the
+  server could not finish is explained, with "running it again finishes it". The per-competition tip counts of the old
+  page are gone (the server reports totals). 6 page tests, seven breakages caught.
+- *Deleted.* `TippersViewModel.mergeTippers`, `mergeTipsForComp`, `setTipperEmail`; the competition-wide
+  `TipsViewModel` (so a tips view model now always has a tipper), `deleteTip`, `updateTip`, `deleteAllTipsForTipper`;
+  `GamesViewModel.updateGameAttribute`, `saveBatchOfGameAttributes` and the batch-write refresh machinery, with the
+  four tests that exercised only them. `IdentityService` is now registered once in `main.dart` and shared by the link
+  service and the admin pages.
+- *Needs mode `coexist`.* Admin edits and merges are identity callables, so under mode `off` they say "Changing
+  tippers is switched off at the moment." Until the mode moves, the R2 client cannot edit a tipper's name, email or
+  role from the admin screens; paid ticks work.
+- *Still direct writes, for slices 5 and 7:* the signed-in user's own alias (`setTipperName`, slice 7), push tokens
+  and the account deletion flow (slice 5), live scores (slice 4).
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the

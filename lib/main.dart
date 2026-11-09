@@ -620,19 +620,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
+    if (!di.isRegistered<IdentityService>()) {
+      di.registerLazySingleton<IdentityService>(
+        () => _buildIdentityService(configViewModel),
+      );
+    }
     if (!di.isRegistered<TipperLinkService>()) {
       di.registerLazySingleton<TipperLinkService>(
-        () => _buildTipperLinkService(configViewModel),
+        () => _buildTipperLinkService(),
       );
     }
 
     _scheduleCoreViewModelWarmup();
   }
 
-  /// Links the signed-in account to its tipper through the identity callables
-  /// (DESIGN-database-rules-phase4.md, P3). The address of the callables is read
-  /// when a call is made, so an override in `AppConfig` applies without a restart.
-  TipperLinkService _buildTipperLinkService(ConfigViewModel configViewModel) {
+  /// The identity callables (DESIGN-database-rules-phase4.md): linking the signed-in
+  /// account to its tipper, and the administrators' edits and merges. The address of
+  /// the callables is read when a call is made, so an override in `AppConfig`
+  /// applies without a restart.
+  IdentityService _buildIdentityService(ConfigViewModel configViewModel) {
     IdentityEndpoints endpoints() {
       final String? configured = configViewModel.identityFunctionsUrlPattern;
       if (configured != null) {
@@ -647,15 +653,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       return IdentityEndpoints();
     }
 
+    return IdentityService(
+      FunctionsIdentityCallableInvoker(
+        endpoints: endpoints,
+        emulatorHost: widget.identityEmulatorHost,
+      ),
+    );
+  }
+
+  /// Links the signed-in account to its tipper (DESIGN-database-rules-phase4.md,
+  /// P3).
+  TipperLinkService _buildTipperLinkService() {
     return TipperLinkService(
       resolver: LinkedTipperResolver(
         reads: DatabaseIdentityReads(),
-        identity: IdentityService(
-          FunctionsIdentityCallableInvoker(
-            endpoints: endpoints,
-            emulatorHost: widget.identityEmulatorHost,
-          ),
-        ),
+        identity: di<IdentityService>(),
         resolveComps: (List compKeys) =>
             di<DAUCompsViewModel>().resolveCompsList(compKeys),
       ),

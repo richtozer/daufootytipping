@@ -1,11 +1,15 @@
-import 'package:daufootytipping/models/daucomp.dart';
+import 'package:dau_shared/dau_shared.dart' show AdminMergeTippersResult;
 import 'package:daufootytipping/models/tipper.dart';
-import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_failure_message.dart';
+import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
+/// Merges one tipper (the source, which is deleted) into another (the target):
+/// the tips and the login move across. The server does the merge, one step at a
+/// time, and a merge that is cut short is finished by running it again.
 class AdminTipperMergeEditPage extends StatefulWidget {
   final TippersViewModel tippersViewModel;
   final Tipper? sourceTipper;
@@ -16,6 +20,9 @@ class AdminTipperMergeEditPage extends StatefulWidget {
     super.key,
   });
 
+  static const Key previewKey = ValueKey('merge-preview');
+  static const Key mergeButtonKey = ValueKey('merge-button');
+
   @override
   State<AdminTipperMergeEditPage> createState() =>
       _AdminTipperMergeEditPageState();
@@ -23,24 +30,53 @@ class AdminTipperMergeEditPage extends StatefulWidget {
 
 class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
   Tipper? targetTipper;
-  DAUCompsViewModel? compsViewModel = di<DAUCompsViewModel>();
+  Future<AdminMergeTippersResult>? _preview;
+  bool _canMerge = false;
+  bool _merging = false;
 
-  @override
-  void initState() {
-    super.initState();
+  Future<AdminMergeTippersResult> _callMerge(
+    Tipper source,
+    Tipper target, {
+    required bool dryRun,
+  }) {
+    final String? sourceKey = source.dbkey;
+    final String? targetKey = target.dbkey;
+    if (sourceKey == null || targetKey == null) {
+      return Future<AdminMergeTippersResult>.error(
+        StateError('both tippers need a record key to be merged'),
+      );
+    }
+    return di<IdentityService>().adminMergeTippers(
+      originalId: sourceKey,
+      targetId: targetKey,
+      mergeTips: true,
+      mergeLogon: true,
+      dryRun: dryRun,
+    );
   }
 
-  Future<int> getTipsToBeMerged(
-    Tipper sourceTipper,
-    Tipper targetTipper,
-    DAUComp comp,
-  ) {
-    return widget.tippersViewModel.mergeTipsForComp(
-      sourceTipper,
-      targetTipper,
-      comp,
-      trialMode: true,
-    );
+  /// Asks the server what merging would do, without doing it.
+  void _chooseTarget(Tipper? target) {
+    final Tipper? source = widget.sourceTipper;
+    final Future<AdminMergeTippersResult>? preview =
+        source == null || target == null
+        ? null
+        : _callMerge(source, target, dryRun: true).then((
+            AdminMergeTippersResult result,
+          ) {
+            if (mounted && identical(targetTipper, target)) {
+              setState(() => _canMerge = true);
+            }
+            return result;
+          });
+    // A refusal is shown by the preview below, once the page has built; until
+    // then it must not count as an unhandled error.
+    preview?.ignore();
+    setState(() {
+      targetTipper = target;
+      _canMerge = false;
+      _preview = preview;
+    });
   }
 
   Future<bool?> _showConfirmationDialog(BuildContext context) {
@@ -48,8 +84,8 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Confirm Merge'),
-          content: Text(
+          title: const Text('Confirm Merge'),
+          content: const Text(
             'Are you sure you want to merge these tippers? This action cannot be undone.',
           ),
           actions: <Widget>[
@@ -57,13 +93,13 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
               onPressed: () {
                 Navigator.of(context).pop(false);
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(true);
               },
-              child: Text('Merge'),
+              child: const Text('Merge'),
             ),
           ],
         );
@@ -71,11 +107,126 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
     );
   }
 
+  Future<void> _merge(BuildContext context) async {
+    final Tipper? source = widget.sourceTipper;
+    final Tipper? target = targetTipper;
+    if (source == null || target == null) {
+      return;
+    }
+    final bool? confirmed = await _showConfirmationDialog(context);
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    setState(() => _merging = true);
+    try {
+      final AdminMergeTippersResult result = await _callMerge(
+        source,
+        target,
+        dryRun: false,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Merged ${source.name} into ${target.name}: '
+            '${result.tipsMoved} tips moved.',
+          ),
+        ),
+      );
+      // back to the tippers list: the source tipper is gone
+      Navigator.pop(context);
+      Navigator.pop(context);
+    } on IdentityFailure catch (failure) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _merging = false);
+      if (!context.mounted) {
+        return;
+      }
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Merge not completed'),
+          content: Text(
+            '${adminFailureMessage(failure)}\n\nIf the merge was cut short, '
+            'running it again finishes it.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _previewFor(Tipper source, Tipper target) {
+    return FutureBuilder<AdminMergeTippersResult>(
+      key: AdminTipperMergeEditPage.previewKey,
+      future: _preview,
+      builder:
+          (
+            BuildContext context,
+            AsyncSnapshot<AdminMergeTippersResult> snapshot,
+          ) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.orange),
+              );
+            }
+            final Object? error = snapshot.error;
+            if (error != null) {
+              return Text(
+                error is IdentityFailure
+                    ? adminFailureMessage(error)
+                    : 'Could not check the merge: $error',
+                style: const TextStyle(color: Colors.red),
+              );
+            }
+            final AdminMergeTippersResult? result = snapshot.data;
+            if (result == null) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text('Merging would:'),
+                const SizedBox(height: 8),
+                Text('• move ${result.tipsMoved} tips to ${target.name}'),
+                if (result.tipsReplaced > 0)
+                  Text(
+                    '• replace ${result.tipsReplaced} tips ${target.name} already '
+                    'has for the same games',
+                  ),
+                Text(
+                  result.loginMoved
+                      ? '• move the login to ${target.name}'
+                      : '• leave the login as it is',
+                ),
+                Text(
+                  result.accountMoved
+                      ? '• move the sign-in account to ${target.name}'
+                      : '• leave the sign-in account as it is',
+                ),
+                Text('• delete ${source.name}'),
+              ],
+            );
+          },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<Tipper> targetTippers =
+    final Tipper? source = widget.sourceTipper;
+    final Tipper? target = targetTipper;
+    final List<Tipper> targetTippers =
         widget.tippersViewModel.tippers
-            .where((tipper) => tipper.dbkey != widget.sourceTipper?.dbkey)
+            .where((tipper) => tipper.dbkey != source?.dbkey)
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
@@ -86,34 +237,33 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Text(
-                'WARNING: This action will merge 2 accounts by migrating the 1) logon email and 2) tips from the source account to the target account. If this is successful the source account will be deleted. This cannot be undone.\n\nMerging a lot of tips can take some time, make sure the source account is the newer account, as that should have less tips to merge. Keep the app open to allow long merges to complete. Once the source tipper disappears from the Tipper list, the merge is complete.\n\nThe 1) Alias name, and 2) Comms email will not be merged.',
+              const Text(
+                'WARNING: This action will merge 2 accounts by migrating the 1) logon email and 2) tips from the source account to the target account. If this is successful the source account will be deleted. This cannot be undone.\n\nThe server does the merge in steps. If it is cut short, run the same merge again and it will finish.\n\nThe 1) Alias name, and 2) Comms email will not be merged.',
                 style: TextStyle(color: Colors.red),
               ),
-              SizedBox(height: 16),
-              Text('Select the target tipper to merge to:'),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+              const Text('Select the target tipper to merge to:'),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Source: '),
+                  const Text('Source: '),
                   Text(
-                    widget.sourceTipper?.name ?? 'No source tipper selected',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w300),
+                    source?.name ?? 'No source tipper selected',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Target: '),
+                  const Text('Target: '),
                   DropdownButton<Tipper>(
-                    hint: Text('Tipper to merge to'),
-                    value: targetTipper,
-                    onChanged: (Tipper? newValue) {
-                      setState(() {
-                        targetTipper = newValue;
-                      });
-                    },
+                    hint: const Text('Tipper to merge to'),
+                    value: target,
+                    onChanged: _merging ? null : _chooseTarget,
                     items: targetTippers.map<DropdownMenuItem<Tipper>>((
                       Tipper tipper,
                     ) {
@@ -125,29 +275,29 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 16),
-              if (targetTipper != null && widget.sourceTipper != null)
+              const SizedBox(height: 16),
+              if (target != null && source != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('The logon email change:'),
-                    SizedBox(height: 8),
+                    const Text('The logon email change:'),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         Flexible(
                           child: Text(
-                            widget.sourceTipper!.logon ?? '',
+                            source.logon ?? '',
                             softWrap: true,
                             maxLines: 2,
                           ),
                         ),
-                        Icon(Icons.arrow_forward),
+                        const Icon(Icons.arrow_forward),
                         Flexible(
                           child: Stack(
                             children: [
                               Text(
-                                targetTipper!.logon ?? '',
+                                target.logon ?? '',
                                 softWrap: true,
                                 maxLines: 2,
                               ),
@@ -165,95 +315,35 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
-                    Text('The following tips (if any) will be merged:'),
-                    SizedBox(height: 8),
-                    for (var comp in compsViewModel!.daucomps)
-                      FutureBuilder<int>(
-                        future: getTipsToBeMerged(
-                          widget.sourceTipper!,
-                          targetTipper!,
-                          comp,
-                        ),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return CircularProgressIndicator(
-                              color: Colors.orange,
-                            );
-                          } else if (snapshot.hasError) {
-                            return Text('Error: ${snapshot.error}');
-                          } else if (snapshot.hasData && snapshot.data! > 0) {
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Text(comp.name),
-                                Text('${snapshot.data} tips'),
-                              ],
-                            );
-                          } else {
-                            return Container(); // Return an empty container if tip count is 0
-                          }
-                        },
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text('--end of list--'),
-                    ),
+                    const SizedBox(height: 16),
+                    _previewFor(source, target),
+                    const SizedBox(height: 16),
                   ],
                 ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: Text('Cancel'),
+                    onPressed: _merging
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                          },
+                    child: const Text('Cancel'),
                   ),
                   ElevatedButton(
-                    onPressed: () async {
-                      if (targetTipper != null && widget.sourceTipper != null) {
-                        bool? confirmed = await _showConfirmationDialog(
-                          context,
-                        );
-                        if (confirmed == true) {
-                          widget.tippersViewModel.mergeTippers(
-                            widget.sourceTipper!,
-                            targetTipper!,
-                            true,
-                            true,
-                            trialMode: false,
-                          );
-                          // show progress of the merge
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Merging logon and tips of ${widget.sourceTipper!.name} into ${targetTipper!.name}',
-                                ),
-                              ),
-                            );
-                          }
-                          // navigate back 2 pages to the tippers list
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            Navigator.pop(context);
-                          }
-                        }
-                      } else {
-                        // Show an error message if tippers are not selected
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Please select a target tipper to merge.',
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: Text('Merge'),
+                    key: AdminTipperMergeEditPage.mergeButtonKey,
+                    onPressed: _canMerge && !_merging
+                        ? () => _merge(context)
+                        : null,
+                    child: _merging
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Merge'),
                   ),
                 ],
               ),

@@ -21,7 +21,18 @@ void main() {
     test('${entry.key} opens its listener through authAwareStream', () {
       final text = source(entry.key);
       expect(text, contains('authAwareStream<DatabaseEvent>('));
-      expect(text, contains('signedIn: firebaseSignedInStream'));
+      // The tipper list takes the sign-in stream as a seam (for tests) that
+      // defaults to Firebase's; the others use Firebase's directly.
+      expect(
+        text,
+        anyOf(
+          contains('signedIn: firebaseSignedInStream'),
+          allOf(
+            contains('signedIn: _signedIn'),
+            contains('?? firebaseSignedInStream'),
+          ),
+        ),
+      );
       // No bare listener on the guarded path.
       final bare = RegExp(
         r"child\(\s*" +
@@ -35,4 +46,20 @@ void main() {
       );
     });
   }
+
+  test('the administrators\' private records listener also goes through authAwareStream', () {
+    final text = source('lib/view_models/tippers_viewmodel.dart');
+    final bare = RegExp(
+      r"child\(\s*p\.tipperPrivatePath\s*\)\s*\.onValue\s*\.listen",
+    );
+    expect(text, contains('p.tipperPrivatePath'));
+    expect(bare.hasMatch(text), isFalse);
+    expect(
+      RegExp(
+        r"authAwareStream<DatabaseEvent>\([^;]*?tipperPrivatePath",
+        dotAll: true,
+      ).hasMatch(text),
+      isTrue,
+    );
+  });
 }
