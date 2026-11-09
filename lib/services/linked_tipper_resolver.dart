@@ -169,9 +169,15 @@ class LinkedTipperResolver {
         () => _reads.authIndexEntry(account.uid),
       );
       if (known != null) {
-        final privateRecord = await _read(() => _reads.privateRecord(known));
+        final (privateRecord, publicRecord) = await _readRecords(known);
         if (privateRecord != null && privateRecord['authuid'] == account.uid) {
-          return await _linked(account, known, privateRecord, null);
+          return await _linked(
+            account,
+            known,
+            privateRecord,
+            publicRecord,
+            null,
+          );
         }
         // An entry the record does not back is not trusted, and not repaired here:
         // the server validates it, and links or refuses.
@@ -195,19 +201,37 @@ class LinkedTipperResolver {
     } on IdentityFailure catch (failure) {
       return _fromFailure(failure, hadAlias: alias != null);
     }
-    final privateRecord = await _read(
-      () => _reads.privateRecord(result.tipperId),
+    final (privateRecord, publicRecord) = await _readRecords(result.tipperId);
+    return _linked(
+      account,
+      result.tipperId,
+      privateRecord,
+      publicRecord,
+      result.outcome,
     );
-    return _linked(account, result.tipperId, privateRecord, result.outcome);
+  }
+
+  /// The private and public records of [tipperId], read together: neither depends on
+  /// the other, so one round trip does for both.
+  Future<(Map<String, dynamic>?, Map<String, dynamic>?)> _readRecords(
+    String tipperId,
+  ) async {
+    final records = await Future.wait<Map<String, dynamic>?>(
+      <Future<Map<String, dynamic>?>>[
+        _read(() => _reads.privateRecord(tipperId)),
+        _read(() => _reads.publicRecord(tipperId)),
+      ],
+    );
+    return (records[0], records[1]);
   }
 
   Future<LinkResolution> _linked(
     LinkAccount account,
     String tipperId,
     Map<String, dynamic>? privateRecord,
+    Map<String, dynamic>? publicRecord,
     LinkOutcome? outcome,
   ) async {
-    final publicRecord = await _read(() => _reads.publicRecord(tipperId));
     if (publicRecord == null || privateRecord == null) {
       // The server has just said this account is linked, so its records exist; not
       // seeing them yet is a delay, not an answer.

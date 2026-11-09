@@ -103,7 +103,20 @@ class UserAuthPageState extends State<UserAuthPage> {
       );
       await AppBadgeService().setCount(0);
     }
+    await _forgetKeptTipper();
     await FirebaseAuth.instance.signOut();
+  }
+
+  /// Forgets the tipper kept on the device. Done when the user signs out or deletes
+  /// their account, **not** whenever no user is seen: on the web Firebase Auth reports
+  /// no user for a moment at every start-up, before the saved session is restored,
+  /// and clearing it then meant the kept tipper was never used there. The kept tipper
+  /// is keyed to its account and confirmed against the server on each start, so one
+  /// left behind by any other route is never used for the wrong account.
+  Future<void> _forgetKeptTipper() async {
+    if (di.isRegistered<TipperLinkService>()) {
+      await di<TipperLinkService>().forget();
+    }
   }
 
   void _resetAuthFlowFutures() {
@@ -111,7 +124,6 @@ class UserAuthPageState extends State<UserAuthPage> {
     _linkController = null;
     _authFlowUid = null;
     _newTipperDialogShown = false;
-    unawaited(di<TipperLinkService>().forget());
   }
 
   /// Starts linking the signed-in account to its tipper, once per account, after the
@@ -191,6 +203,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       final result = await di<TippersViewModel>().deleteAccount();
       if (result == null) {
         log('UserAuthPage - user deleted account');
+        await _forgetKeptTipper();
         _navigateToAppRoot();
       } else if (mounted) {
         setState(() {

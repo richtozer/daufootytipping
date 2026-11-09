@@ -21,11 +21,23 @@ class _Reads implements IdentityReads {
 
   final Map<String, int> counts = <String, int>{};
 
+  /// What happened, in order: `start:kind` as a read begins, `end:kind` as it finishes.
+  final List<String> events = <String>[];
+
+  /// A pause before a read of this kind answers.
+  final Map<String, Duration> delays = <String, Duration>{};
+
   Future<T> _read<T>(String kind, T Function() value) async {
     counts[kind] = (counts[kind] ?? 0) + 1;
+    events.add('start:$kind');
     if (hang.contains(kind)) {
       return Completer<T>().future;
     }
+    final pause = delays[kind];
+    if (pause != null) {
+      await Future<void>.delayed(pause);
+    }
+    events.add('end:$kind');
     final remaining = failures[kind] ?? 0;
     if (remaining != 0) {
       if (remaining > 0) {
@@ -135,6 +147,20 @@ void main() {
       'compsParticipatedIn': <String>['c1'],
     };
   }
+
+  test('the private and public records are read together, not one after the other', () async {
+    aliceIsLinked();
+    reads.delays['private'] = const Duration(milliseconds: 20);
+    reads.delays['public'] = const Duration(milliseconds: 20);
+    final resolution = await resolver.resolve(_alice);
+    expect(resolution.status, LinkStatus.linked);
+    expect(
+      reads.events.indexOf('start:public'),
+      lessThan(reads.events.indexOf('end:private')),
+      reason:
+          'the public read starts before the private one has finished: $reads.events',
+    );
+  });
 
   group('a guest', () {
     test('needs no server and no read, and is never saved', () async {
