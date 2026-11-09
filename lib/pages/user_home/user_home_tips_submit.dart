@@ -59,9 +59,9 @@ Future<void> submitTip(
     _notify(
       context,
       Colors.orange,
-      'Your tip has not been confirmed yet. It is queued on this phone and '
-      'will be sent when the connection recovers. If it is still not '
-      'confirmed in a minute, restart the app.',
+      'Your tip has not reached the server yet. It is saved on this phone and '
+      'will be sent when the connection recovers, but it only counts if it '
+      'arrives before kickoff. We will tell you if it does not count.',
     );
   } catch (e) {
     final message = 'Error submitting tip: $e';

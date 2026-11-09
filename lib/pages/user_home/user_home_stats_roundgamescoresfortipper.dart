@@ -160,7 +160,7 @@ class _StatRoundGameScoresForTipperState
 
     allTipsViewModel =
         widget.createTipsViewModel?.call(selectedComp, widget.statsTipper) ??
-        TipsViewModel.forTipper(
+        TipsViewModel.forTipperGames(
           di<TippersViewModel>(),
           selectedComp,
           dauCompsViewModel.gamesViewModel!,
@@ -201,6 +201,8 @@ class _StatRoundGameScoresForTipperState
       );
     });
 
+    // Another tipper's tips can only be read one started game at a time.
+    await localTipsViewModel.watchGames(filteredGames.values.expand((g) => g));
     await localTipsViewModel.initialLoadCompleted;
     if (!mounted ||
         selectedComp.dbkey != dauCompsViewModel.selectedDAUComp?.dbkey ||

@@ -49,6 +49,7 @@ import 'firebase_options.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 import 'package:daufootytipping/services/cached_tipper_store.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/services/functions_identity_invoker.dart';
 import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/services/linked_tipper_resolver.dart';
@@ -282,6 +283,9 @@ Future<void> main() async {
 
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
+  di.registerLazySingleton<UnconfirmedTipsService>(
+    () => UnconfirmedTipsService(),
+  );
 
   // The image cache's first use looks up the temp directory, which the
   // path_provider plugins now answer synchronously over FFI/JNI, loading their
@@ -635,7 +639,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         try {
           return IdentityEndpoints(pattern: configured);
         } on ArgumentError catch (error) {
-          log('Ignoring a bad identityFunctionsURLPattern in AppConfig: $error');
+          log(
+            'Ignoring a bad identityFunctionsURLPattern in AppConfig: $error',
+          );
         }
       }
       return IdentityEndpoints();

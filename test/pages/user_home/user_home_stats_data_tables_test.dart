@@ -51,7 +51,10 @@ class MockTippersViewModel extends Mock implements TippersViewModel {}
 class MockTableTipsViewModel extends Mock implements TipsViewModel {}
 
 void main() {
-  setUpAll(() => loadTipsFonts(includeFallbacks: true));
+  setUpAll(() {
+    registerFallbackValue(<Game>[]);
+    return loadTipsFonts(includeFallbacks: true);
+  });
   late MockDAUCompsViewModel dauCompsViewModel;
   late MockGamesViewModel gamesViewModel;
   late MockStatsViewModel statsViewModel;
@@ -728,6 +731,7 @@ void main() {
     when(() => tips.removeListener(any())).thenAnswer((_) {});
     when(() => tips.dispose()).thenAnswer((_) {});
     when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
+    when(() => tips.watchGames(any())).thenAnswer((_) async {});
     final games = [
       for (var i = 0; i < 20; i++)
         Game(
@@ -825,6 +829,22 @@ void main() {
     expect(table().rows[1].cells[1].text, 'Away');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'another tipper\'s tips are asked for one started game at a time',
+    (tester) async {
+      final (page, games, tips) = populateGameScores();
+      await pumpRound(tester, width: 680, page: page);
+
+      final watched =
+          verify(() => tips.watchGames(captureAny())).captured.last
+              as Iterable<Game>;
+      expect(
+        watched.map((game) => game.dbkey).toSet(),
+        games.map((game) => game.dbkey).toSet(),
+      );
+    },
+  );
 
   testWidgets('game scores freeze teams and clear max-points scrollbar lane', (
     tester,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
@@ -29,6 +30,12 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
   final GlobalKey<TipsTabState> _tipsTabKey = GlobalKey<TipsTabState>();
+  final UnconfirmedTipsService? _unconfirmedTips =
+      di.isRegistered<UnconfirmedTipsService>()
+      ? di<UnconfirmedTipsService>()
+      : null;
+  bool _tipNoticeShowing = false;
+  bool _unconfirmedTipsSettled = false;
   final OutstandingTipsAppBadgeController _appBadgeController =
       OutstandingTipsAppBadgeController(AppBadgeService());
   late final RestorableInt _currentIndex = RestorableInt(0);
@@ -41,6 +48,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     super.initState();
     _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
+    _unconfirmedTips?.addListener(_showTipNotices);
     _outstandingTipsCount = _calculateOutstandingTipsCount();
     unawaited(_syncAppBadge());
     _trackStartupMilestones();
@@ -143,6 +151,85 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     }
 
     _trackTipsContentReadyIfNeeded();
+    _settleUnconfirmedTipsOnce();
+  }
+
+  /// Tips queued in an earlier run, which the database may have sent, or may
+  /// have had refused because the game had started by then. Settled once the
+  /// signed-in tipper's tips have loaded.
+  void _settleUnconfirmedTipsOnce() {
+    final UnconfirmedTipsService? service = _unconfirmedTips;
+    final String? compKey = _dauCompsViewModel.selectedDAUComp?.dbkey;
+    final tipsViewModel = _dauCompsViewModel.selectedTipperTipsViewModel;
+    final tipper = _tippersViewModel.selectedTipper;
+    final String? tipperKey = tipper.dbkey;
+    if (_unconfirmedTipsSettled ||
+        service == null ||
+        compKey == null ||
+        tipperKey == null ||
+        tipsViewModel == null ||
+        tipper.isAnonymous) {
+      return;
+    }
+    _unconfirmedTipsSettled = true;
+    unawaited(() async {
+      await tipsViewModel.initialLoadCompleted;
+      if (!mounted) {
+        return;
+      }
+      await service.reconcile(
+        compKey: compKey,
+        tipperKey: tipperKey,
+        storedChoice: (String gameKey) =>
+            tipsViewModel.submittedResultForGame(gameKey, tipper)?.name,
+      );
+      _showTipNotices();
+    }());
+  }
+
+  /// Says so when a tip did not count, however long after it was made that
+  /// became known.
+  void _showTipNotices() {
+    final UnconfirmedTipsService? service = _unconfirmedTips;
+    if (!mounted || service == null || _tipNoticeShowing) {
+      return;
+    }
+    final List<String> messages = service.takeNotices();
+    if (messages.isEmpty) {
+      return;
+    }
+    _tipNoticeShowing = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          icon: const Icon(Icons.info_outline),
+          title: const Text('Tip not counted'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (final String message in messages)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(message),
+                  ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ).whenComplete(() {
+        _tipNoticeShowing = false;
+        _showTipNotices();
+      }),
+    );
   }
 
   void _trackTipsContentReadyIfNeeded() {
@@ -176,6 +263,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   void dispose() {
     _dauCompsViewModel.removeListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.removeListener(_handleHomeViewModelsUpdated);
+    _unconfirmedTips?.removeListener(_showTipNotices);
     _currentIndex.dispose();
     super.dispose();
   }

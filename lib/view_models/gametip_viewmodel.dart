@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:carousel_slider/carousel_controller.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
@@ -12,6 +13,7 @@ import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -76,6 +78,7 @@ class GameTipViewModel extends ChangeNotifier {
   final TipAnalyticsLogger _logAnalyticsEvent;
   final TipLogWriter? _writeTipLog;
   final Duration _writeAcknowledgementLimit;
+  final UnconfirmedTipsService? _unconfirmedTips;
   bool _disposed = false;
   late final bool _listensToGamesViewModel;
 
@@ -107,10 +110,12 @@ class GameTipViewModel extends ChangeNotifier {
     TipAnalyticsLogger? logAnalyticsEvent,
     TipLogWriter? writeTipLog,
     Duration writeAcknowledgementLimit = defaultWriteAcknowledgementLimit,
-  })  : _db = database ?? configuredDatabaseRef(),
-        _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
-        _writeTipLog = writeTipLog,
-        _writeAcknowledgementLimit = writeAcknowledgementLimit {
+    UnconfirmedTipsService? unconfirmedTips,
+  }) : _db = database ?? configuredDatabaseRef(),
+       _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
+       _writeTipLog = writeTipLog,
+       _writeAcknowledgementLimit = writeAcknowledgementLimit,
+       _unconfirmedTips = unconfirmedTips {
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
     _gameState = game.gameState;
@@ -375,6 +380,8 @@ class GameTipViewModel extends ChangeNotifier {
         () => _db.update(updates),
         details: const <String, Object?>{'pathCount': 1},
       );
+      final UnconfirmedTipsService? unconfirmedTips = _unconfirmedTipsService();
+      final UnconfirmedTip unconfirmed = _unconfirmedRecord(tip);
       final WriteAcknowledgement acknowledgement = await awaitAcknowledgement(
         write,
         limit: _writeAcknowledgementLimit,
@@ -384,16 +391,22 @@ class GameTipViewModel extends ChangeNotifier {
             error: error,
             stackTrace: stackTrace,
           );
+          // The screen has stopped waiting, so this is the only way the user
+          // hears that the tip did not count.
+          unawaited(unconfirmedTips?.rejected(unconfirmed));
         },
       );
       if (acknowledgement == WriteAcknowledgement.stillPending) {
         // The database keeps the write and sends it when the connection
-        // recovers. Keep the Firestore record of the tip for when it does.
+        // recovers. Keep a record of it on the device, so that a rejection or a
+        // closed app is still reported, and the Firestore record of the tip for
+        // when it is sent.
+        await unconfirmedTips?.queued(unconfirmed);
         unawaited(
-          write.then<void>(
-            (_) => (_writeTipLog ?? _addLogOfTipToFirestore)(tip),
-            onError: (Object _) {},
-          ),
+          write.then<void>((_) async {
+            await unconfirmedTips?.accepted(unconfirmed);
+            await (_writeTipLog ?? _addLogOfTipToFirestore)(tip);
+          }, onError: (Object _) {}),
         );
         log('GameTipsViewModel.addTip() tip not confirmed within the limit');
         throw const WriteNotConfirmedException('tip submission');
@@ -436,6 +449,22 @@ class GameTipViewModel extends ChangeNotifier {
       _notifyListenersIfAlive();
     }
   }
+
+  UnconfirmedTipsService? _unconfirmedTipsService() =>
+      _unconfirmedTips ??
+      (di.isRegistered<UnconfirmedTipsService>()
+          ? di<UnconfirmedTipsService>()
+          : null);
+
+  UnconfirmedTip _unconfirmedRecord(Tip tip) => UnconfirmedTip(
+    compKey: _currentDAUComp.dbkey ?? '',
+    tipperKey: tip.tipper.dbkey ?? '',
+    gameKey: tip.game.dbkey,
+    choice: tip.tip.name,
+    gameLabel: '${tip.game.homeTeam.name} v ${tip.game.awayTeam.name}',
+    kickoffUtcMs: tip.game.startTimeUTC.toUtc().millisecondsSinceEpoch,
+    queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+  );
 
   void _notifyListenersIfAlive() {
     if (_disposed) {

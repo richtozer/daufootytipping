@@ -88,8 +88,32 @@ void main() {
 
       await submit(tester);
 
-      expect(find.textContaining('not been confirmed yet'), findsOneWidget);
+      expect(
+        find.textContaining('has not reached the server yet'),
+        findsOneWidget,
+      );
       expect(find.textContaining('Error submitting tip'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the queued message does not promise delivery after kickoff, and says a failure will be reported',
+    (tester) async {
+      when(
+        () => gameTipViewModel.addTip(any()),
+      ).thenAnswer((_) async => throw const WriteNotConfirmedException('tip'));
+
+      await submit(tester);
+
+      expect(
+        find.textContaining('only counts if it arrives before kickoff'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('We will tell you if it does not count'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('restart the app'), findsNothing);
     },
   );
 
@@ -102,6 +126,6 @@ void main() {
     await submit(tester);
 
     expect(find.textContaining('Error submitting tip'), findsOneWidget);
-    expect(find.textContaining('not been confirmed yet'), findsNothing);
+    expect(find.textContaining('has not reached the server yet'), findsNothing);
   });
 }

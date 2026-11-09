@@ -10,6 +10,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
@@ -20,15 +21,23 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+
 class MockGamesViewModel extends Mock implements GamesViewModel {}
+
 class MockDatabaseReference extends Mock implements DatabaseReference {}
+
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
+
 class MockTippersViewModel extends Mock implements TippersViewModel {}
+
 class FakeGame extends Fake implements Game {}
+
 class FakeTipper extends Fake implements Tipper {}
+
 class FakeTip extends Fake implements Tip {}
 
 void main() {
@@ -84,17 +93,20 @@ void main() {
       });
       when(() => mockTipsViewModel.removeListener(any())).thenReturn(null);
       when(() => mockGamesViewModel.removeListener(any())).thenReturn(null);
-      when(() => mockGamesViewModel.addListener(any())).thenAnswer((invocation) {
-        gamesListener = invocation.positionalArguments[0] as VoidCallback;
-      });
+      when(() => mockGamesViewModel.addListener(any()))
+          .thenAnswer((invocation) {
+            gamesListener = invocation.positionalArguments[0] as VoidCallback;
+          });
 
-      when(() => mockTipsViewModel.gamesViewModel).thenReturn(mockGamesViewModel);
-      when(() => mockTipsViewModel.initialLoadCompleted).thenAnswer((_) async {});
-      when(() => mockTipsViewModel.findTip(any(), any())).thenAnswer((_) async => null);
+      when(() => mockTipsViewModel.gamesViewModel)
+          .thenReturn(mockGamesViewModel);
+      when(() => mockTipsViewModel.initialLoadCompleted)
+          .thenAnswer((_) async {});
+      when(() => mockTipsViewModel.findTip(any(), any()))
+          .thenAnswer((_) async => null);
       when(() => mockTipsViewModel.getTipsForTipper(any())).thenReturn([]);
-      when(
-        () => mockTipsViewModel.waitForTipUpdate(any()),
-      ).thenAnswer((_) async {});
+      when(() => mockTipsViewModel.waitForTipUpdate(any()))
+          .thenAnswer((_) async {});
       when(() => mockDb.update(any())).thenAnswer((_) async {});
 
       homeTeam = Team(dbkey: 'nrl-home', name: 'Home', league: League.nrl);
@@ -130,43 +142,48 @@ void main() {
       await di.reset();
     });
 
-    test('does not notify when the updated game scores and state are unchanged', () async {
-      final currentGame = buildGame(
-        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 4)),
-        homeScore: 12,
-        awayScore: 8,
-      );
-      when(
-        () => mockGamesViewModel.findGame(currentGame.dbkey),
-      ).thenAnswer((_) async => buildGame(
-        startTimeUTC: currentGame.startTimeUTC,
-        homeScore: 12,
-        awayScore: 8,
-      ));
+    test(
+      'does not notify when the updated game scores and state are unchanged',
+      () async {
+        final currentGame = buildGame(
+          startTimeUTC: DateTime.now().toUtc().subtract(
+            const Duration(hours: 4),
+          ),
+          homeScore: 12,
+          awayScore: 8,
+        );
+        when(() => mockGamesViewModel.findGame(currentGame.dbkey)).thenAnswer(
+          (_) async => buildGame(
+            startTimeUTC: currentGame.startTimeUTC,
+            homeScore: 12,
+            awayScore: 8,
+          ),
+        );
 
-      final vm = GameTipViewModel(
-        tipper,
-        currentComp,
-        currentGame,
-        mockTipsViewModel,
-        database: mockDb,
-      );
-      var notifications = 0;
-      vm.addListener(() {
-        notifications++;
-      });
-      await settleAsyncWork();
-      notifications = 0;
+        final vm = GameTipViewModel(
+          tipper,
+          currentComp,
+          currentGame,
+          mockTipsViewModel,
+          database: mockDb,
+        );
+        var notifications = 0;
+        vm.addListener(() {
+          notifications++;
+        });
+        await settleAsyncWork();
+        notifications = 0;
 
-      gamesListener();
-      await settleAsyncWork();
+        gamesListener();
+        await settleAsyncWork();
 
-      expect(notifications, 0);
-      expect(vm.homeTeamScore, 12);
-      expect(vm.awayTeamScore, 8);
+        expect(notifications, 0);
+        expect(vm.homeTeamScore, 12);
+        expect(vm.awayTeamScore, 8);
 
-      vm.dispose();
-    });
+        vm.dispose();
+      },
+    );
 
     test('notifies when the updated game score changes', () async {
       final currentGame = buildGame(
@@ -174,13 +191,13 @@ void main() {
         homeScore: 12,
         awayScore: 8,
       );
-      when(
-        () => mockGamesViewModel.findGame(currentGame.dbkey),
-      ).thenAnswer((_) async => buildGame(
-        startTimeUTC: currentGame.startTimeUTC,
-        homeScore: 14,
-        awayScore: 8,
-      ));
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey)).thenAnswer(
+        (_) async => buildGame(
+          startTimeUTC: currentGame.startTimeUTC,
+          homeScore: 14,
+          awayScore: 8,
+        ),
+      );
 
       final vm = GameTipViewModel(
         tipper,
@@ -206,55 +223,59 @@ void main() {
       vm.dispose();
     });
 
-    test('notifies when live scores mutate the current game in place', () async {
-      final currentGame = buildGame(
-        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
-        homeScore: null,
-        awayScore: null,
-      );
-      when(
-        () => mockGamesViewModel.findGame(currentGame.dbkey),
-      ).thenAnswer((_) async => currentGame);
+    test(
+      'notifies when live scores mutate the current game in place',
+      () async {
+        final currentGame = buildGame(
+          startTimeUTC: DateTime.now().toUtc().subtract(
+            const Duration(hours: 1),
+          ),
+          homeScore: null,
+          awayScore: null,
+        );
+        when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+            .thenAnswer((_) async => currentGame);
 
-      final vm = GameTipViewModel(
-        tipper,
-        currentComp,
-        currentGame,
-        mockTipsViewModel,
-        database: mockDb,
-      );
-      var notifications = 0;
-      vm.addListener(() {
-        notifications++;
-      });
-      await settleAsyncWork();
-      notifications = 0;
+        final vm = GameTipViewModel(
+          tipper,
+          currentComp,
+          currentGame,
+          mockTipsViewModel,
+          database: mockDb,
+        );
+        var notifications = 0;
+        vm.addListener(() {
+          notifications++;
+        });
+        await settleAsyncWork();
+        notifications = 0;
 
-      currentGame.scoring!.crowdSourcedScores = [
-        CrowdSourcedScore(
-          DateTime.now().toUtc(),
-          ScoringTeam.home,
-          tipper.dbkey!,
-          6,
-          false,
-        ),
-        CrowdSourcedScore(
-          DateTime.now().toUtc(),
-          ScoringTeam.away,
-          tipper.dbkey!,
-          4,
-          false,
-        ),
-      ];
-      gamesListener();
-      await settleAsyncWork();
+        currentGame.scoring!.crowdSourcedScores = [
+          CrowdSourcedScore(
+            DateTime.now().toUtc(),
+            ScoringTeam.home,
+            tipper.dbkey!,
+            6,
+            false,
+          ),
+          CrowdSourcedScore(
+            DateTime.now().toUtc(),
+            ScoringTeam.away,
+            tipper.dbkey!,
+            4,
+            false,
+          ),
+        ];
+        gamesListener();
+        await settleAsyncWork();
 
-      expect(notifications, 1);
-      expect(vm.homeTeamScore, 6);
-      expect(vm.awayTeamScore, 4);
+        expect(notifications, 1);
+        expect(vm.homeTeamScore, 6);
+        expect(vm.awayTeamScore, 4);
 
-      vm.dispose();
-    });
+        vm.dispose();
+      },
+    );
 
     test('syncs fixture scoring onto a tip loaded with a stale game', () async {
       final scoredGame = buildGame(
@@ -274,9 +295,8 @@ void main() {
         tip: GameResult.b,
         submittedTimeUTC: DateTime.now().toUtc(),
       );
-      when(
-        () => mockTipsViewModel.findTip(any(), any()),
-      ).thenAnswer((_) async => staleTip);
+      when(() => mockTipsViewModel.findTip(any(), any()))
+          .thenAnswer((_) async => staleTip);
 
       final vm = GameTipViewModel(
         tipper,
@@ -293,68 +313,62 @@ void main() {
       vm.dispose();
     });
 
-    test(
-      'does not notify when the streamed tip only differs by dbkey or milliseconds',
-      () async {
-        final currentGame = buildGame(
-          startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
-          homeScore: 0,
-          awayScore: 0,
-        );
-        final optimisticTipTime = DateTime.now().toUtc();
-        final optimisticTip = Tip(
-          game: currentGame,
-          tipper: tipper,
-          tip: GameResult.b,
-          submittedTimeUTC: optimisticTipTime,
-        );
-        final streamedTip = Tip(
-          dbkey: currentGame.dbkey,
-          game: currentGame,
-          tipper: tipper,
-          tip: GameResult.b,
-          submittedTimeUTC: DateTime.fromMillisecondsSinceEpoch(
-            (optimisticTipTime.millisecondsSinceEpoch ~/ 1000) * 1000,
-            isUtc: true,
-          ),
-        );
+    test('does not notify when the streamed tip only differs by dbkey or milliseconds', () async {
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      final optimisticTipTime = DateTime.now().toUtc();
+      final optimisticTip = Tip(
+        game: currentGame,
+        tipper: tipper,
+        tip: GameResult.b,
+        submittedTimeUTC: optimisticTipTime,
+      );
+      final streamedTip = Tip(
+        dbkey: currentGame.dbkey,
+        game: currentGame,
+        tipper: tipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.fromMillisecondsSinceEpoch(
+          (optimisticTipTime.millisecondsSinceEpoch ~/ 1000) * 1000,
+          isUtc: true,
+        ),
+      );
 
-        when(
-          () => mockGamesViewModel.findGame(currentGame.dbkey),
-        ).thenAnswer((_) async => currentGame);
-        when(
-          () => mockTipsViewModel.findTip(any(), any()),
-        ).thenAnswer((_) async => optimisticTip);
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+          .thenAnswer((_) async => currentGame);
+      when(() => mockTipsViewModel.findTip(any(), any()))
+          .thenAnswer((_) async => optimisticTip);
 
-        final vm = GameTipViewModel(
-          tipper,
-          currentComp,
-          currentGame,
-          mockTipsViewModel,
-          database: mockDb,
-        );
-        var notifications = 0;
-        vm.addListener(() {
-          notifications++;
-        });
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+      );
+      var notifications = 0;
+      vm.addListener(() {
+        notifications++;
+      });
 
-        await settleAsyncWork();
-        expect(await vm.getTip(), optimisticTip);
-        notifications = 0;
+      await settleAsyncWork();
+      expect(await vm.getTip(), optimisticTip);
+      notifications = 0;
 
-        when(
-          () => mockTipsViewModel.findTip(any(), any()),
-        ).thenAnswer((_) async => streamedTip);
+      when(() => mockTipsViewModel.findTip(any(), any()))
+          .thenAnswer((_) async => streamedTip);
 
-        tipsListener();
-        await settleAsyncWork();
+      tipsListener();
+      await settleAsyncWork();
 
-        expect(notifications, 0);
-        expect(await vm.getTip(), optimisticTip);
+      expect(notifications, 0);
+      expect(await vm.getTip(), optimisticTip);
 
-        vm.dispose();
-      },
-    );
+      vm.dispose();
+    });
 
     test('addTip writes the tip to RTDB without client scoring', () async {
       final currentGame = buildGame(
@@ -364,12 +378,10 @@ void main() {
       );
       final dauCompsViewModel = MockDAUCompsViewModel();
       final tippersViewModel = MockTippersViewModel();
-      when(
-        () => mockGamesViewModel.findGame(currentGame.dbkey),
-      ).thenAnswer((_) async => currentGame);
-      when(
-        () => dauCompsViewModel.selectedTipperTipsViewModel,
-      ).thenReturn(null);
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+          .thenAnswer((_) async => currentGame);
+      when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+          .thenReturn(null);
       when(() => tippersViewModel.inGodMode).thenReturn(false);
       di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
       di.registerSingleton<TippersViewModel>(tippersViewModel);
@@ -393,86 +405,77 @@ void main() {
 
       await vm.addTip(tip);
 
-      final updatePayload = verify(
-        () => mockDb.update(captureAny()),
-      ).captured.single as Map;
+      final updatePayload =
+          verify(() => mockDb.update(captureAny())).captured.single as Map;
       expect(
         updatePayload.keys.single,
         '/AllTips/${currentComp.dbkey}/${tipper.dbkey}/${currentGame.dbkey}',
       );
-      expect(
-        updatePayload.values.single,
-        containsPair('r', GameResult.b.name),
-      );
+      expect(updatePayload.values.single, containsPair('r', GameResult.b.name));
       verify(() => mockTipsViewModel.waitForTipUpdate(tip)).called(1);
 
       vm.dispose();
     });
 
-    test(
-      'addTip stops waiting when the server does not answer, and keeps the tip log for when it does',
-      () async {
-        final currentGame = buildGame(
-          startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
-          homeScore: 0,
-          awayScore: 0,
-        );
-        final dauCompsViewModel = MockDAUCompsViewModel();
-        final tippersViewModel = MockTippersViewModel();
-        when(
-          () => mockGamesViewModel.findGame(currentGame.dbkey),
-        ).thenAnswer((_) async => currentGame);
-        when(
-          () => dauCompsViewModel.selectedTipperTipsViewModel,
-        ).thenReturn(null);
-        when(() => tippersViewModel.inGodMode).thenReturn(false);
-        di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
-        di.registerSingleton<TippersViewModel>(tippersViewModel);
+    test('addTip stops waiting when the server does not answer, and keeps the tip log for when it does', () async {
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      final dauCompsViewModel = MockDAUCompsViewModel();
+      final tippersViewModel = MockTippersViewModel();
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+          .thenAnswer((_) async => currentGame);
+      when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+          .thenReturn(null);
+      when(() => tippersViewModel.inGodMode).thenReturn(false);
+      di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
+      di.registerSingleton<TippersViewModel>(tippersViewModel);
 
-        final Completer<void> serverAnswer = Completer<void>();
-        when(() => mockDb.update(any())).thenAnswer((_) => serverAnswer.future);
-        var tipLogsWritten = 0;
-        final vm = GameTipViewModel(
-          tipper,
-          currentComp,
-          currentGame,
-          mockTipsViewModel,
-          database: mockDb,
-          logAnalyticsEvent: (_, _) async {},
-          writeTipLog: (_) async {
-            tipLogsWritten++;
-          },
-          writeAcknowledgementLimit: const Duration(milliseconds: 30),
-        );
-        await settleAsyncWork();
-        final tip = Tip(
-          game: currentGame,
-          tipper: tipper,
-          tip: GameResult.b,
-          submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
-        );
+      final Completer<void> serverAnswer = Completer<void>();
+      when(() => mockDb.update(any())).thenAnswer((_) => serverAnswer.future);
+      var tipLogsWritten = 0;
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+        logAnalyticsEvent: (_, _) async {},
+        writeTipLog: (_) async {
+          tipLogsWritten++;
+        },
+        writeAcknowledgementLimit: const Duration(milliseconds: 30),
+      );
+      await settleAsyncWork();
+      final tip = Tip(
+        game: currentGame,
+        tipper: tipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
+      );
 
-        await expectLater(
-          vm.addTip(tip),
-          throwsA(isA<WriteNotConfirmedException>()),
-        );
+      await expectLater(
+        vm.addTip(tip),
+        throwsA(isA<WriteNotConfirmedException>()),
+      );
 
-        expect(vm.savingTip, isFalse, reason: 'the spinner must stop');
-        expect(tipLogsWritten, 0, reason: 'nothing is confirmed yet');
-        verifyNever(() => mockTipsViewModel.waitForTipUpdate(any()));
+      expect(vm.savingTip, isFalse, reason: 'the spinner must stop');
+      expect(tipLogsWritten, 0, reason: 'nothing is confirmed yet');
+      verifyNever(() => mockTipsViewModel.waitForTipUpdate(any()));
 
-        serverAnswer.complete();
-        await settleAsyncWork();
+      serverAnswer.complete();
+      await settleAsyncWork();
 
-        expect(
-          tipLogsWritten,
-          1,
-          reason: 'the record of the tip is kept once the server confirms it',
-        );
+      expect(
+        tipLogsWritten,
+        1,
+        reason: 'the record of the tip is kept once the server confirms it',
+      );
 
-        vm.dispose();
-      },
-    );
+      vm.dispose();
+    });
 
     test('addTip rethrows a rejection that arrives before the limit', () async {
       final currentGame = buildGame(
@@ -482,18 +485,15 @@ void main() {
       );
       final dauCompsViewModel = MockDAUCompsViewModel();
       final tippersViewModel = MockTippersViewModel();
-      when(
-        () => mockGamesViewModel.findGame(currentGame.dbkey),
-      ).thenAnswer((_) async => currentGame);
-      when(
-        () => dauCompsViewModel.selectedTipperTipsViewModel,
-      ).thenReturn(null);
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+          .thenAnswer((_) async => currentGame);
+      when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+          .thenReturn(null);
       when(() => tippersViewModel.inGodMode).thenReturn(false);
       di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
       di.registerSingleton<TippersViewModel>(tippersViewModel);
-      when(
-        () => mockDb.update(any()),
-      ).thenAnswer((_) async => throw StateError('permission denied'));
+      when(() => mockDb.update(any()))
+          .thenAnswer((_) async => throw StateError('permission denied'));
       final vm = GameTipViewModel(
         tipper,
         currentComp,
@@ -519,6 +519,113 @@ void main() {
       expect(vm.savingTip, isFalse);
 
       vm.dispose();
+    });
+
+    group('a tip the server has not confirmed', () {
+      late UnconfirmedTipsService unconfirmed;
+      late Game currentGame;
+      late Completer<void> serverAnswer;
+      late GameTipViewModel vm;
+
+      Tip tipOf(GameResult result) => Tip(
+        game: currentGame,
+        tipper: tipper,
+        tip: result,
+        submittedTimeUTC: DateTime.utc(2030, 1, 1, 9),
+      );
+
+      setUp(() async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        unconfirmed = UnconfirmedTipsService();
+        currentGame = buildGame(
+          startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+          homeScore: 0,
+          awayScore: 0,
+        );
+        final dauCompsViewModel = MockDAUCompsViewModel();
+        final tippersViewModel = MockTippersViewModel();
+        when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+            .thenAnswer((_) async => currentGame);
+        when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+            .thenReturn(null);
+        when(() => tippersViewModel.inGodMode).thenReturn(false);
+        di.registerSingleton<DAUCompsViewModel>(dauCompsViewModel);
+        di.registerSingleton<TippersViewModel>(tippersViewModel);
+        serverAnswer = Completer<void>();
+        when(() => mockDb.update(any())).thenAnswer((_) => serverAnswer.future);
+        vm = GameTipViewModel(
+          tipper,
+          currentComp,
+          currentGame,
+          mockTipsViewModel,
+          database: mockDb,
+          logAnalyticsEvent: (_, _) async {},
+          writeTipLog: (_) async {},
+          writeAcknowledgementLimit: const Duration(milliseconds: 30),
+          unconfirmedTips: unconfirmed,
+        );
+        await settleAsyncWork();
+      });
+
+      tearDown(() => vm.dispose());
+
+      test('is remembered on the device while it is unconfirmed', () async {
+        await expectLater(
+          vm.addTip(tipOf(GameResult.b)),
+          throwsA(isA<WriteNotConfirmedException>()),
+        );
+
+        final pending = await unconfirmed.pending();
+        expect(pending, hasLength(1));
+        expect(pending.single.gameKey, currentGame.dbkey);
+        expect(pending.single.choice, GameResult.b.name);
+        expect(unconfirmed.notices, isEmpty);
+      });
+
+      test('that the rules reject after the screen stopped waiting is reported to the user', () async {
+        await expectLater(
+          vm.addTip(tipOf(GameResult.b)),
+          throwsA(isA<WriteNotConfirmedException>()),
+        );
+
+        serverAnswer.completeError(StateError('permission-denied'));
+        await settleAsyncWork();
+
+        expect(unconfirmed.notices, hasLength(1));
+        expect(unconfirmed.notices.single, contains('not counted'));
+        expect(unconfirmed.notices.single, contains('Home'));
+        expect(await unconfirmed.pending(), isEmpty);
+      });
+
+      test(
+        'that the server confirms late is forgotten without a notice',
+        () async {
+          await expectLater(
+            vm.addTip(tipOf(GameResult.b)),
+            throwsA(isA<WriteNotConfirmedException>()),
+          );
+
+          serverAnswer.complete();
+          await settleAsyncWork();
+
+          expect(unconfirmed.notices, isEmpty);
+          expect(await unconfirmed.pending(), isEmpty);
+        },
+      );
+
+      test('that is rejected before the limit is left to the screen, with no notice', () async {
+        when(() => mockDb.update(any()))
+            .thenAnswer((_) async => throw StateError('permission-denied'));
+
+        await expectLater(
+          vm.addTip(tipOf(GameResult.b)),
+          throwsA(isA<StateError>()),
+        );
+        await settleAsyncWork();
+
+        expect(unconfirmed.notices, isEmpty);
+        expect(await unconfirmed.pending(), isEmpty);
+      });
     });
   });
 }

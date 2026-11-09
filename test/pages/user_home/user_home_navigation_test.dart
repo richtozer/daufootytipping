@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -8,6 +10,7 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
@@ -21,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/load_tips_fonts.dart';
 
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
 
 class _MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
@@ -457,5 +461,145 @@ void main() {
       isTrue,
       reason: 'still at the end after the fold, not at a stale offset',
     );
+  });
+
+  group('a queued tip that did not count', () {
+    UnconfirmedTip queuedTip({required int kickoffUtcMs}) => UnconfirmedTip(
+      compKey: 'comp-1',
+      tipperKey: 'tipper-1',
+      gameKey: 'nrl-0',
+      choice: 'a',
+      gameLabel: 'NRL Home v NRL Away',
+      kickoffUtcMs: kickoffUtcMs,
+      queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+    );
+
+    testWidgets(
+      'is reported when the server refuses it while the app is open',
+      (tester) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final service = UnconfirmedTipsService();
+        di.registerSingleton<UnconfirmedTipsService>(service);
+        await pumpHome(tester);
+
+        final tip = queuedTip(
+          kickoffUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+        );
+        await tester.runAsync(() async {
+          await service.queued(tip);
+          await service.rejected(tip);
+        });
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.text('Tip not counted'), findsOneWidget);
+        expect(find.textContaining('NRL Home v NRL Away'), findsOneWidget);
+
+        await tester.tap(find.text('OK'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('Tip not counted'), findsNothing);
+        expect(service.notices, isEmpty);
+      },
+    );
+
+    testWidgets('is reported on the next launch when the server never got it', (
+      tester,
+    ) async {
+      final started = queuedTip(
+        kickoffUtcMs: DateTime.now()
+            .toUtc()
+            .subtract(const Duration(hours: 2))
+            .millisecondsSinceEpoch,
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        UnconfirmedTipsService.storageKey: jsonEncode(<Object?>[
+          started.toJson(),
+        ]),
+      });
+      di.registerSingleton<UnconfirmedTipsService>(UnconfirmedTipsService());
+      final tipsViewModel = _MockTipsViewModel();
+      when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+      when(() => tipsViewModel.initialLoadCompleted).thenAnswer((_) async {});
+      when(() => tipsViewModel.submittedResultForGame(any(), any()))
+          .thenReturn(null);
+      when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+          .thenReturn(1);
+      when(
+        () => tipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              any(),
+              any(),
+            ),
+      ).thenReturn(0);
+      when(
+        () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
+          any(),
+          any(),
+        ),
+      ).thenReturn(0);
+      when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+          .thenReturn(tipsViewModel);
+      when(() => dauCompsViewModel.gamesViewModel).thenReturn(null);
+
+      await pumpHome(tester);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Tip not counted'), findsOneWidget);
+      expect(find.textContaining('never reached the server'), findsOneWidget);
+    });
+
+    testWidgets('is left queued, silently, while its game has yet to start', (
+      tester,
+    ) async {
+      final upcoming = queuedTip(
+        kickoffUtcMs: DateTime.now()
+            .toUtc()
+            .add(const Duration(hours: 2))
+            .millisecondsSinceEpoch,
+      );
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        UnconfirmedTipsService.storageKey: jsonEncode(<Object?>[
+          upcoming.toJson(),
+        ]),
+      });
+      final service = UnconfirmedTipsService();
+      di.registerSingleton<UnconfirmedTipsService>(service);
+      final tipsViewModel = _MockTipsViewModel();
+      when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+      when(() => tipsViewModel.initialLoadCompleted).thenAnswer((_) async {});
+      when(() => tipsViewModel.submittedResultForGame(any(), any()))
+          .thenReturn(null);
+      when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+          .thenReturn(1);
+      when(
+        () => tipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              any(),
+              any(),
+            ),
+      ).thenReturn(0);
+      when(
+        () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
+          any(),
+          any(),
+        ),
+      ).thenReturn(0);
+      when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+          .thenReturn(tipsViewModel);
+
+      await pumpHome(tester);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+
+      expect(find.text('Tip not counted'), findsNothing);
+      expect(await tester.runAsync(service.pending), hasLength(1));
+    });
   });
 }
