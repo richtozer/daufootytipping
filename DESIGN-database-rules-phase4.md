@@ -1415,6 +1415,55 @@ expressions are about a thousand characters, so it is worth doing months before 
 **Still to do.** The production validation above (owner's go); the real purge and cutover scripts (M8); M7's client
 against these rules.
 
+### 6k. M7 scoping: the R2 client (9 November 2026; a PROPOSAL, awaiting the owner's go; no client code changed)
+
+**What the survey of the client found.**
+- *Startup:* the post-frame warm-up in `main.dart` (about line 550) creates `TeamsViewModel`, `TippersViewModel` and
+  `DAUCompsViewModel` together, which attach their listeners at once. Under R2 `Teams`, `AllDAUComps` and
+  `DAUCompsGames` need a session, so those listeners must wait for a Firebase user (anonymous will do for browsing),
+  and every listener needs an `onError` that re-subscribes when the auth state changes.
+- *Linking:* `TippersViewModel` (1043 lines) scans the public tipper list by uid, email and login
+  (`_findExistingTipper`, `_createNewTipperIfNeeded`, `_updateExistingTipper`) and writes the record itself. All of that
+  becomes: read my own `AuthIndex` entry, validate it against my own `TipperPrivate`, call `link-or-create-tipper` only
+  when there is no entry, with the cached-tipper rules already decided.
+- *Tips:* the competition-wide tips listener (`TipsViewModel` with no tipper) is used **only by the admin merge**
+  (`mergeTipsForComp`), which becomes the `admin-merge-tippers` callable. Everything else uses the per-tipper listener.
+  Under R2 that works for my own tips; for another tipper's tips (the drill-down) it must become per-game listeners for
+  the tipper being viewed, which is a handful, not a fan-out of every tipper.
+- *Live scores:* `StatsViewModel._writeLiveScoreToDb` writes `current` and history together, with the whole serialized
+  score (`submittedTimeUTC`, `gameComplete`). Under R2 it writes history entries only, built field by field.
+- *Tokens, account deletion, admin:* `firebase_messaging_service` reads every tipper's tokens and writes the token node
+  directly (`_removeTokenFromOtherTippers`), `deleteAccount` deletes only the Firebase user, and the admin screens
+  write tipper records directly. These become the token callables, the unlink-then-delete flow, and the admin callables.
+
+**Proposed slices, each testable on its own** (the estimate is the plan's 12 to 15 days):
+1. *Identity service:* one thin wrapper over the callables using the shared request/result types, typed errors, a fake
+   for tests. (2 d)
+2. *Link flow, public/private tipper, auth-aware startup, cached tipper:* the core and the riskiest slice. (5 to 6 d)
+3. *Tips:* per-game listeners for other tippers, and the queued-tip message that does not promise delivery after
+   kickoff, with a late rejection surfaced. (3 d)
+4. *Live scores:* history-only writes with the server timestamp; remove the `current` writer and `gameComplete`. (1.5 d)
+5. *Tokens and account deletion:* token callables; reauthenticate, unregister the token, `unlink-my-account`, delete the
+   Firebase user, with a failure after the unlink being retried. (2 d)
+6. *Admin:* screens read `TipperPrivate`; edits, roles and merges through the callables; delete
+   `GamesViewModel.updateGameAttribute` and `saveBatchOfGameAttributes`. (3 d)
+7. *Small items:* name changes through `update-tipper-alias`; the Update App button on web (D13). (1 d)
+8. *Integration:* the real-client smoke harness against R1-compat and R2 with the real callable code, and the
+   reference-data checks of 6b. (3 d)
+
+**Two things the owner should know before starting.**
+- **A linked user needs no callable to sign in under the R2 client** (read my `AuthIndex` entry and my `TipperPrivate`
+  record, both allowed by R1-compat, which is live), so the R2 client can be tried on production for the read paths
+  already. But a new sign-up, a name change, a push-token registration and the delete flow all call callables, which
+  refuse everyone while the mode is `off`. To soak the build on the owner's devices the mode must move to `pilot` with
+  the owner's uids, and to `coexist` before any R2 client reaches other users. Each is a separate owner decision and
+  a deployed check.
+- **Slice 2 changes how every user signs in.** It is the one to review most carefully, to soak longest, and not to
+  squash with the others; the other slices only change what happens after sign-in.
+
+**Decisions wanted.** (1) Go to start with slices 1 and 2. (2) Whether to take the mode to `pilot` for the owner's
+devices once slice 2 is in a TestFlight build.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
