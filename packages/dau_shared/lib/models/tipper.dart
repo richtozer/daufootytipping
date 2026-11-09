@@ -30,10 +30,16 @@ class Tipper implements Comparable<Tipper> {
     this.isAnonymous = false,
   });
 
+  /// Reads a tipper record. Every field but [name] may be missing: after the
+  /// purge the public record carries only `name`, `photoURL` and
+  /// `compsParticipatedIn`, and the account id, role, email, login and the
+  /// anonymous flag live in the private record. A missing `authuid` reads as `''`
+  /// ("not known here", the legacy way of saying there is no account on record),
+  /// a missing role as a tipper, a missing anonymous flag as false.
   factory Tipper.fromJson(Map<String, dynamic> data, String? key) {
     return Tipper(
       dbkey: key,
-      authuid: data['authuid'],
+      authuid: (data['authuid'] as String?) ?? '',
       email: data['email'],
       logon: data['logon'], // this is the email address used for login
       name: data['name'] ?? '',
@@ -72,6 +78,23 @@ class Tipper implements Comparable<Tipper> {
     return compsPaidFor.any(
       (compParticipatedIn) => compParticipatedIn.dbkey == checkThisComp.dbkey,
     ); //check if the tipper has paid for this comp
+  }
+
+  /// The signed-in user's own tipper: the public record with the private one laid
+  /// over it, because the private record is the validated source for the fields
+  /// that identify the account (role, login, email). [authuid] is the signed-in
+  /// account's own id, which the caller has just verified against the link.
+  factory Tipper.fromRecords({
+    required String key,
+    required String authuid,
+    required Map<String, dynamic> publicRecord,
+    Map<String, dynamic>? privateRecord,
+  }) {
+    return Tipper.fromJson(<String, dynamic>{
+      ...publicRecord,
+      ...?privateRecord,
+      'authuid': authuid,
+    }, key);
   }
 
   static Future<List<Tipper?>> fromJsonList(
@@ -149,18 +172,20 @@ class Tipper implements Comparable<Tipper> {
     };
   }
 
+  /// Two tippers are the same tipper when they have the same record key. The
+  /// account id is not compared when both have a key, because only the signed-in
+  /// tipper's own object knows it (everyone else's is private). A tipper with no
+  /// key yet (a guest, which is never saved) is identified by its account id.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
-    return other is Tipper && other.dbkey == dbkey && other.authuid == authuid;
+    if (other is! Tipper) return false;
+    if (dbkey != null && other.dbkey != null) return dbkey == other.dbkey;
+    return dbkey == other.dbkey && authuid == other.authuid;
   }
 
   @override
-  int get hashCode => Object.hash(
-    dbkey ?? '', // Use an empty string if dbkey is null
-    authuid,
-  );
+  int get hashCode => dbkey != null ? dbkey.hashCode : Object.hash('', authuid);
 
   @override
   // method used to sort Tippers in a List
