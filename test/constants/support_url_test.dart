@@ -67,5 +67,23 @@ void main() {
 
       expect(emails, {'daufootytipping@gmail.com'});
     });
+
+    // Google Search Console rechecks this file to keep the site verified for
+    // the Play Console developer website. Cloudflare Pages would otherwise
+    // redirect the .html address, so a 200 rewrite serves it directly.
+    test('serves the Search Console verification file without a redirect', () {
+      const fileName = 'google19e545f86d0ad110';
+
+      expect(
+        File('support_site/$fileName.html').readAsStringSync().trim(),
+        'google-site-verification: $fileName.html',
+      );
+      expect(
+        redirects,
+        matches(
+          RegExp('^/$fileName\\.html\\s+/$fileName\\s+200\$', multiLine: true),
+        ),
+      );
+    });
   });
 }
