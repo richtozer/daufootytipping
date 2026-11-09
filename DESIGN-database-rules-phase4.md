@@ -1515,6 +1515,15 @@ without these changes. **Not tested by anything automatic:** the sign-in page's 
 `main.dart`, because they need Firebase Auth. The decisions are in the controller (tested); the page maps its phase to a
 screen. They need a run on a device or the emulators; a checklist is in the slice 2 hand-over to the owner.
 
+**Running the new client against the local emulators (found on the owner's first run, 9 November 2026).** A fresh local
+emulator greets the first sign-in with "Signing in is not available right now": the seeded production snapshot has no
+`AuthIndex` or `TipperPrivate` for the emulator's own accounts and the identity mode is unset (`off`), so the client
+finds no link, asks the server, and the server correctly refuses. `scripts/seed_rtdb_emulator.sh` now sets the mode to
+`coexist` after seeding (`SEED_IDENTITY_MODE=off` keeps the refusal for testing it); for an emulator already running,
+`PUT /ServerConfig/identity/mode` to `"coexist"`. In `coexist` an emulator account whose verified email matches a seeded
+legacy record is refused as `claimed` (that record's account id is a production one), and an account with no matching
+record is asked for an alias and given a new tipper; signing out and in again then takes the read-only path.
+
 **Decisions wanted.** (1) Go to start with slices 1 and 2. (2) Whether to take the mode to `pilot` for the owner's
 devices once slice 2 is in a TestFlight build.
 

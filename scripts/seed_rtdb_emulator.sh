@@ -39,6 +39,20 @@ seed_namespace() {
     return 1
   fi
 
+  # The app links a signed-in account to its tipper through the identity callables, which
+  # refuse everyone unless the server mode allows it, and a production snapshot holds no
+  # identity data for the emulator's own accounts. Without this a fresh emulator greets the
+  # first sign-in with "Signing in is not available right now". `coexist` lets a new
+  # emulator account create its tipper; set SEED_IDENTITY_MODE=off to test the refusal.
+  local identity_mode="${SEED_IDENTITY_MODE:-coexist}"
+  curl --fail --silent --show-error \
+    -X PUT \
+    -H "Authorization: Bearer owner" \
+    -H "Content-Type: application/json" \
+    --data "\"${identity_mode}\"" \
+    "${base_url}/ServerConfig/identity/mode.json?ns=${ns}" >/dev/null
+  echo "Identity server mode set to ${identity_mode} (ns=${ns})."
+
   echo "Seeded Realtime Database emulator successfully (ns=${ns})."
   return 0
 }
