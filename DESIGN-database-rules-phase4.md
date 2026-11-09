@@ -1129,8 +1129,13 @@ public-invoker setting, so Cloud Run answered 403 before our code; the owner add
 to both. Verified afterwards with nothing but unauthenticated requests and read-only commands: all ten callables
 answer our JSON 401 for no credentials and for garbage tokens, the three secret-protected endpoints answer their own
 403 `PERMISSION_DENIED`, every service is ready, and the identity mode is `off` with nothing in flight. Recorded in
-`config/deployments/allowlist-deployments.jsonl`. **The pattern is now reliable enough to plan around: a deploy of new
-Dart functions needs the invoker check, and the CLI's six "failures" are not failures.**
+`config/deployments/allowlist-deployments.jsonl`. **The pattern has repeated across three deploys, so plan for it. Each
+timeout is inconclusive until the intended revision, the endpoint's response and its permissions have been checked: here
+the revisions were all fine, but the two services whose create timed out had to have their invoker permission repaired,
+so the timeout was not entirely harmless.** What the 401 and 403 checks show is that the endpoints are reachable and
+refuse those unauthenticated requests. They do not show a successful business operation, an acceptable limit for a
+deploy in `off`. And `off` blocks business mutations through the *new identity callables* only: it does not disable the
+existing admin endpoints, or the legacy client writes that R1 and R1-compat still permit.
 
 **Corrections after a seventh review (9 November 2026).**
 1. *The merge refuses a known clash before it moves anything.* The preview used to check only that both records

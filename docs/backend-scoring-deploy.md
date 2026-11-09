@@ -95,9 +95,12 @@ deployments can deploy both codebases together if the env files remain present.
 ## If the deploy reports "timed out after 30000ms"
 
 `firebase deploy` can print `Task index 0 failed: timed out after 30000ms` and list several Dart functions as
-failed even though nothing went wrong: it stops waiting for a Cloud Run operation after about 30 seconds, and
-rollouts of several services at once take longer. Do not run the whole deploy again; every run makes a new
-revision of every service. Check the real state instead:
+failed. That means it stopped waiting for a Cloud Run operation after about 30 seconds, and rollouts of several
+services at once take longer. **Treat each timeout as inconclusive, not as success and not as failure**, until the
+intended revision, the endpoint's response and its permissions have been checked: in the 9 November deploys the
+revisions were fine, but the services whose create had timed out were left without their public-invoker setting
+and answered 403 until it was repaired. Do not run the whole deploy again; every run makes a new revision of every
+service. Check the real state instead:
 
 ```bash
 gcloud run services list --project dau-footy-tipping-f8a42 --region asia-southeast1 --format="table(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.conditions[0].status)"
