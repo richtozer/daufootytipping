@@ -959,7 +959,7 @@ audit; an expired marker needs a human (decision 7); anonymous callers and unver
 outright; the client must refresh its token after verification (M7); callable latency adds to first link only.
 Estimate: 9 days as in the table, plus about a day for the claim-move journal and the token index.
 
-### 6g. Progress: M6 started with R1-compat (9 November 2026; built and tested, not deployed)
+### 6g. Progress: M6 started with R1-compat (9 November 2026; built, tested and deployed to production)
 
 **Built.** `r1-compat` is a third variant of the rules generator (`scripts/build_admin_allowlist.mjs`), made from the
 same template and the same admin allowlist as R1 and R1-recovery, and written to
@@ -984,13 +984,22 @@ interchangeable, a deploy is refused unless the compat rules are installed). Six
 (drop either half of the two-way check, let any user read any `AuthIndex` entry, let anonymous sessions in, add a
 write, drop the admin read) are each caught. All 127 database rules tests and the 191 rules_test unit tests pass.
 
-**To deploy** (a production rules change, so a separate go from the owner; nothing calls `AuthIndex` or
+**Deployed on 9 November 2026** from `70eb9ba0` with `scripts/deploy-database-rules.sh --variant r1-compat`, at the
+owner's request (recorded in `config/deployments/allowlist-deployments.jsonl`). Before the deploy the live rules equalled
+the generated R1 exactly; after it they equal the generated R1-compat exactly. That comparison (the live document read
+with the owner's `gcloud` login, compared as parsed JSON, printing only match or no match) is the check that the right
+ruleset is live. **A bare unauthenticated REST read proves nothing about the rules:** the database enforces App Check in
+front of them, so every path, public ones included, answers `401 Missing appcheck token` to a request without a token.
+What is still to do is an ordinary-use smoke from the app (below), and the optional real-token read of a linked
+non-admin's own `TipperPrivate/{id}`.
+
+**How it was to be deployed** (kept for the rollback and for the next ruleset; nothing calls `AuthIndex` or
 `TipperPrivate` from the app yet, so it should change nothing anyone sees):
 1. `node scripts/build_admin_allowlist.mjs --install-rules --variant r1-compat`, then commit.
 2. `scripts/deploy-database-rules.sh --project dau-footy-tipping-f8a42 --variant r1-compat --dry-run`, then without
    `--dry-run`.
-3. Check: unauthenticated reads of `/AuthIndex.json` and `/TipperPrivate.json` are still refused; the app signs in
-   and a tip saves as before; the tipper list still loads. (Optionally, with a real ID token for a **linked
+3. Check: the live rules equal the generated R1-compat (see above); the app signs in and a tip saves as before; the
+   tipper list still loads. (Optionally, with a real ID token for a **linked
    non-admin**, read your own `TipperPrivate/{id}`. That is the only read that runs the `root.child` lookup for the
    first time in production. Reading your own `AuthIndex` entry does not, and an allowlisted admin would pass
    through the admin permission and could miss a broken owner rule.)
