@@ -959,6 +959,43 @@ audit; an expired marker needs a human (decision 7); anonymous callers and unver
 outright; the client must refresh its token after verification (M7); callable latency adds to first link only.
 Estimate: 9 days as in the table, plus about a day for the claim-move journal and the token index.
 
+### 6g. Progress: M6 started with R1-compat (9 November 2026; built and tested, not deployed)
+
+**Built.** `r1-compat` is a third variant of the rules generator (`scripts/build_admin_allowlist.mjs`), made from the
+same template and the same admin allowlist as R1 and R1-recovery, and written to
+`config/generated/database.rules.r1-compat.json`. It is R1 plus exactly two things, and no write permission:
+- `AuthIndex/{uid}`: a signed-in, non-anonymous user may read **their own entry only**. A user with no link reads
+  their own entry and gets `null`, which is a successful "no entry" and not a denial (the R2 client relies on that
+  to know it must link).
+- `TipperPrivate/{id}`: a signed-in user may read the record only when the link agrees in **both directions**
+  (`AuthIndex[auth.uid] == id` and the record's `authuid == auth.uid`, the R2 owner rule). Allowlisted admins may
+  read the whole node. A user whose database record merely says `admin` gets nothing extra.
+
+Every R1 node is byte-for-byte as in R1, and `AliasIndex`, `LogonIndex`, `Placeholders`, `ServerConfig`,
+`ClaimMoves`, `TokenOwners`, `CreateIntents` and `IdentityLocks` stay closed to every client. `database.rules.json`
+(the file Firebase ships) is **still R1**; nothing has been installed or deployed.
+
+**Tested.** `rules_test/r1_compat.rules.test.mjs` (23 tests): structurally the ruleset is R1 plus the two nodes with
+no `.write` in them; against the rules engine the owner rule is refused when either side of the link is missing or
+disagrees, to anonymous sessions, and to everyone else; no client, admin included, can write either node; the other
+identity nodes stay closed; a few R1 behaviours are unchanged. `allowlist.test.mjs` and `deploy_scripts.test.mjs`
+now cover the variant (fresh output, empty allowlist leaves the admin read `false`, the variants are not
+interchangeable, a deploy is refused unless the compat rules are installed). Six deliberate breakages of the rules
+(drop either half of the two-way check, let any user read any `AuthIndex` entry, let anonymous sessions in, add a
+write, drop the admin read) are each caught. All 127 database rules tests and the 191 rules_test unit tests pass.
+
+**To deploy** (a production rules change, so a separate go from the owner; nothing calls `AuthIndex` or
+`TipperPrivate` from the app yet, so it should change nothing anyone sees):
+1. `node scripts/build_admin_allowlist.mjs --install-rules --variant r1-compat`, then commit.
+2. `scripts/deploy-database-rules.sh --project dau-footy-tipping-f8a42 --variant r1-compat --dry-run`, then without
+   `--dry-run`.
+3. Check: unauthenticated reads of `/AuthIndex.json` and `/TipperPrivate.json` are still refused; the app signs in
+   and a tip saves as before; the tipper list still loads. (Optionally, with a real ID token, read your own
+   `AuthIndex` entry, which is the first time the `root.child` lookups run in production.)
+
+**Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
+fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the

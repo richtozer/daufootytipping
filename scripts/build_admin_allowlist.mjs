@@ -8,6 +8,10 @@
 //   config/generated/database.rules.r1-recovery.json  R1 minus its validation strictness and
 //                                                     plus legacy-Stats compatibility; every
 //                                                     allowlist and identity protection kept
+//   config/generated/database.rules.r1-compat.json    R1 plus exactly the two reads the R2 client
+//                                                     needs (own AuthIndex entry, own TipperPrivate
+//                                                     record, admins read TipperPrivate); no new
+//                                                     write permission (DESIGN-database-rules-phase4.md)
 //   functions_dart/bin/admin_allowlist.g.dart         compile-time constant for the Dart
 //                                                     admin endpoints
 //
@@ -39,12 +43,13 @@ export const PATHS = {
   template: resolve(repoRoot, "config/database.rules.r1.template.json"),
   rulesOut: resolve(repoRoot, "config/generated/database.rules.r1.json"),
   recoveryOut: resolve(repoRoot, "config/generated/database.rules.r1-recovery.json"),
+  compatOut: resolve(repoRoot, "config/generated/database.rules.r1-compat.json"),
   dartOut: resolve(repoRoot, "functions_dart/bin/admin_allowlist.g.dart"),
   firebaseJson: resolve(repoRoot, "firebase.json"),
   deployLog: resolve(repoRoot, "config/deployments/allowlist-deployments.jsonl"),
 };
 
-export const VARIANTS = ["r1", "r1-recovery"];
+export const VARIANTS = ["r1", "r1-recovery", "r1-compat"];
 
 // Firebase accepts any UID of 1 to 128 characters (28 alphanumerics is only the format it
 // generates), so that is the rule. Control characters are refused; everything else is escaped.
@@ -148,11 +153,41 @@ export function relaxForRecovery(rules) {
   return out;
 }
 
+/**
+ * R1-compat: R1 plus exactly the reads the R2 client needs, and nothing else. It is deployed BEFORE
+ * the R2 client so the `root.child` lookups run in production early (DESIGN-database-rules-phase4.md,
+ * section 3).
+ *
+ *  - `AuthIndex/{uid}`: a signed-in (non-anonymous) user may read their own entry only.
+ *  - `TipperPrivate/{id}`: a signed-in user may read the record only when the link agrees in BOTH
+ *    directions (`AuthIndex[auth.uid] == id` and the record's `authuid == auth.uid`), the R2 owner
+ *    rule. Allowlisted admins may read every record.
+ *
+ * There is no `.write` anywhere in it, so a client can write neither node (default deny; only the
+ * functions, with Admin credentials, do), and 1.4.x clients behave exactly as under R1. Every other
+ * identity node (`AliasIndex`, `LogonIndex`, `Placeholders`, `ServerConfig`, ...) stays closed.
+ */
+export function addCompatReads(rules, uids) {
+  const out = structuredClone(rules);
+  out.rules.AuthIndex = {
+    $uid: { ".read": `${SIGNED_IN_EXPR} && auth.uid === $uid` },
+  };
+  out.rules.TipperPrivate = {
+    ".read": isAdminExpr(uids),
+    $tipperId: {
+      ".read": `${SIGNED_IN_EXPR} && root.child('AuthIndex').child(auth.uid).val() === $tipperId && data.child('authuid').val() === auth.uid`,
+    },
+  };
+  return out;
+}
+
 /** Substitute the allowlist into the template. Returns a rules object for the variant. */
 export function buildRules(templateText, uids, { variant = "r1" } = {}) {
   if (!VARIANTS.includes(variant)) throw new Error(`Unknown variant: ${variant}`);
   const rules = substitute(templateText, uids);
-  return variant === "r1-recovery" ? relaxForRecovery(rules) : rules;
+  if (variant === "r1-recovery") return relaxForRecovery(rules);
+  if (variant === "r1-compat") return addCompatReads(rules, uids);
+  return rules;
 }
 
 export function renderRulesFile(templateText, uids, options = {}) {
@@ -177,7 +212,8 @@ export function loadConfig(path = PATHS.config) {
   return JSON.parse(readFileSync(path, "utf8")).adminAuthUids;
 }
 
-const outputFor = (variant) => (variant === "r1-recovery" ? PATHS.recoveryOut : PATHS.rulesOut);
+const outputFor = (variant) =>
+  ({ "r1-recovery": PATHS.recoveryOut, "r1-compat": PATHS.compatOut })[variant] ?? PATHS.rulesOut;
 
 /** The rules file Firebase deploys, per firebase.json. */
 export function deployedRulesPath() {
@@ -270,6 +306,7 @@ function main() {
   const outputs = [
     [PATHS.rulesOut, renderRulesFile(template, uids, { variant: "r1" })],
     [PATHS.recoveryOut, renderRulesFile(template, uids, { variant: "r1-recovery" })],
+    [PATHS.compatOut, renderRulesFile(template, uids, { variant: "r1-compat" })],
     [PATHS.dartOut, renderDartAllowlist(uids)],
   ];
 

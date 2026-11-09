@@ -160,12 +160,33 @@ describe('Dart constant', () => {
   });
 });
 
+describe('compat variant (R1 plus the two reads the R2 client needs)', () => {
+  const r1 = buildRules(template, [UID_A]).rules;
+  const compat = buildRules(template, [UID_A], { variant: 'r1-compat' }).rules;
+
+  it('is R1 plus AuthIndex and TipperPrivate, with every R1 node unchanged', () => {
+    assert.deepEqual(Object.keys(compat).filter((k) => !(k in r1)).sort(), ['AuthIndex', 'TipperPrivate']);
+    for (const key of Object.keys(r1)) assert.deepEqual(compat[key], r1[key], key);
+  });
+
+  it('puts the allowlist into the TipperPrivate admin read and nowhere else it adds', () => {
+    assert.ok(compat.TipperPrivate['.read'].includes(`auth.uid === '${UID_A}'`));
+    assert.ok(!JSON.stringify(compat.AuthIndex).includes(UID_A));
+  });
+
+  it('an empty allowlist leaves the admin read false, never open', () => {
+    const empty = buildRules(template, [], { variant: 'r1-compat' }).rules;
+    assert.equal(empty.TipperPrivate['.read'], 'false');
+  });
+});
+
 describe('committed outputs match config/admin-auth-uids.json', () => {
   const uids = validateUids(loadConfig(), { allowEmpty: true });
 
-  it('the committed R1 rules, recovery rules and Dart constant are current', () => {
+  it('the committed R1 rules, recovery rules, compat rules and Dart constant are current', () => {
     assert.equal(readFileSync(PATHS.rulesOut, 'utf8'), renderRulesFile(template, uids));
     assert.equal(readFileSync(PATHS.recoveryOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-recovery' }));
+    assert.equal(readFileSync(PATHS.compatOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-compat' }));
     assert.equal(readFileSync(PATHS.dartOut, 'utf8'), renderDartAllowlist(uids));
   });
   it('rules, recovery rules and Dart name exactly the same UIDs', () => {
@@ -175,6 +196,7 @@ describe('committed outputs match config/admin-auth-uids.json', () => {
     const norm = (list) => [...new Set(list)].sort();
     assert.deepEqual(norm(fromRules(PATHS.rulesOut)), norm(inDart));
     assert.deepEqual(norm(fromRules(PATHS.recoveryOut)), norm(inDart));
+    assert.deepEqual(norm(fromRules(PATHS.compatOut)), norm(inDart));
     assert.deepEqual(norm(inDart), norm(uids));
   });
 });
@@ -234,6 +256,22 @@ describe('the generator CLI and the deployment guard', () => {
       const recoveryPath = join(dir, 'config', 'generated', 'database.rules.r1-recovery.json');
       writeFileSync(recoveryPath, readFileSync(recoveryPath, 'utf8').replace(UID_A, UID_B));
       assert.equal(run(dir, '--check').status, 1);
+    });
+  });
+
+  it('--check detects a hand-edited compat ruleset, and --check-deploy tells the variants apart', () => {
+    withSandbox([UID_A], (dir) => {
+      run(dir);
+      const compatPath = join(dir, 'config', 'generated', 'database.rules.r1-compat.json');
+      writeFileSync(compatPath, readFileSync(compatPath, 'utf8').replace(UID_A, UID_B));
+      assert.equal(run(dir, '--check').status, 1);
+      run(dir);
+      assert.equal(run(dir, '--check').status, 0);
+
+      run(dir, '--install-rules', '--variant', 'r1-compat');
+      assert.equal(run(dir, '--check-deploy', '--variant', 'r1-compat').status, 0);
+      assert.equal(run(dir, '--check-deploy', '--variant', 'r1').status, 1, 'compat installed is not R1');
+      assert.equal(run(dir, '--check-deploy', '--variant', 'r1-recovery').status, 1, 'compat installed is not recovery');
     });
   });
 

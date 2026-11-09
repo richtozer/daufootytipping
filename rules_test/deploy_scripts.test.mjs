@@ -311,6 +311,24 @@ describe('deploy-database-rules.sh', () => {
     });
   });
 
+  it('the compat variant is deployable only after it is installed, and says what it adds', () => {
+    withSandbox([UID_A], (sb) => {
+      prepare(sb, 'r1');
+      const wrong = deploy(sb, ['--yes', '--variant', 'r1-compat', ...DEMO]);
+      assert.equal(wrong.status, 1, 'R1 is installed, so a compat deploy must be refused');
+      assert.equal(deployed(sb), '');
+
+      node(sb, '--install-rules', '--variant', 'r1-compat');
+      commitAll(sb);
+      const r = deploy(sb, ['--yes', '--variant', 'r1-compat', ...DEMO]);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      assert.match(r.stdout, /R1-COMPAT ruleset/);
+      assert.match(r.stdout, /No new write permission/);
+      assert.equal(deployed(sb), `deploy --only database --project ${SANDBOX_PROJECT_ID}`);
+      assert.equal(recordLines(sb)[0].variant, 'r1-compat');
+    });
+  });
+
   it('rejects an unknown variant', () => {
     withSandbox([UID_A], (sb) => {
       const r = deploy(sb, ['--yes', '--variant', 'open', ...DEMO]);

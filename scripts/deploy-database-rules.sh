@@ -21,7 +21,9 @@ set -euo pipefail
 # Rollback ladder (use the SMALLEST step that fixes the problem):
 #   1. Compatibility problem with R1:  --variant r1-recovery   (keeps every protection; relaxes
 #      only validation strictness and re-admits the legacy 1.3.x Stats writers)
-#   2. Anything else: fix forward and redeploy r1.
+#   2. Anything else: fix forward and redeploy r1. (If r1-compat is the problem and no R2 client
+#      exists yet, redeploy r1; once an R2 client exists, fix forward on r1-compat, because that
+#      client reads AuthIndex and TipperPrivate. DESIGN-database-rules-phase4.md, section 9.)
 #   3. EMERGENCY ONLY, a last resort that restores unrestricted database writes:
 #      BACKUP-database.rules.json. Re-run the identity audit afterwards.
 
@@ -39,7 +41,7 @@ fi
 
 usage() {
   cat <<'USAGE'
-Usage: deploy-database-rules.sh --project <id> [--variant r1|r1-recovery] [--yes] [--allow-dirty] [--dry-run]
+Usage: deploy-database-rules.sh --project <id> [--variant r1|r1-recovery|r1-compat] [--yes] [--allow-dirty] [--dry-run]
 
   --project       The Firebase project to deploy to (required with --yes; must be the active one)
   --variant       Which generated ruleset database.rules.json must contain (default: r1)
@@ -81,8 +83,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$variant" in
-  r1|r1-recovery) ;;
-  *) echo "Error: --variant must be r1 or r1-recovery." >&2; exit 1 ;;
+  r1|r1-recovery|r1-compat) ;;
+  *) echo "Error: --variant must be r1, r1-recovery or r1-compat." >&2; exit 1 ;;
 esac
 
 if [ "$assume_yes" -eq 1 ] && [ -z "$project_arg" ]; then
@@ -144,6 +146,11 @@ if [ "$variant" = "r1-recovery" ]; then
   echo
   echo "  RECOVERY ruleset: relaxes validation strictness and re-admits legacy 1.3.x Stats"
   echo "  writers. Allowlisted admins, identity protection and default deny are unchanged."
+fi
+if [ "$variant" = "r1-compat" ]; then
+  echo
+  echo "  R1-COMPAT ruleset: R1 plus read access to a user's own AuthIndex entry and own"
+  echo "  TipperPrivate record (admins read TipperPrivate). No new write permission."
 fi
 echo
 
