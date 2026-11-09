@@ -1007,7 +1007,7 @@ non-admin's own `TipperPrivate/{id}`.
 **Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
 fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
 
-### 6h. Progress: M4c, scoped to what the app does (9 November 2026; all three callables built and tested, none deployed)
+### 6h. Progress: M4c, scoped to what the app does (9 November 2026; all three callables built, tested and deployed in mode `off`)
 
 **Scope, after the scope reset.** The plan listed six admin callables with leases, an operations journal and a
 reaper. Reading the admin screens (`admin_tippers_edit_add.dart`, `admin_tipper_merge.dart`) shows the app does less:
@@ -1118,6 +1118,19 @@ its release and the target's claim, the merge stops with `claimed` and can be ru
 `off` (a separate go; each new function may need `allUsers` `roles/run.invoker` added by hand after the CLI's timeout,
 section 6f B7), then M5 (live score aggregator, shadow first) and M6's freeze and R2 rulesets, then the client (M7) and
 the cutover (M8). **The server identity work is not "finished" until the cutover items below are done.**
+
+**Deployed in mode `off` (9 November 2026)** from `144c1e89` with `scripts/deploy-functions.sh --only dart`, run by the
+owner, as a focused batch: `unlink-my-account`, `admin-update-tipper` and `admin-merge-tippers` created, and the other
+ten Dart functions updated. The CLI again printed `timed out after 30000ms` and listed six functions as failed
+(`admin-merge-tippers`, `admin-update-tipper`, `admin-scoring-rescore`, `app-badge-count`, `unregister-device-token`,
+`update-tipper-alias`); `gcloud` showed none had errored and every one of the 13 services had its newest revision ready.
+As before, the two functions whose create timed out (`admin-update-tipper`, `admin-merge-tippers`) did not get their
+public-invoker setting, so Cloud Run answered 403 before our code; the owner added `allUsers` with `roles/run.invoker`
+to both. Verified afterwards with nothing but unauthenticated requests and read-only commands: all ten callables
+answer our JSON 401 for no credentials and for garbage tokens, the three secret-protected endpoints answer their own
+403 `PERMISSION_DENIED`, every service is ready, and the identity mode is `off` with nothing in flight. Recorded in
+`config/deployments/allowlist-deployments.jsonl`. **The pattern is now reliable enough to plan around: a deploy of new
+Dart functions needs the invoker check, and the CLI's six "failures" are not failures.**
 
 **Corrections after a seventh review (9 November 2026).**
 1. *The merge refuses a known clash before it moves anything.* The preview used to check only that both records
