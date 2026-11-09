@@ -276,6 +276,109 @@ class AdminUpdateTipperResult {
   };
 }
 
+/// `admin-merge-tippers`: merges the `original` tipper record into the `target`
+/// and removes the original, as the admin screen's merge has always done.
+///
+/// - [mergeTips]: the original's tips, in every competition, move to the target.
+///   Where both tipped the same game the original's tip replaces the target's,
+///   as before. Without it the original's tips are left where they are.
+/// - [mergeLogon]: the original's login address becomes the target's.
+/// - the original's sign-in account, if it has one, is always moved to the
+///   target (the target's own account, if any, stops working for it).
+/// - [dryRun]: report what would happen and change nothing.
+///
+/// The paid-competition list is not merged; the target keeps its own.
+class AdminMergeTippersRequest {
+  const AdminMergeTippersRequest({
+    required this.originalId,
+    required this.targetId,
+    this.mergeTips = false,
+    this.mergeLogon = false,
+    this.dryRun = false,
+  });
+
+  final String originalId;
+  final String targetId;
+  final bool mergeTips;
+  final bool mergeLogon;
+  final bool dryRun;
+
+  factory AdminMergeTippersRequest.fromJson(Object? raw) {
+    final map = _asMap(raw, 'the request');
+    return AdminMergeTippersRequest(
+      originalId: _requiredText(map, 'originalId'),
+      targetId: _requiredText(map, 'targetId'),
+      mergeTips: _optionalBool(map, 'mergeTips'),
+      mergeLogon: _optionalBool(map, 'mergeLogon'),
+      dryRun: _optionalBool(map, 'dryRun'),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'originalId': originalId,
+    'targetId': targetId,
+    'mergeTips': mergeTips,
+    'mergeLogon': mergeLogon,
+    'dryRun': dryRun,
+  };
+}
+
+class AdminMergeTippersResult {
+  const AdminMergeTippersResult({
+    required this.targetId,
+    required this.tipsMoved,
+    required this.tipsReplaced,
+    required this.loginMoved,
+    required this.accountMoved,
+    required this.dryRun,
+  });
+
+  final String targetId;
+
+  /// How many tips were (or, in a dry run, would be) moved to the target.
+  final int tipsMoved;
+
+  /// Of those, how many replaced a tip the target already had for that game.
+  final int tipsReplaced;
+
+  /// Whether the original's login address became the target's.
+  final bool loginMoved;
+
+  /// Whether the original's sign-in account was moved to the target.
+  final bool accountMoved;
+
+  final bool dryRun;
+
+  factory AdminMergeTippersResult.fromJson(Object? raw) {
+    final map = _asMap(raw, 'the result');
+    int count(String key) {
+      final value = map[key];
+      if (value is! int) {
+        throw FormatException('$key must be a whole number');
+      }
+      return value;
+    }
+
+    return AdminMergeTippersResult(
+      targetId: _requiredText(map, 'targetId'),
+      tipsMoved: count('tipsMoved'),
+      tipsReplaced: count('tipsReplaced'),
+      loginMoved: _requiredBool(map, 'loginMoved'),
+      accountMoved: _requiredBool(map, 'accountMoved'),
+      dryRun: _requiredBool(map, 'dryRun'),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'targetId': targetId,
+    'tipsMoved': tipsMoved,
+    'tipsReplaced': tipsReplaced,
+    'loginMoved': loginMoved,
+    'accountMoved': accountMoved,
+    'dryRun': dryRun,
+  };
+}
+
 Map<Object?, Object?> _asMap(Object? raw, String what) {
   if (raw is! Map) {
     throw FormatException('$what must be an object');
@@ -298,6 +401,25 @@ String? _optionalText(Map<Object?, Object?> map, String key) {
   }
   if (value is! String) {
     throw FormatException('$key must be text');
+  }
+  return value;
+}
+
+bool _optionalBool(Map<Object?, Object?> map, String key) {
+  final value = map[key];
+  if (value == null) {
+    return false;
+  }
+  if (value is! bool) {
+    throw FormatException('$key must be true or false');
+  }
+  return value;
+}
+
+bool _requiredBool(Map<Object?, Object?> map, String key) {
+  final value = map[key];
+  if (value is! bool) {
+    throw FormatException('$key must be true or false');
   }
   return value;
 }

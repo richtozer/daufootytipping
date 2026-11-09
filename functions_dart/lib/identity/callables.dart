@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/identity/admin_merge_tippers.dart';
 import 'package:dart_functions/identity/admin_update_tipper.dart';
 import 'package:dart_functions/identity/admission.dart';
 import 'package:dart_functions/identity/caller_token.dart';
@@ -39,8 +40,8 @@ const CallableOptions identityCallableOptions = CallableOptions(
 typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 
 /// Registers `link-or-create-tipper`, `update-tipper-alias`,
-/// `register-device-token`, `unregister-device-token`, `unlink-my-account` and
-/// `admin-update-tipper` (DESIGN-database-rules-phase4.md, sections 6f and 6h).
+/// `register-device-token`, `unregister-device-token`, `unlink-my-account`,
+/// `admin-update-tipper` and `admin-merge-tippers` (DESIGN-database-rules-phase4.md, sections 6f and 6h).
 /// [adminUids] are the accounts the admin callables accept.
 ///
 /// Every one of them:
@@ -171,6 +172,26 @@ void registerIdentityCallables(
       deadline: handlerDeadline,
       parse: AdminUpdateTipperRequest.fromJson,
       handle: (call) async => (await adminUpdateTipper(
+        database: call.database,
+        caller: call.caller,
+        request: call.request,
+        admission: call.admission,
+        adminUids: adminUids,
+        checkpoint: call.checkpoint,
+      )).toJson(),
+    ),
+  );
+
+  firebase.https.onCall(
+    name: adminMergeTippersEndpoint,
+    options: identityCallableOptions,
+    (request, response) => _serve<AdminMergeTippersRequest>(
+      request,
+      callable: adminMergeTippersEndpoint,
+      openDatabase: openDatabase,
+      deadline: handlerDeadline,
+      parse: AdminMergeTippersRequest.fromJson,
+      handle: (call) async => (await adminMergeTippers(
         database: call.database,
         caller: call.caller,
         request: call.request,

@@ -235,4 +235,69 @@ void main() {
       );
     });
   });
+
+  group('AdminMergeTippers', () {
+    test('the options default to off, so nothing is merged by accident', () {
+      final request = AdminMergeTippersRequest.fromJson({
+        'originalId': 't1',
+        'targetId': 't2',
+      });
+      expect(request.mergeTips, isFalse);
+      expect(request.mergeLogon, isFalse);
+      expect(request.dryRun, isFalse);
+    });
+
+    test('reads every option', () {
+      final request = AdminMergeTippersRequest.fromJson({
+        'originalId': 't1',
+        'targetId': 't2',
+        'mergeTips': true,
+        'mergeLogon': true,
+        'dryRun': true,
+      });
+      expect(request.toJson(), {
+        'originalId': 't1',
+        'targetId': 't2',
+        'mergeTips': true,
+        'mergeLogon': true,
+        'dryRun': true,
+      });
+    });
+
+    test('rejects a missing tipper or an option that is not true or false', () {
+      expect(
+        () => AdminMergeTippersRequest.fromJson({'originalId': 't1'}),
+        throwsFormatException,
+      );
+      expect(
+        () => AdminMergeTippersRequest.fromJson({
+          'originalId': 't1',
+          'targetId': 't2',
+          'mergeTips': 'yes',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('the result carries the counts and what moved', () {
+      final result = AdminMergeTippersResult.fromJson({
+        'targetId': 't2',
+        'tipsMoved': 12,
+        'tipsReplaced': 2,
+        'loginMoved': true,
+        'accountMoved': false,
+        'dryRun': false,
+      });
+      expect(result.tipsMoved, 12);
+      expect(result.tipsReplaced, 2);
+      expect(result.toJson()['accountMoved'], false);
+      expect(
+        () => AdminMergeTippersResult.fromJson({
+          'targetId': 't2',
+          'tipsMoved': '12',
+        }),
+        throwsFormatException,
+      );
+    });
+  });
 }

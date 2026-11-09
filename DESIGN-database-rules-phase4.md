@@ -1007,7 +1007,7 @@ non-admin's own `TipperPrivate/{id}`.
 **Rollback:** `--install-rules --variant r1`, commit, deploy. That is safe while no R2 client exists; once one does,
 fix forward on `r1-compat` instead, because that client reads both nodes (section 9).
 
-### 6h. Progress: M4c, scoped to what the app does (9 November 2026; `unlink-my-account` and `admin-update-tipper` built and tested, not deployed)
+### 6h. Progress: M4c, scoped to what the app does (9 November 2026; all three callables built and tested, none deployed)
 
 **Scope, after the scope reset.** The plan listed six admin callables with leases, an operations journal and a
 reaper. Reading the admin screens (`admin_tippers_edit_add.dart`, `admin_tipper_merge.dart`) shows the app does less:
@@ -1076,6 +1076,47 @@ Deploying the function is a separate go, and as with the last four it may need i
   requests are refused before the database is opened). Six deliberate breakages (admin check skipped, last-admin check
   skipped, email not mirrored, a name conflict swallowed, the tipper counted as another administrator, role not
   mirrored) are each caught.
+
+**`admin-merge-tippers` (built, tested, not deployed).** Merges the `original` tipper record into the `target` and
+removes the original, as the admin screen's merge has always done. Options: `mergeTips` (the original's tips in every
+competition move to the target; where both tipped a game **the original's tip replaces the target's, as before**, and
+the result says how many were replaced), `mergeLogon` (the original's login address becomes the target's), and
+`dryRun` (report and change nothing, replacing the screen's trial mode). The original's sign-in account, if it has one,
+always moves to the target, and the target's own account stops working for it. The paid-competition list is not merged
+(the target keeps its own), as before.
+
+The order is what makes it safe to run again: **everything the later steps need is read from records that still exist
+until the very last step, and every step checks what is already done**, so running the same request again finishes a
+merge that was cut short. There is no journal. Under the leases of **both** tippers, taken in id order so two merges
+cannot deadlock: (1) tips, one atomic update per competition; (2) push tokens and their ownership in `/TokenOwners`;
+(3) the login address (release the original's claim, then the usual claim move); (4) the account: the target's old
+account loses its index entry first, then the target's `authuid` takes the original's, then `/AuthIndex` is pointed at
+the target; (5) claims tidied, with the target made sure of its own alias and login claim (a duplicate pair can share
+a key); (6) the original's two records removed together, the commit.
+
+How it was tested. Sixteen handler tests, including the usual case (a new sign-in's record merged into the old one with
+history, a game both tipped, tokens, claims, account), a dry run that changes nothing, an original with only a
+placeholder and a target with no account, duplicates sharing a login or an alias, every refusal leaving the database
+exactly as it was, both leases, and the strongest property: **a merge cut short at each of the seven steps and then run
+again ends in exactly the same database as one that was not.** Two wrapper-level tests through the real callable
+pipeline. Nine deliberate breakages are each caught (admin check skipped; original's tip node not removed; shared game
+keeping the target's tip; token ownership not handed over; the target's old account keeping its index entry; target's
+alias claim not made sure of; the original removed too early; only one tipper leased; a placeholder treated as an
+account).
+
+Two things the breakages taught me. One survived because the code was **redundant**: step 3 also claimed the login for
+the target, and step 5 already does, so the extra claim was deleted, not tested. One survived because the test used a
+placeholder that is an email address, which an invalid database key already rejects, so the placeholder check never
+ran; the test now uses a placeholder that would pass for a key.
+
+**Accepted limitations.** A person signing in as the original during a merge is told `busy` and carries on with the
+cached tipper (the M7 rule). A merge touches several competitions in separate updates, so a failure partway leaves the
+original in place for a re-run to finish. If someone else claims the original's login address in the instant between
+its release and the target's claim, the merge stops with `claimed` and can be run again.
+
+**M4c is complete.** Remaining on the server: deploy the three callables in mode `off` (a separate go; each new
+function may need `allUsers` `roles/run.invoker` added by hand after the CLI's timeout, section 6f B7), then M5 (live
+score aggregator, shadow first) and M6's freeze and R2 rulesets, then the client (M7) and the cutover (M8).
 
 **A mistake of mine, found and fixed on the way.** The earlier replay test skipped its test but not its `setUpAll`,
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy

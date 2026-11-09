@@ -56,3 +56,7 @@ const String unlinkMyAccountEndpoint = 'unlink-my-account';
 /// Callable: an administrator changes another tipper's name, contact email or
 /// role.
 const String adminUpdateTipperEndpoint = 'admin-update-tipper';
+
+/// Callable: an administrator merges one tipper record into another (tips, login
+/// address and sign-in account), then removes the original.
+const String adminMergeTippersEndpoint = 'admin-merge-tippers';

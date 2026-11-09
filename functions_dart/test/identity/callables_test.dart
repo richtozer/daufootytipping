@@ -41,6 +41,10 @@ final Map<String, Object?> _validBodies = <String, Object?>{
     'tipperId': 't2',
     'name': 'Samuel',
   },
+  adminMergeTippersEndpoint: <String, Object?>{
+    'originalId': 't1',
+    'targetId': 't2',
+  },
 };
 
 /// What came back: the HTTP status and, for an error, its `error` object.
@@ -632,6 +636,45 @@ void main() {
           final root = await readRoot(db);
           expect(rowAt(root, 'AllTippers', 't2')['name'], 'Samuel');
           expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
+          expectIdentityConsistent(root);
+        },
+      );
+
+      test(
+        'admin-merge-tippers is refused to a signed-in tipper who is not an administrator',
+        () async {
+          final before = canonical(await readRoot(db));
+          final reply = await asPat(adminMergeTippersEndpoint);
+          expect(reply.status, 403);
+          expect(reply.reason, 'not_admin');
+          expect(canonical(await readRoot(db)), before);
+        },
+      );
+
+      test(
+        'admin-merge-tippers lets an administrator merge one tipper into another',
+        () async {
+          final reply = await call(
+            adminMergeTippersEndpoint,
+            data: <String, Object?>{'originalId': 't1', 'targetId': 't2'},
+            idToken: idTokenFor(_adminUid, email: 'admin@example.com'),
+          );
+          expect(reply.status, 200, reason: '${reply.body}');
+          expect(reply.result['targetId'], 't2');
+          expect(reply.result['accountMoved'], true);
+          expect(reply.result['dryRun'], false);
+          final root = await readRoot(db);
+          expect(
+            rowAt(root, 'AllTippers', 't1'),
+            isEmpty,
+            reason: 'the original is gone',
+          );
+          expect(
+            (root['AuthIndex'] as Map)[_uidA],
+            't2',
+            reason: 'Pat\'s account now reaches Sam\'s record',
+          );
+          expect((root['AuthIndex'] as Map).containsKey(_uidB), false);
           expectIdentityConsistent(root);
         },
       );
