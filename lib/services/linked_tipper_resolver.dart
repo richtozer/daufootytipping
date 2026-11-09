@@ -245,7 +245,7 @@ class LinkedTipperResolver {
       return LinkResolution.unavailable(
         failure.isBusy
             ? 'Your account is being updated. Please try again in a moment.'
-            : 'Signing in is not available right now. Please try again shortly.',
+            : "We can't sign you in right now. Please try again shortly. If it keeps happening, tap Get help.",
       );
     }
     switch (failure.kind) {
@@ -259,7 +259,7 @@ class LinkedTipperResolver {
       case IdentityFailureKind.transient:
       case IdentityFailureKind.unexpected:
         return LinkResolution.refused(
-          'Something went wrong signing you in. Please try again, or contact support.',
+          'Something went wrong signing you in. Please try again. If it keeps happening, tap Get help.',
           reason: reason,
         );
     }

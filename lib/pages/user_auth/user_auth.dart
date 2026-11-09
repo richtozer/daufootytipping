@@ -23,7 +23,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
-import 'package:daufootytipping/constants/paths.dart' as p;
 
 class UserAuthPage extends StatefulWidget {
   final String? configMinAppVersion;
@@ -451,9 +450,7 @@ class UserAuthPageState extends State<UserAuthPage> {
         );
       case LinkPhase.refused:
         return LoginIssueScreen(
-          message:
-              controller.message ??
-              'Something went wrong signing you in. Contact support: ${p.supportUrl}',
+          message: controller.message ?? 'Something went wrong signing you in. Please try again. If it keeps happening, tap Get help.',
         );
     }
   }

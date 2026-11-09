@@ -65,7 +65,7 @@ class SignInLinkController extends ChangeNotifier {
   static const String _noLongerLinked =
       'Your account is no longer linked to a tipper. Please sign out and sign in again.';
   static const String _unexpected =
-      'Something went wrong signing you in. Please try again, or contact support.';
+      'Something went wrong signing you in. Please try again. If it keeps happening, tap Get help.';
 
   /// Starts linking [account]. Calling it again for the same account does
   /// nothing; for a different account it starts over.
@@ -173,7 +173,7 @@ class SignInLinkController extends ChangeNotifier {
         if (_canCreateTippers) {
           _set(LinkPhase.needsAlias);
         } else {
-          _message = 'New tippers cannot be added right now. Please try again later, or contact support.';
+          _message = 'New tippers cannot be added right now. Please try again later. If it keeps happening, tap Get help.';
           _set(LinkPhase.refused);
         }
       case LinkStatus.unavailable:
