@@ -8,9 +8,12 @@
 /// repository sets it, and this makes sure nothing ever can by accident.
 ///
 /// The emulator is recognised by `FUNCTIONS_EMULATOR=true` (which the Functions
-/// emulator sets) and the absence of `K_SERVICE` (which Cloud Run sets on every
-/// deployed service). Any value of `FIREBASE_DEBUG_FEATURES` outside the
-/// emulator is refused, not only the one switch: they are all for the emulator.
+/// emulator sets) and the absence of `K_CONFIGURATION`, which Cloud Run sets on
+/// every deployed service and which a deployment cannot override. (`K_SERVICE`
+/// will not do: the emulator sets that too, to the function's name, so a guard
+/// that required it absent refused to start the worker in the local emulator.)
+/// Any value of `FIREBASE_DEBUG_FEATURES` outside the emulator is refused, not
+/// only the one switch: they are all for the emulator.
 void assertNoDebugFeaturesOutsideEmulator(Map<String, String> environment) {
   final features = environment['FIREBASE_DEBUG_FEATURES'];
   if (features == null || features.trim().isEmpty) {
@@ -18,7 +21,7 @@ void assertNoDebugFeaturesOutsideEmulator(Map<String, String> environment) {
   }
   final inEmulator =
       environment['FUNCTIONS_EMULATOR'] == 'true' &&
-      (environment['K_SERVICE'] ?? '').isEmpty;
+      (environment['K_CONFIGURATION'] ?? '').isEmpty;
   if (inEmulator) {
     return;
   }

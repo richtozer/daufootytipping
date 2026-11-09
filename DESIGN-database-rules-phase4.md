@@ -199,7 +199,7 @@ Estimates are working figures for focused effort, not commitments.
 | M4b | **Callables** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken`, `unregisterDeviceToken`, all honouring section 5. | Protocol suite green on the REST handle; admission wrapper and drain tested (section 6b); deployed in mode `off`; deployed write-enabled integration check in `pilot` with a throwaway user and scratch data (separate owner go). | 9 d |
 | M4c | **Admin callables** `adminCreateTipper`, merge, reassign, delete, `adminSetTipperRole`, `adminUpdateTipperContact`; leases and `IdentityOps` journal; scheduled audit and reaper. Existing admin endpoints move to `resolveCallerTipper` at cutover. | Crash injection after every step; one lease-takeover winner; **stale-holder scenario passes (section 6b)**; forged index or `authuid` rejected; last admin cannot be removed; audit reports every violation class. | 9 to 11 d |
 | M5 | **Live-score aggregator**, shadow first. History ordering: numeric `t`, else parsed legacy `submittedTimeUTC`, else the push key's microseconds. The `current` write is a version-guarded transaction (`basedOnCount`) that is also skipped when the game already has an official score; the audit job sweeps any `current` left behind for a completed game (the import clears the game's whole live node, so an in-flight aggregation can recreate it). `gameComplete` never set. **Activation (`active`) only after R2 rules deploy**, when no client can write `current`. | **Synthetic game-day replay** on the emulator: mixed legacy and new entries, shuffled and duplicated deliveries, an official score arriving mid-stream, compared with golden vectors from the current client algorithm. **Mixed-writer replay** (a legacy client's `current` writes interleaved with the aggregator over the same history converge to one displayed score and do not flap). Shadow canary in the test comp. | 6 d |
-| M6 | **Rulesets:** R1-compat, freeze, R2, all from templates; tests for each (R2 includes the bidirectional-check cases, multi-location updates, own-`AuthIndex` read); **rollback rehearsal** (section 9). | Every combination in section 10 passes; generated files match the build; rollback rehearsal green. | 8 d |
+| M6 | **Rulesets:** R1-compat, freeze, R2, all from templates; tests for each (R2 includes the bidirectional-check cases, multi-location updates, own-`AuthIndex` read, and **live-score `history` entries create-only for clients**, no overwrite and no delete, because the aggregator's version guard assumes the history only grows; see 6i); **rollback rehearsal** (section 9). | Every combination in section 10 passes; generated files match the build; rollback rehearsal green. | 8 d |
 | M7 | **R2 client** (`1.4.n+1`), section 10 scope. | Tests; real-client smoke harness green against R1-compat and R2 using the real callable code; **reference-data checks (section 6b)**; soak on the owner's devices. | 12 to 15 d |
 | M8 | **Cutover step A, verification window, step B, cleanup.** | Section 8 checklists green; allowlist and legacy paths removed; docs updated. | 4 d |
 
@@ -732,8 +732,11 @@ specified narrowly in the M7 items below.
 *Statements corrected.* "Nothing calls these yet, so none will" was not a guarantee: the endpoints are public once
 deployed. The assurance is that `off` refuses every business mutation, while a temporary admission marker remains
 possible. And the `FIREBASE_DEBUG_FEATURES` warning is now executable: the server refuses to start if the variable
-is set outside the Functions emulator (the emulator is `FUNCTIONS_EMULATOR=true` without Cloud Run's `K_SERVICE`;
-any value is refused, not just the one switch), `deploy-functions.sh` refuses to deploy while the shell or any
+is set outside the Functions emulator (the emulator is `FUNCTIONS_EMULATOR=true` without Cloud Run's `K_CONFIGURATION`;
+any value is refused, not just the one switch; **corrected 9 November 2026, caught by the M5 end-to-end run: the first
+version keyed on `K_SERVICE` being absent, but the Firebase emulator sets `K_SERVICE` too (to the function's name), so
+the worker would not have started in the local emulator. Deployed Cloud Run was unaffected. It now keys on
+`K_CONFIGURATION`, which only Cloud Run sets, and a test pins the environment as the CLI really provides it**), `deploy-functions.sh` refuses to deploy while the shell or any
 `functions*/.env*` file sets it (printing the file name, never its contents), and both are tested, the first also
 in the compiled server.
 
@@ -1164,14 +1167,17 @@ existing admin endpoints, or the legacy client writes that R1 and R1-compat stil
 which read the snapshot, so the whole suite failed whenever the snapshot variable was unset, which includes the deploy
 script's test gate. It is now skipped as a group, and the suite passes with and without the variable.
 
-### 6i. Progress: M5, the live-score aggregator (9 November 2026; calculation and handler built and tested, not wired, not deployed)
+### 6i. Progress: M5, the live-score aggregator (9 November 2026; built, wired and exercised end to end on the emulators; not deployed)
 
 **What it is.** The 1.4.x client builds the `current` live-score snapshot from its own local list and writes it beside
 `history`. The R2 client will write `history` only, so the server derives `current` from it. The rule is the one the
 client has always applied: each team keeps its **three most recent** submissions; a team's displayed score is its
-**latest**; the snapshot's time, tipper and completion flag are those of the latest submission of either team; an
-**official score overrides all of it**. `gameComplete` is never set to true. The scoring worker already reads
-`current` and a write to it already triggers a rescore, so nothing downstream changes.
+**latest**; the snapshot's time and tipper are those of the latest submission of either team; an **official score
+overrides all of it**. **`gameComplete` is never true in anything the aggregator writes**: only an official score
+completes a game, so the snapshot's flag and each entry's flag are written `false` whatever a legacy client left in
+`history` (reviewer finding on `a425f10f`; a snapshot that says `true` is also a difference the aggregator corrects).
+The scoring worker already reads `current` and a write to it already triggers a rescore, so nothing downstream
+changes.
 
 **Built** (`functions_dart/lib/live_scores/`): `live_score_aggregate.dart` is the pure calculation, from a game's
 `history` to the snapshot, plus a comparison that names how two snapshots differ (the list's order, the count and the
@@ -1209,15 +1215,63 @@ already shows the game).
 
 **One consequence worth knowing.** A 1.4.x client writes `current` from its *local* list, so two tippers submitting at
 nearly the same moment can overwrite each other's scores in `current` while `history` has both. The aggregator
-corrects that. In `compat` it will therefore sometimes change a displayed score back to what the history says, which
-is the intended convergence.
+corrects that **when it next runs**, which is on the next `history` event. In `compat` a later legacy write can
+therefore replace the corrected result, and it stays replaced until another submission triggers the aggregator. That
+is an accepted limit of `compat`, not a guarantee that the display never changes back; the mixed-writer tests show
+convergence after the aggregator runs, nothing more.
 
-**Not built yet.** The wiring: a TypeScript trigger on `Stats/{comp}/live_scores_backend_v1/{game}/history/{key}` that
-sends the existing worker a new command, and the worker calling the handler. It touches production scoring, so it is
-reviewed with the owner before it is deployed. **A production canary cannot be run yet:** live scores flow only while
-games are on, and none are until March. The synthetic replays above are the evidence until then; the aggregator is
-switched to `active` only after the R2 rules are live (section 3), and `current` is never written while the mode is
-`shadow`.
+**The version guard assumes `history` only grows.** `basedOnCount` says which of two computations saw more entries.
+Editing or deleting an existing entry can change the right answer without raising the count, and the guard would
+then leave an older snapshot in place. No versioning scheme is added for that. Instead:
+
+- **R2 makes ordinary client `history` entries immutable** (create-only: no overwrite, no delete; M6). A client
+  cannot correct or remove its own submission, which also means a tipper cannot rewrite what the scoring saw.
+- **An administrator corrects a game by hand**, with Admin SDK or console access: remove `current` first, then fix or
+  delete the bad `history` entry. Removing the entry is an event the trigger delivers, and with no `current` left the
+  aggregator writes a fresh one from what remains (in `shadow` it only reports, so an administrator running a
+  correction in `shadow` writes `current` themselves or sets the mode to `active` for the moment). Rare and
+  manual, which is the right size for it.
+
+**Wired** (this commit):
+
+- `functions/src/backend_scoring.ts`: a new trigger, `liveScoreHistoryWrittenBackendScoring`, on
+  `Stats/{comp}/live_scores_backend_v1/{game}/history/{entry}`. A create, a change and a removal each post one
+  `liveScoreHistoryWritten` command to the existing worker endpoint with the existing shared secret; an unchanged
+  write posts nothing. It lives beside `liveScoreWrittenBackendScoring` (on `.../current`) and the two paths are
+  disjoint, so the aggregator's write to `current` can start a rescore but never another aggregation.
+- `functions_dart/bin/server.dart`: `executeBackendScoringCommand` dispatches the new type to
+  `runLiveScoreAggregation` on a `RestDatabase` (the compare-and-set needs one). It is not given an idempotency
+  record: every run recomputes from the whole history, so a duplicate is harmless and a record per submission would
+  only be more writes. The shared enum `BackendScoringCommandType` gains `liveScoreHistoryWritten`.
+- Nothing changes in what ships to users: the new function only reads `history`, `current` and the game, and writes
+  `current` only in `active` or `compat`, which stay off until the owner decides.
+
+**Run end to end on the emulators.** `scripts/test-live-score-wiring.sh` starts the Database and Functions emulators
+inside the operating-system boundary (no network but loopback, no credentials, its own project, ports and throwaway
+secret) and runs `functions_dart/test/e2e/live_score_wiring_e2e_test.dart` against the real TypeScript trigger and
+the real Dart worker, with a small synthetic competition. It checks the three things the calculation tests cannot:
+(1) a history submission reaches the real worker command and handler, and the worker refuses a request without the
+secret, with the wrong one, or by `GET`, and rejects a command with no game; (2) in `shadow`, the default, the
+database is left exactly as the submission left it, with no `current`, no scoring record and no statistics;
+(3) in `active`, writing `current` triggers the existing rescore once per change and the aggregator runs once per
+submission, never again because of its own write, and a stale legacy write of `current` is put right by the next
+submission; and the fixture import's clearing of a finished game's live node is not undone (every aggregator run it
+causes stands aside for the official score).
+
+Six end-to-end tests, all passing, run twice in a row on the final code. Five breakages of the wiring were each caught: the
+wrapper posting a scoring command instead of the history one, a trigger on the wrong child, the worker sending the
+command to scoring, the worker ignoring the mode, and a trigger that also fires on `current` (aggregation triggering
+itself). The run also found two defects outside M5: the M4c debug-features guard refused to start the worker in the
+local emulator (corrected, section 6f note above), and a malformed command to the worker answered `500` instead of
+`400` (now `400`). Elsewhere: 58 TypeScript tests (7 new), 698 Dart tests on the emulator, `flutter analyze` clean.
+
+**Deploying it.** Two codebases, in this order: the Dart worker first (so it understands the new command), then the
+TypeScript functions (which start sending it). The other order is harmless but noisy: the worker answers `400` to a
+command type it does not know and the wrapper logs a warning. The aggregator starts in `shadow` because
+`/ServerConfig/liveScores/mode` does not exist; in `shadow` the only effect is a log line per submission.
+Production `shadow` establishes that the services deploy and stay healthy; there is no need to manufacture
+production activity, and the synthetic end-to-end run is the functional evidence until real submissions exist in
+March. **Switching to `active` or `compat` is a separate decision**, taken after the R2 rules are live (section 3).
 
 ## 7. Timeline, back-planned from the season
 

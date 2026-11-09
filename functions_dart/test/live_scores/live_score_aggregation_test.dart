@@ -345,6 +345,70 @@ void main() {
       );
     });
 
+    group('a legacy client that said the game is complete', () {
+      // Only an official score completes a game. The scoring worker already
+      // ignores the flag, and the aggregator does not let it propagate.
+      final completeScores = <CrowdSourcedScore>[
+        _score(1, ScoringTeam.home, 6),
+        CrowdSourcedScore(
+          _kickoff.add(const Duration(minutes: 2)),
+          ScoringTeam.away,
+          'tipperB',
+          4,
+          true,
+        ),
+      ];
+
+      test(
+        'does not complete it in the snapshot the aggregator writes',
+        () async {
+          await putHistory(completeScores);
+          final result = await run(LiveScoresMode.active);
+          expect(result.outcome, AggregationOutcome.written);
+          final current = (await currentNow())!;
+          expect(current['gameComplete'], false);
+          for (final score in current['crowdSourcedScores'] as List) {
+            expect((score as Map)['gameComplete'], false);
+          }
+        },
+        skip: skip,
+      );
+
+      test(
+        'and a snapshot a legacy client wrote as complete is put right, once',
+        () async {
+          await putHistory(completeScores);
+          final shown = computeLiveScoreAggregate(
+            (await db.ref('${_livePath()}/history').once()).value,
+          ).snapshot!;
+          // As a legacy client writes it: no count.
+          await db
+              .ref('${_livePath()}/current')
+              .set(
+                <String, Object?>{...shown, 'gameComplete': true}
+                  ..remove('basedOnCount'),
+              );
+
+          expect(
+            (await run(LiveScoresMode.shadow)).outcome,
+            AggregationOutcome.shadowDiffers,
+          );
+          expect((await currentNow())!['gameComplete'], true, reason: 'shadow');
+
+          expect(
+            (await run(LiveScoresMode.active)).outcome,
+            AggregationOutcome.written,
+          );
+          expect((await currentNow())!['gameComplete'], false);
+          expect(
+            (await run(LiveScoresMode.active)).outcome,
+            AggregationOutcome.unchanged,
+          );
+        },
+        skip: skip,
+      );
+    });
+
     test('a game with nothing in its history has nothing to do', () async {
       final result = await run(LiveScoresMode.active);
       expect(result.outcome, AggregationOutcome.nothingToDo);

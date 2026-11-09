@@ -167,6 +167,31 @@ When moving backend scoring from `us-central1` to `asia-southeast1`:
    firebase functions:delete admin-fixture-download --region us-central1
    ```
 
+## Live-score aggregator (`liveScoreHistoryWrittenBackendScoring`)
+
+A second TypeScript trigger, `liveScoreHistoryWrittenBackendScoring`, fires on
+`/Stats/<compKey>/live_scores_backend_v1/<gameKey>/history/<entry>` and posts a
+`liveScoreHistoryWritten` command to the same `backend-scoring-command` endpoint
+with the same secret. The Dart worker derives the game's `current` snapshot from
+`history`. It needs no new configuration.
+
+- **Deploy the Dart codebase first, then the TypeScript one.** The other order is
+  harmless but noisy: the old worker answers `400` to the unknown command type and
+  the wrapper logs a warning per submission.
+- **Mode** is `/ServerConfig/liveScores/mode`: `shadow` (the default, and what a
+  missing or unrecognised value means) writes nothing and logs one
+  `[liveScores] shadow ...` line per submission; `active` and `compat` write
+  `current`. Switching mode is a separate, deliberate decision (see
+  `DESIGN-database-rules-phase4.md`, section 6i).
+- **Correcting a game by hand:** remove `current`, then fix or delete the bad
+  `history` entry. That is an event, and with no `current` left the aggregator
+  writes a fresh one from what remains (only in `active` or `compat`).
+- **Local end-to-end check** (emulators only, no network, no credentials):
+
+  ```bash
+  scripts/test-live-score-wiring.sh
+  ```
+
 ## Smoke Test
 
 Use a non-production test comp first if available.

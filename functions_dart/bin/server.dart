@@ -11,6 +11,7 @@ import 'package:dart_functions/auth_bypass_guard.dart';
 import 'package:dart_functions/errors.dart';
 import 'package:dart_functions/identity/backend_tippers.dart';
 import 'package:dart_functions/identity/callables.dart';
+import 'package:dart_functions/live_scores/live_score_aggregation.dart';
 import 'package:dart_functions/rtdb/emulator_admin_client.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
@@ -537,7 +538,25 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
     final commandJson = payload['command'] is Map
         ? Map<String, dynamic>.from(payload['command'] as Map)
         : payload;
-    final command = BackendScoringCommand.fromJson(commandJson);
+    final BackendScoringCommand command;
+    try {
+      command = BackendScoringCommand.fromJson(commandJson);
+    } on ArgumentError catch (error) {
+      throw InvalidArgumentError(error.message.toString());
+    }
+
+    if (command.commandType ==
+        BackendScoringCommandType.liveScoreHistoryWritten) {
+      final result = await executeBackendScoringCommand(
+        db: await _openIdentityDatabase(runtimeAdminApp),
+        command: command,
+        now: DateTime.now().toUtc(),
+      );
+      return Response.ok(
+        jsonEncode(result.toJson()),
+        headers: _jsonHeaders,
+      );
+    }
 
     final dbHandle = await _openBackendScoringDatabase(
       runtimeAdminApp: runtimeAdminApp,
@@ -1953,7 +1972,55 @@ Future<BackendScoringCommandResult> executeBackendScoringCommand({
         command: command,
         now: now,
       );
+    case BackendScoringCommandType.liveScoreHistoryWritten:
+      return _handleLiveScoreHistoryWrittenBackendScoringCommand(
+        db: db,
+        command: command,
+      );
   }
+}
+
+/// Derives the game's `current` live-score snapshot from its `history`
+/// (DESIGN-database-rules-phase4.md, M5). Unlike the scoring commands this takes
+/// a [RestDatabase], because the write is a compare-and-set.
+///
+/// There is no idempotency record: every run recomputes from the whole of
+/// `history`, so a duplicated or replayed command is harmless, and a record per
+/// submission would only be more writes. What the run does is set by the mode at
+/// `/ServerConfig/liveScores/mode` (shadow unless it says otherwise).
+Future<BackendScoringCommandResult>
+_handleLiveScoreHistoryWrittenBackendScoringCommand({
+  required dynamic db,
+  required BackendScoringCommand command,
+}) async {
+  final gameKey = command.gameKey;
+  if (db is! RestDatabase) {
+    throw InternalError('liveScoreHistoryWritten needs the REST database');
+  }
+  if (gameKey == null) {
+    throw InvalidArgumentError('liveScoreHistoryWritten requires gameKey');
+  }
+  final AggregationResult result;
+  try {
+    result = await runLiveScoreAggregation(
+      database: db,
+      compKey: command.compKey,
+      gameKey: gameKey,
+    );
+  } on ArgumentError catch (error) {
+    throw InvalidArgumentError(error.message.toString());
+  }
+  final changedNothing = result.outcome != AggregationOutcome.written &&
+      result.outcome != AggregationOutcome.clearedForOfficial;
+  return BackendScoringCommandResult(
+    status: 'completed',
+    skipped: changedNothing,
+    commandId: command.commandId,
+    commandType: command.commandType.apiValue,
+    scopeKey: command.scopeKey,
+    compKey: command.compKey,
+    message: 'Live score aggregation: ${result.outcome.name}.',
+  );
 }
 
 class _BackendScoringLockResult {

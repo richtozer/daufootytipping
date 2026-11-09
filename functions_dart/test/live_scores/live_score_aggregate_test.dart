@@ -148,6 +148,37 @@ void main() {
       },
     );
 
+    test(
+      'a legacy entry that says the game is complete does not complete it',
+      () {
+        final later = _kickoff.add(const Duration(minutes: 5));
+        final aggregate = computeLiveScoreAggregate(<String, Object?>{
+          keyFor(_kickoff, ScoringTeam.home): legacy(
+            at: _kickoff,
+            team: ScoringTeam.home,
+            score: 6,
+            complete: true,
+          ),
+          keyFor(later, ScoringTeam.away): legacy(
+            at: later,
+            team: ScoringTeam.away,
+            score: 4,
+            complete: true,
+          ),
+        });
+        final snapshot = aggregate.snapshot!;
+
+        // The latest entry, the one that sets the snapshot's flag, says true.
+        expect(aggregate.latest!.gameComplete, true);
+        expect(snapshot['gameComplete'], false);
+        for (final score in snapshot['crowdSourcedScores'] as List) {
+          expect((score as Map)['gameComplete'], false);
+        }
+        expect(snapshot['homeInterimScore'], 6);
+        expect(snapshot['awayInterimScore'], 4);
+      },
+    );
+
     test('a team nobody has scored for has no score in the snapshot', () {
       final snapshot = computeLiveScoreAggregate(<String, Object?>{
         keyFor(_kickoff, ScoringTeam.home): legacy(
@@ -180,7 +211,7 @@ void main() {
           );
         }
         final aggregate = computeLiveScoreAggregate(history);
-        final byTeam = (ScoringTeam team) => aggregate.kept
+        List<int> byTeam(ScoringTeam team) => aggregate.kept
             .where((e) => e.team == team)
             .map((e) => e.score)
             .toList();
@@ -358,6 +389,32 @@ void main() {
         isNotEmpty,
       );
     });
+
+    test(
+      'a snapshot that says the game is complete differs from one that does not',
+      () {
+        final expected = snapshot();
+        expect(
+          liveScoreDifferences(
+            Map<String, Object?>.from(expected)..['gameComplete'] = true,
+            expected,
+          ),
+          ['gameComplete differs'],
+        );
+        final scores = (expected['crowdSourcedScores'] as List)
+            .map((e) => Map<String, Object?>.from(e as Map))
+            .toList();
+        scores.first['gameComplete'] = true;
+        expect(
+          liveScoreDifferences(
+            Map<String, Object?>.from(expected)
+              ..['crowdSourcedScores'] = scores,
+            expected,
+          ),
+          isNotEmpty,
+        );
+      },
+    );
 
     test('no snapshot at all is a difference', () {
       expect(liveScoreDifferences(null, snapshot()), ['no current snapshot']);

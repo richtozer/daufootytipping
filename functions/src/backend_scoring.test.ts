@@ -8,9 +8,11 @@ import {
   TipWriteChangeLike,
   TipWriteSnapshotLike,
   buildBackendScoringCommandId,
+  buildLiveScoreHistoryWrittenBackendScoringCommand,
   buildLiveScoreWrittenBackendScoringCommand,
   buildOfficialScoreWrittenBackendScoringCommand,
   buildTipWrittenBackendScoringCommand,
+  handleLiveScoreHistoryWrittenBackendScoringWrite,
   handleLiveScoreWrittenBackendScoringWrite,
   handleOfficialScoreWrittenBackendScoringWrite,
   handleTipWrittenBackendScoringWrite,
@@ -643,4 +645,178 @@ test("handleTipWrittenBackendScoringWrite logs and skips when command secret is 
     logger.errors[0],
     /missing command secret configuration/,
   );
+});
+
+const HISTORY_CONTEXT = {
+  eventId: "event-history-1",
+  params: {
+    compKey: "comp2026",
+    gameKey: "nrl-01-001",
+    entryKey: "1802914800000000-home",
+  },
+};
+
+const HISTORY_ENTRY = {
+  submittedTimeUTC: "2027-03-07T02:31:00.000Z",
+  tipperID: "tipper-1",
+  scoreTeam: "home",
+  interimScore: 6,
+  gameComplete: false,
+};
+
+function recordingFetch(
+  status = 200,
+): {calls: {url: string; body: string}[]; fetchImpl: BackendScoringFetchLike} {
+  const calls: {url: string; body: string}[] = [];
+  const fetchImpl: BackendScoringFetchLike = async (url, init) => {
+    calls.push({url, body: init.body});
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      async text() {
+        return "";
+      },
+    } satisfies BackendScoringFetchResponseLike;
+  };
+  return {calls, fetchImpl};
+}
+
+test("buildLiveScoreHistoryWrittenBackendScoringCommand names the game and the history", () => {
+  const command = buildLiveScoreHistoryWrittenBackendScoringCommand(
+    "comp2026",
+    "nrl-01-001",
+    "event-history-1",
+  );
+
+  assert.deepEqual(command, {
+    commandType: "liveScoreHistoryWritten",
+    compKey: "comp2026",
+    gameKey: "nrl-01-001",
+    sourceEventId: "event-history-1",
+    sourcePath: "/Stats/comp2026/live_scores_backend_v1/nrl-01-001/history",
+    scopeKey: "comp:comp2026/game:nrl-01-001",
+    commandId: buildBackendScoringCommandId("event-history-1"),
+  });
+});
+
+test("a new history entry posts one aggregation command, not a scoring one", async () => {
+  const logger = new FakeLogger();
+  const {calls, fetchImpl} = recordingFetch();
+
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(null, HISTORY_ENTRY),
+    HISTORY_CONTEXT,
+    {
+      fetchImpl,
+      commandUrl: "https://backend.example.com/backendScoringCommand",
+      commandSecret: "secret-123",
+      logger,
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  const body = JSON.parse(calls[0].body) as {
+    command: BackendScoringCommandPayload;
+  };
+  assert.equal(body.command.commandType, "liveScoreHistoryWritten");
+  assert.equal(body.command.compKey, "comp2026");
+  assert.equal(body.command.gameKey, "nrl-01-001");
+  assert.equal(logger.errors.length, 0);
+});
+
+test("a corrected or removed history entry posts too: the snapshot is rebuilt", async () => {
+  const {calls, fetchImpl} = recordingFetch();
+  const deps = {
+    fetchImpl,
+    commandUrl: "https://backend.example.com/backendScoringCommand",
+    commandSecret: "secret-123",
+    logger: new FakeLogger(),
+  };
+
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(HISTORY_ENTRY, {...HISTORY_ENTRY, interimScore: 12}),
+    HISTORY_CONTEXT,
+    deps,
+  );
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(HISTORY_ENTRY, null),
+    {...HISTORY_CONTEXT, eventId: "event-history-2"},
+    deps,
+  );
+
+  assert.equal(calls.length, 2);
+});
+
+test("a history write that changes nothing posts nothing", async () => {
+  const {calls, fetchImpl} = recordingFetch();
+
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(HISTORY_ENTRY, {...HISTORY_ENTRY}),
+    HISTORY_CONTEXT,
+    {
+      fetchImpl,
+      commandUrl: "https://backend.example.com/backendScoringCommand",
+      commandSecret: "secret-123",
+      logger: new FakeLogger(),
+    },
+  );
+
+  assert.equal(calls.length, 0);
+});
+
+test("a history event without its game posts nothing and says so", async () => {
+  const logger = new FakeLogger();
+  const {calls, fetchImpl} = recordingFetch();
+
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(null, HISTORY_ENTRY),
+    {eventId: "event-history-3", params: {compKey: "comp2026"}},
+    {
+      fetchImpl,
+      commandUrl: "https://backend.example.com/backendScoringCommand",
+      commandSecret: "secret-123",
+      logger,
+    },
+  );
+
+  assert.equal(calls.length, 0);
+  assert.equal(logger.errors.length, 1);
+  assert.match(logger.errors[0], /missing context param gameKey/);
+});
+
+test("a worker that is down fails the history event so it can be retried", async () => {
+  const {fetchImpl} = recordingFetch(503);
+
+  await assert.rejects(
+    handleLiveScoreHistoryWrittenBackendScoringWrite(
+      createChange(null, HISTORY_ENTRY),
+      HISTORY_CONTEXT,
+      {
+        fetchImpl,
+        commandUrl: "https://backend.example.com/backendScoringCommand",
+        commandSecret: "secret-123",
+        logger: new FakeLogger(),
+      },
+    ),
+    /worker responded with 503/,
+  );
+});
+
+test("a history event with no command secret posts nothing", async () => {
+  const logger = new FakeLogger();
+  const {calls, fetchImpl} = recordingFetch();
+
+  await handleLiveScoreHistoryWrittenBackendScoringWrite(
+    createChange(null, HISTORY_ENTRY),
+    HISTORY_CONTEXT,
+    {
+      fetchImpl,
+      commandUrl: "https://backend.example.com/backendScoringCommand",
+      logger,
+      environment: {},
+    },
+  );
+
+  assert.equal(calls.length, 0);
+  assert.match(logger.errors[0], /missing command secret configuration/);
 });

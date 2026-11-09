@@ -225,7 +225,7 @@ void main() {
         );
         // ignore: avoid_print
         print(
-          '  LogonIndex ${logonBefore} -> $logonAfter entries '
+          '  LogonIndex $logonBefore -> $logonAfter entries '
           '(accounts that had no stored login are given one)',
         );
 

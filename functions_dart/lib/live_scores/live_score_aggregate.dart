@@ -12,8 +12,9 @@ import 'package:dau_shared/dau_shared.dart';
 /// The rule is the one the client has always applied, nothing cleverer:
 /// - each team keeps its **three most recent** submissions;
 /// - the displayed score for a team is its **latest** submission;
-/// - the snapshot's time, tipper and completion flag are those of the latest
-///   submission of either team;
+/// - the snapshot's time and tipper are those of the latest submission of either
+///   team, and its completion flag is always false (only an official score
+///   completes a game);
 /// - an official score, when there is one, overrides all of it (the caller's
 ///   business: see `runLiveScoreAggregation`).
 
@@ -38,6 +39,11 @@ class LiveScoreEntry implements Comparable<LiveScoreEntry> {
   final String tipperId;
   final ScoringTeam team;
   final int score;
+
+  /// The flag as found in the entry (or in a `current` snapshot being compared).
+  /// **Never written back as true**: a game is completed by its official score
+  /// alone, so [toJson] and the aggregate's snapshot always say `false`, whatever
+  /// a legacy client left in `history`.
   final bool gameComplete;
 
   /// The earliest instant microseconds since the epoch can mean here (year
@@ -122,7 +128,7 @@ class LiveScoreEntry implements Comparable<LiveScoreEntry> {
     'tipperID': tipperId,
     'scoreTeam': team.name,
     'interimScore': score,
-    'gameComplete': gameComplete,
+    'gameComplete': false,
   };
 
   @override
@@ -179,7 +185,7 @@ class LiveScoreAggregate {
       'awayInterimScore': ?_latestFor(ScoringTeam.away)?.score,
       'submittedTimeUTC': latest.toJson()['submittedTimeUTC'],
       'tipperID': latest.tipperId,
-      'gameComplete': latest.gameComplete,
+      'gameComplete': false,
       'crowdSourcedScores': <Map<String, Object?>>[
         for (final entry in kept) entry.toJson(),
       ],

@@ -2,6 +2,12 @@ enum BackendScoringCommandType {
   tipWritten,
   officialScoreWritten,
   liveScoreWritten,
+
+  /// A submission was added to (or changed in, or removed from) a game's live
+  /// score `history`: derive the game's `current` snapshot from it. Distinct from
+  /// [liveScoreWritten], which is `current` having changed and the game needing
+  /// to be scored.
+  liveScoreHistoryWritten,
   adminRescore,
 }
 
@@ -74,6 +80,11 @@ class BackendScoringCommand {
       case BackendScoringCommandType.liveScoreWritten:
         if (gameKey == null) {
           throw ArgumentError('liveScoreWritten requires gameKey');
+        }
+        break;
+      case BackendScoringCommandType.liveScoreHistoryWritten:
+        if (gameKey == null) {
+          throw ArgumentError('liveScoreHistoryWritten requires gameKey');
         }
         break;
       case BackendScoringCommandType.adminRescore:

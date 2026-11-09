@@ -8,6 +8,8 @@ void main() {
     test('a deployed function with no debug features starts', () {
       assertNoDebugFeaturesOutsideEmulator(<String, String>{
         'K_SERVICE': 'link-or-create-tipper',
+        'K_REVISION': 'link-or-create-tipper-00012-abc',
+        'K_CONFIGURATION': 'link-or-create-tipper',
       });
       assertNoDebugFeaturesOutsideEmulator(const <String, String>{});
       assertNoDebugFeaturesOutsideEmulator(<String, String>{
@@ -52,9 +54,11 @@ void main() {
             'FIREBASE_DEBUG_FEATURES': bypass,
             'FUNCTIONS_EMULATOR': 'true',
             'K_SERVICE': 'link-or-create-tipper',
+            'K_REVISION': 'link-or-create-tipper-00012-abc',
+            'K_CONFIGURATION': 'link-or-create-tipper',
           }),
           throwsStateError,
-          reason: 'Cloud Run sets K_SERVICE; the emulator does not',
+          reason: 'Cloud Run sets K_CONFIGURATION; the emulator does not',
         );
       },
     );
@@ -65,6 +69,24 @@ void main() {
         'FUNCTIONS_EMULATOR': 'true',
       });
     });
+
+    test(
+      'the switch inside the emulator is allowed as the Firebase CLI really sets it',
+      () {
+        // Firebase CLI 15: the emulator gives every function a K_SERVICE (its
+        // name) and a K_REVISION of "1", but no K_CONFIGURATION. The first
+        // version of this guard required K_SERVICE to be absent and so refused
+        // to start the worker in the local emulator.
+        assertNoDebugFeaturesOutsideEmulator(<String, String>{
+          'FIREBASE_DEBUG_FEATURES':
+              '{"skipTokenVerification":true,"enableCors":true}',
+          'FIREBASE_DEBUG_MODE': 'true',
+          'FUNCTIONS_EMULATOR': 'true',
+          'K_SERVICE': 'backend-scoring-command',
+          'K_REVISION': '1',
+        });
+      },
+    );
 
     test('the message names the variable and says what to remove', () {
       expect(
