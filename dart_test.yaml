@@ -1,0 +1,3 @@
+tags:
+  network:
+    # Tests that reach real websites. Skip offline with --exclude-tags network.

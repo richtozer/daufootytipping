@@ -13,6 +13,7 @@ import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class StatPercentTipped extends StatefulWidget {
   const StatPercentTipped({super.key});
@@ -149,7 +150,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
             color: Colors.black38,
             child: Center(
               child: Text(
-                'Nothing to see here.\nContact support: https://interview.coach/tipping.',
+                'Nothing to see here.\nContact support: ${p.supportUrl}.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),

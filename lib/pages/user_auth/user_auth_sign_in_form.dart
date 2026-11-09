@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class UserAuthSignInForm extends StatefulWidget {
   final String googleClientId;
@@ -849,7 +850,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: Unknown',
+                            'If you\'re having trouble signing in, visit this site: ${p.supportUrl}\nApp Version: Unknown',
                             style: TextStyle(color: footerTextColor),
                             textAlign: TextAlign.center,
                           ),
@@ -859,7 +860,7 @@ class _UserAuthSignInFormState extends State<UserAuthSignInForm> {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            'If you\'re having trouble signing in, visit this site: https://interview.coach/tipping\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
+                            'If you\'re having trouble signing in, visit this site: ${p.supportUrl}\nApp Version: ${packageInfo.version} (Build ${packageInfo.buildNumber})',
                             style: TextStyle(color: footerTextColor),
                             textAlign: TextAlign.center,
                           ),

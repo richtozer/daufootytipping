@@ -47,6 +47,7 @@ import 'package:watch_it/watch_it.dart';
 import 'firebase_options.dart';
 
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
@@ -635,7 +636,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             if (!configViewModel.hasRequiredBootstrapConfig) {
               // display LoginErrorScreen
               return LoginIssueScreen(
-                message: 'Unexpected startup error. Contact support: https://interview.coach/tipping',
+                message:
+                    'Unexpected startup error. Contact support: ${p.supportUrl}',
                 displaySignOutButton: false,
                 onRetry: () {
                   configViewModel.retryInitialLoad();

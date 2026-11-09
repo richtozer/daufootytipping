@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class Profile extends StatelessWidget with WatchItMixin {
   const Profile({super.key});
@@ -204,7 +205,7 @@ class Profile extends StatelessWidget with WatchItMixin {
                                           return Padding(
                                             padding: const EdgeInsets.all(8.0),
                                             child: Text(
-                                              'There are no active competitions. Contact support: https://interview.coach/tipping.',
+                                              'There are no active competitions. Contact support: ${p.supportUrl}.',
                                               textAlign: TextAlign.center,
                                               style: Theme.of(context)
                                                   .textTheme

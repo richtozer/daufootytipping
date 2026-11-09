@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
 
 class UserAuthPage extends StatefulWidget {
   final String? configMinAppVersion;
@@ -477,7 +478,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                     } else if (snapshot.hasError) {
                       return LoginIssueScreen(
                         message:
-                            'Unexpected error ${snapshot.error}. Contact support: https://interview.coach/tipping',
+                            'Unexpected error ${snapshot.error}. Contact support: ${p.supportUrl}',
                       );
                     } else if (snapshot.data == null) {
                       // This means no existing Tipper record
