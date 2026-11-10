@@ -1,6 +1,7 @@
 import 'dart:developer'; // For log()
 
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league_ladder.dart';
@@ -331,6 +332,12 @@ class _GameListItemState extends State<GameListItem> {
     final game = gameTipsViewModelConsumer.game;
     if (game.gameState == GameState.startedResultNotKnown &&
         gameTipsViewModelConsumer.tip != null) {
+      if (tippingIsOpen(game.startTimeUTC)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Live scoring opens after tipping closes. Please wait until the grace period ends.'),
+        ));
+        return;
+      }
       showMaterialModalBottomSheet(
         expand: false,
         context: context,

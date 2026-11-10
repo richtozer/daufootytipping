@@ -1937,7 +1937,8 @@ void main() {
       verifyNever(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/tipper-1'));
     });
 
-    test('writes only the target round and tipper for tipWritten commands', () async {
+    for (final hasGraceTip in [false, true]) {
+    test('tipWritten scores ${hasGraceTip ? 'a submitted grace-period tip' : 'default Away'} in the target round', () async {
       final mockDb = MockDatabase();
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
@@ -2040,7 +2041,10 @@ void main() {
           .thenReturn(mockTipsRef);
       when(() => mockTipsRef.once()).thenAnswer((_) async => mockTipsSnapshot);
       when(() => mockTipsSnapshot.value).thenReturn({
-        'nrl-01-001': {'r': 'a', 't': 1760000000},
+        if (hasGraceTip) 'nrl-01-001': {
+          'r': 'a',
+          't': DateTime.parse('2026-01-03T10:01:00Z').millisecondsSinceEpoch ~/ 1000,
+        },
         'nrl-02-001': {'r': 'd', 't': 1760000000},
       });
 
@@ -2084,7 +2088,7 @@ void main() {
 
       final captured = verify(() => mockRoundStatsRef.set(captureAny())).captured.single;
       expect(captured, isA<Map>());
-      expect(captured, containsPair('nS', 4));
+      expect(captured, containsPair('nS', hasGraceTip ? 4 : 0));
       expect(captured, containsPair('nMs', 4));
       expect(captured, containsPair('aTo', 0));
       expect(captured, containsPair('nTo', 0));
@@ -2099,6 +2103,7 @@ void main() {
       verify(() => mockIdempotencyRef.set(any())).called(1);
       verify(() => mockStatusRef.set(any())).called(1);
     });
+    }
 
     test(
       'official score commands batch round stats and split paid and free cohorts',

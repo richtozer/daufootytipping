@@ -1,6 +1,6 @@
 import 'dart:developer';
 
-import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
@@ -31,14 +31,13 @@ Future<void> submitTip(
       return;
     }
 
-    if (gameTipViewModel.game.gameState == GameState.startedResultKnown ||
-        gameTipViewModel.game.gameState == GameState.startedResultNotKnown) {
+    if (!tippingIsOpen(gameTipViewModel.game.startTimeUTC)) {
       _notify(context, Colors.red, 'Tipping for this game has closed.');
       return;
     }
 
     final existing = gameTipViewModel.tip;
-    if (existing != null && existing.tip == option) {
+    if (existing != null && !existing.isDefaultTip() && existing.tip == option) {
       final label = gameTipViewModel.game.league == League.afl
           ? existing.tip.aflTooltip
           : existing.tip.nrlTooltip;
@@ -61,7 +60,8 @@ Future<void> submitTip(
       Colors.orange,
       'Your tip has not reached the server yet. It is saved on this phone and '
       'will be sent when the connection recovers, but it only counts if it '
-      'arrives before kickoff. We will tell you if it does not count.',
+      'arrives before tipping closes ($configuredTipGracePeriodSeconds seconds '
+      'after kickoff). We will tell you if we cannot confirm it.',
     );
   } catch (e) {
     final message = 'Error submitting tip: $e';

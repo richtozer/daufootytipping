@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -29,6 +30,7 @@ class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
   Map<String, Map<String, Tip>>? _tipsByGameAndTipper;
   final DatabaseReference _db;
+  final Stream<bool> Function() _signedIn;
   StreamSubscription<DatabaseEvent>? _tipsStream;
 
   final DAUComp selectedDAUComp;
@@ -71,7 +73,9 @@ class TipsViewModel extends ChangeNotifier {
     this._tipper, {
     DatabaseReference? database,
     bool listenToTips = true,
+    Stream<bool> Function()? signedIn,
   }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
        _gameReadRetryDelay = defaultGameReadRetryDelay {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper.dbkey}');
     _gamesViewModel.addListener(_update);
@@ -93,7 +97,9 @@ class TipsViewModel extends ChangeNotifier {
     this._tipper, {
     DatabaseReference? database,
     Duration gameReadRetryDelay = defaultGameReadRetryDelay,
+    Stream<bool> Function()? signedIn,
   }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
        _gameReadRetryDelay = gameReadRetryDelay {
     _perGame = true;
     log('TipsViewModel.forTipperGames constructor for tipper ${_tipper.dbkey}');
@@ -155,24 +161,22 @@ class TipsViewModel extends ChangeNotifier {
       final Completer<void> firstAnswer = Completer<void>();
       firstAnswers.add(firstAnswer.future);
       late final StreamSubscription<DatabaseEvent> subscription;
-      subscription = _db
+      subscription = authAwareStream<DatabaseEvent>(
+        signedIn: _signedIn,
+        open: () => _db
           .child(
             '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/${entry.key}',
           )
-          .onValue
-          .listen(
+          .onValue,
+        onSourceError: (Object error, StackTrace stackTrace) {
+          log('TipsViewModel: cannot read game ${entry.key}: $error');
+          _gameReadFailed(entry.key, subscription);
+          if (!firstAnswer.isCompleted) firstAnswer.complete();
+        },
+      ).listen(
             (DatabaseEvent event) {
               _failedGameReads.remove(entry.key);
               _applyGameSnapshot(entry.value, event.snapshot);
-              if (!firstAnswer.isCompleted) {
-                firstAnswer.complete();
-              }
-            },
-            onError: (Object error, StackTrace stackTrace) {
-              log(
-                'TipsViewModel.watchGames() cannot read the tip for game ${entry.key}: $error',
-              );
-              _gameReadFailed(entry.key, subscription);
               if (!firstAnswer.isCompleted) {
                 firstAnswer.complete();
               }
@@ -244,10 +248,12 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _listenToTips() {
-    _tipsStream = _db
+    _tipsStream = authAwareStream<DatabaseEvent>(
+      signedIn: _signedIn,
+      open: () => _db
         .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}')
-        .onValue
-        .listen((event) {
+        .onValue,
+    ).listen((event) {
           _handleEvent(event);
         });
   }

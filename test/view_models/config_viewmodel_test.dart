@@ -263,6 +263,7 @@ void main() {
             p.currentDAUCompKey: 'comp-2026',
             p.createLinkedTipperKey: true,
             p.cloudFunctionsBaseURLKey: 'https://functions.example.com',
+            'tipGracePeriodSeconds': 300,
           },
           children: <String, Object?>{
             p.currentDAUCompKey: _valueSnapshot('comp-2026'),
@@ -278,6 +279,7 @@ void main() {
     await viewModel.initialLoadComplete;
 
     expect(viewModel.cloudFunctionsBaseURL, 'https://functions.example.com');
+    expect(viewModel.tipGracePeriodSeconds, 300);
 
     viewModel.dispose();
   });

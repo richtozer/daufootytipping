@@ -52,8 +52,8 @@
           ".read": "{{IS_OWNER}} || {{IS_ADMIN}}",
           ".write": "{{IS_ADMIN}}",
           "$game": {
-            ".read": "{{IS_OWNER}} || {{IS_ADMIN}} || (auth != null && now >= {{KICKOFF}})",
-            ".write": "{{IS_ADMIN}} || ({{IS_OWNER}} && now < {{KICKOFF}})",
+            ".read": "{{IS_OWNER}} || {{IS_ADMIN}} || (auth != null && {{VALID_KICKOFF}} && now >= {{TIP_DEADLINE}})",
+            ".write": "{{IS_ADMIN}} || ({{IS_OWNER}} && {{VALID_KICKOFF}} && now < {{TIP_DEADLINE}})",
             ".validate": "(newData.hasChildren(['r', 't']) && newData.child('t').val() <= now / 1000 + 86400) || newData.hasChildren(['gameResult', 'submittedTimeUTC'])",
             "r": {
               ".validate": "newData.isString() && newData.val().matches(/^[a-ez]$/)"
@@ -82,7 +82,7 @@
           "$game": {
             "history": {
               "$entry": {
-                ".write": "{{IS_ADMIN}} || ({{VALID_CALLER}} && !data.exists() && newData.child('tipperID').val() === {{CALLER}} && now >= {{KICKOFF}} && !({{OFFICIAL_SCORE}}))",
+                ".write": "{{IS_ADMIN}} || ({{VALID_CALLER}} && !data.exists() && newData.child('tipperID').val() === {{CALLER}} && {{VALID_KICKOFF}} && now >= {{TIP_DEADLINE}} && !({{OFFICIAL_SCORE}}))",
                 ".validate": "newData.hasChildren(['tipperID', 'scoreTeam', 'interimScore', 't'])",
                 "tipperID": {
                   ".validate": "newData.isString()"

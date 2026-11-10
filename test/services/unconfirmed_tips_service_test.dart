@@ -305,7 +305,7 @@ void main() {
 
       expect(service.notices.single, contains('Home v Away'));
       expect(service.notices.single, contains('could not confirm'));
-      expect(service.notices.single, contains('before the game started'));
+      expect(service.notices.single, contains('before tipping closed'));
       expect(service.notices.single, isNot(contains('not counted')));
       expect(notified, 1);
       expect(await service.pending(), isEmpty);

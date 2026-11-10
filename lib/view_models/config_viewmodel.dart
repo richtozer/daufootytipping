@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:daufootytipping/services/tipping_policy.dart';
 
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
@@ -43,6 +44,9 @@ class ConfigViewModel extends ChangeNotifier {
 
   bool? _createLinkedTipper;
   bool? get createLinkedTipper => _createLinkedTipper;
+
+  int _tipGracePeriodSeconds = defaultTipGracePeriodSeconds;
+  int get tipGracePeriodSeconds => _tipGracePeriodSeconds;
 
   String? _googleClientId;
   String? get googleClientId => _googleClientId;
@@ -119,6 +123,7 @@ class ConfigViewModel extends ChangeNotifier {
       _activeDAUComp = null;
       _minAppVersion = null;
       _createLinkedTipper = null;
+      _tipGracePeriodSeconds = defaultTipGracePeriodSeconds;
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
       _adminScoringRescoreURL = null;
@@ -290,6 +295,9 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
+    _tipGracePeriodSeconds = parseTipGracePeriodSeconds(
+      _snapshotValue(snapshot, tipGracePeriodSecondsKey),
+    );
     _activeDAUComp = _parseOptionalString(
       _snapshotValue(snapshot, p.currentDAUCompKey),
     );

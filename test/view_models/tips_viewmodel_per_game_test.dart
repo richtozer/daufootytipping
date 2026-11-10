@@ -66,11 +66,13 @@ class _FakeTipsDatabase {
   final reads = <String, Object?>{};
 
   Future<void> emit(String path, Object? value) async {
+    await Future<void>.delayed(Duration.zero); // wait for the auth event
     controllers[path]!.add(_event(value));
     await Future<void>.delayed(Duration.zero);
   }
 
   Future<void> fail(String path) async {
+    await Future<void>.delayed(Duration.zero);
     controllers[path]!.addError(Exception('permission-denied'));
     await Future<void>.delayed(Duration.zero);
   }
@@ -101,12 +103,13 @@ void main() {
 
   TipsViewModel build({
     Duration retryDelay = TipsViewModel.defaultGameReadRetryDelay,
+    Stream<bool> Function()? signedIn,
   }) => TipsViewModel.forTipperGames(
     _MockTippersViewModel(),
     comp,
     games,
     tipper,
-    database: database.root,
+    signedIn: signedIn ?? () => Stream.value(true), database: database.root,
     gameReadRetryDelay: retryDelay,
   );
 
@@ -135,6 +138,44 @@ void main() {
   });
 
   group('per-game tips (the only reads R2 allows for another tipper)', () {
+    test('whole-tipper listener also closes and reopens with the session', () async {
+      final auth = StreamController<bool>.broadcast();
+      final tips = TipsViewModel.forTipper(
+        _MockTippersViewModel(), comp, games, tipper,
+        database: database.root, signedIn: () => auth.stream,
+      );
+      final path = '${p.tipsPathRoot}/${comp.dbkey}/${tipper.dbkey}';
+      expect(database.requestedPaths, isEmpty);
+      auth.add(true);
+      await database.emit(path, null);
+      await tips.initialLoadCompleted;
+      auth.add(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(database.controllers[path]!.hasListener, isFalse);
+      auth.add(true);
+      await database.emit(path, null);
+      expect(database.requestedPaths, [path, path]);
+      tips.dispose();
+      await auth.close();
+    });
+    test('closes on sign-out and reopens after the next sign-in', () async {
+      final auth = StreamController<bool>.broadcast();
+      final tips = build(signedIn: () => auth.stream);
+      final loaded = tips.watchGames([started]);
+      expect(database.requestedPaths, isEmpty);
+      auth.add(true);
+      await database.emit(tipPath(started), {'r': 'b', 't': 1700000000});
+      await loaded;
+      auth.add(false);
+      await Future<void>.delayed(Duration.zero);
+      expect(database.controllers[tipPath(started)]!.hasListener, isFalse);
+      auth.add(true);
+      await database.emit(tipPath(started), {'r': 'd', 't': 1700000001});
+      expect(database.requestedPaths, [tipPath(started), tipPath(started)]);
+      expect((await tips.findTip(started, tipper))!.tip, GameResult.d);
+      tips.dispose();
+      await auth.close();
+    });
     test(
       'listens at each game and never at the tipper or the competition',
       () async {
@@ -394,7 +435,7 @@ void main() {
       await loaded;
 
       tips.dispose();
-
+      await Future<void>.delayed(Duration.zero);
       expect(database.controllers[tipPath(started)]!.hasListener, isFalse);
       expect(database.controllers[tipPath(alsoStarted)]!.hasListener, isFalse);
     });
@@ -405,7 +446,7 @@ void main() {
         comp,
         games,
         tipper,
-        database: database.root,
+        signedIn: () => Stream.value(true), database: database.root,
         listenToTips: false,
       );
       addTearDown(tips.dispose);

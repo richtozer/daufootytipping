@@ -8,6 +8,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
 import 'package:intl/intl.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 
 /// Separator between the parts of the info panel paragraph.
 const String _infoSeparator = ' 🏉 ';
@@ -64,7 +65,8 @@ TipsCardDisplay tipsCardDisplayFor({
       winner: _hasFinalScore(scoring) && (scoring?.didAwayTeamWin() ?? false),
     ),
     league: game.league,
-    info: _infoParagraph(gameTipViewModel),
+    info: '${_infoParagraph(gameTipViewModel)}'
+        '${tippingIsOpen(game.startTimeUTC) ? ' 🏉 Tips close $configuredTipGracePeriodSeconds seconds after kickoff.' : ''}',
     status: status,
     selected: gameTipViewModel.tip?.tip,
     result: _hasGameResult(game)

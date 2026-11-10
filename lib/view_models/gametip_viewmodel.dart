@@ -15,6 +15,8 @@ import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
+import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -80,6 +82,17 @@ class GameTipViewModel extends ChangeNotifier {
   final Duration _writeAcknowledgementLimit;
   final UnconfirmedTipsService? _unconfirmedTips;
   bool _disposed = false;
+  Timer? _tipDeadlineTimer;
+  ConfigViewModel? _deadlineConfig;
+
+  void _scheduleTipDeadline() {
+    _tipDeadlineTimer?.cancel();
+    final remaining = tippingDeadline(game.startTimeUTC).difference(DateTime.now());
+    if (remaining > Duration.zero) {
+      _tipDeadlineTimer = Timer(remaining, _notifyListenersIfAlive);
+    }
+    _notifyListenersIfAlive();
+  }
   late final bool _listensToGamesViewModel;
 
   bool _savingTip = false;
@@ -134,6 +147,11 @@ class GameTipViewModel extends ChangeNotifier {
 
     _findTip();
     _gameStartedTrigger();
+    if (di.isRegistered<ConfigViewModel>()) {
+      _deadlineConfig = di<ConfigViewModel>();
+      _deadlineConfig!.addListener(_scheduleTipDeadline);
+    }
+    _scheduleTipDeadline();
   }
 
   // this method will delay returning until the game has started,
@@ -554,6 +572,8 @@ class GameTipViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _tipDeadlineTimer?.cancel();
+    _deadlineConfig?.removeListener(_scheduleTipDeadline);
     if (_listensToGamesViewModel) {
       allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
     }

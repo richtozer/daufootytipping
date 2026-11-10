@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/daucomp.dart';
@@ -143,6 +145,7 @@ class _StatRoundGameScoresForTipperState
 
   @override
   void dispose() {
+    _tipDeadlineRefresh?.cancel();
     dauCompsViewModel.removeListener(_refreshTableData);
     allTipsViewModel?.removeListener(_refreshTableData);
     allTipsViewModel?.dispose();
@@ -170,6 +173,8 @@ class _StatRoundGameScoresForTipperState
     allTipsViewModel!.addListener(_refreshTableData);
   }
 
+  Timer? _tipDeadlineRefresh;
+
   Future<void> _refreshTableData() async {
     final selectedComp = dauCompsViewModel.selectedDAUComp;
     final gamesViewModel = dauCompsViewModel.gamesViewModel;
@@ -193,11 +198,18 @@ class _StatRoundGameScoresForTipperState
       League.afl: List<Game>.from(groupedGames[League.afl] ?? const <Game>[]),
     };
 
+    // Revisit the screen at the next tipping deadline even if no score changes.
+    _tipDeadlineRefresh?.cancel();
+    final now = DateTime.now();
+    final deadlines = filteredGames.values.expand((games) => games)
+        .map((game) => tippingDeadline(game.startTimeUTC))
+        .where((deadline) => deadline.isAfter(now)).toList()..sort();
+    if (deadlines.isNotEmpty) {
+      _tipDeadlineRefresh = Timer(deadlines.first.difference(now), _refreshTableData);
+    }
     filteredGames.forEach((league, gameList) {
       gameList.retainWhere(
-        (game) =>
-            game.gameState == GameState.startedResultNotKnown ||
-            game.gameState == GameState.startedResultKnown,
+        (game) => !tippingIsOpen(game.startTimeUTC, now: now),
       );
     });
 

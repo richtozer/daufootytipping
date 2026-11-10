@@ -89,7 +89,7 @@ typedef ShownTip = ({String choice, int submittedUtcSeconds});
 /// turns out not to have counted.
 ///
 /// A tip made without a connection is queued by the database, which sends it when
-/// it can. The rules refuse a tip that arrives after kickoff, so a queued tip can
+/// it can. The rules refuse a tip that arrives after the grace deadline, so a queued tip can
 /// be rejected long after the screen that made it has gone, or in a later run of
 /// the app, where the original write has no one left to tell. This keeps the
 /// queued tips on the device so that either way the user hears about it, instead
@@ -307,14 +307,14 @@ class UnconfirmedTipsService extends ChangeNotifier {
 
   String _refusedNotice(UnconfirmedTip tip) =>
       'Your tip for ${tip.gameLabel} was not counted. The server did not accept '
-      'it, most likely because the game had started before it arrived.';
+      'it, most likely because tipping had closed before it arrived.';
 
   /// For a tip the device no longer shows, which is an inference: the database
   /// may simply not have caught up, so it is not said to have been refused.
   String _couldNotConfirmNotice(UnconfirmedTip tip) =>
       tip.kickoffUtcMs <= _clock().toUtc().millisecondsSinceEpoch
       ? 'We could not confirm your tip for ${tip.gameLabel}. It may not have '
-            'reached the server before the game started. Please check it on the '
+            'reached the server before tipping closed. Please check it on the '
             'Tips page.'
       : 'We could not confirm your tip for ${tip.gameLabel}. Please check it on '
             'the Tips page, and tip again if it is missing.';

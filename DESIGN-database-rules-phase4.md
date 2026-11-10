@@ -1,5 +1,39 @@
 # Database rules, phase 4: server pieces, coexistence and cutover to R2
 
+### 10 November 2026: owner-approved tipping grace and sign-out fix
+
+The owner approved a configurable **120-second default grace period**. This supersedes the
+strict-kickoff tipping/read deadline described in earlier sections. `AppConfig/tipGracePeriodSeconds`
+is an administrator-controlled, client-readable non-negative whole number of seconds; absent or
+invalid values use 120, and zero restores strict kickoff. R2 accepts own-tip creation, changes and
+deletion only while server `now < kickoff + grace`; competitors can read a game's tips only at or
+after that deadline. Owner/admin rule overrides are unchanged. Game state still starts at kickoff,
+but ordinary live-score submissions open only when tipping closes, using that same grace deadline
+(owner's follow-up decision). The client reads the setting, permits tipping during grace, updates its deadline wording,
+and delays the other-tipper drill-down until the same deadline. R1-family compatibility rules keep
+their legacy permissions; the tighter read/write deadline takes effect with the R2 deployment.
+
+Default Away tips are inferred by the scoring worker, not written to `/AllTips`. Every accepted
+tip-write command recalculates the target tipper's round using the actual stored choice, including
+a choice submitted during grace. No new scoring job is required. During grace the client can explicitly
+save Away even if inferred default Away was already displayed. Queued-tip notices now refer to tipping
+closing rather than kickoff. Existing offline persistence and outcome handling remain in place.
+
+Games, whole-tipper tips, per-game tips and all three Stats listeners now use `authAwareStream`,
+closing on sign-out and reopening on sign-in. Games-listener refusals remain logged with diagnostics
+but are no longer deliberately rethrown as uncaught errors. Per-game bounded retries remain in place.
+Regression tests cover the listener lifecycle, configured/default/zero grace, the close boundary,
+competitor reads, and scoring a stored late tip instead of default Away. These are local changes:
+no production setting or deployed ruleset has been changed. Deploy the regenerated R2 rules with
+the client as part of the existing cutover, not as an independent early rules release.
+
+Validation so far: 72 R2 rules-engine tests passed before the live-scoring follow-up; two backend
+scoring regressions passed; focused client tests for grace submissions, config and Stats reattachment
+passed. The broad app run had only the two known support-site failures plus two old wording assertions,
+which were corrected and passed in focused reruns. Final analysis/full-suite validation and the new
+live-scoring deadline tests are still pending: automatic approval review hit a usage limit before
+the final toolchain run. Nothing is committed or deployed from this change set.
+
 Status: **revised plan, accepted by the owner on 2026-10-20 after an external review. M1 and M2 are
 built and tested locally (section 6a); nothing is deployed and nothing else is implemented.** Written after R1 (rules 2026-10-06, Dart
 functions and Firestore rules 2026-10-19) was verified in production. Basis:

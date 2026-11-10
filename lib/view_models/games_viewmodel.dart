@@ -10,6 +10,7 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -24,6 +25,7 @@ class GamesViewModel extends ChangeNotifier {
   // Properties
   List<Game> _games = [];
   final DatabaseReference _db;
+  final Stream<bool> Function() _signedIn;
   late StreamSubscription<DatabaseEvent> _gamesStream;
   int _gamesListenerGeneration = 0;
   Future<void> _gamesSnapshotProcessing = Future<void>.value();
@@ -45,9 +47,11 @@ class GamesViewModel extends ChangeNotifier {
     TeamsViewModel? teamsViewModel,
     DatabaseReference? database,
     bool autoInitialize = true,
+    Stream<bool> Function()? signedIn,
   }) : _ownsTeamsViewModel =
            teamsViewModel == null && !di.isRegistered<TeamsViewModel>(),
-       _db = database ?? configuredDatabaseRef() {
+       _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream {
     _teamsViewModel =
         teamsViewModel ??
         (di.isRegistered<TeamsViewModel>()
@@ -72,15 +76,10 @@ class GamesViewModel extends ChangeNotifier {
   void _listenToGames() {
     final int listenerGeneration = ++_gamesListenerGeneration;
     final DatabaseReference gamesReference = _db.child(_gamesPath);
-    final Zone listenerErrorZone = Zone.current;
-    _gamesStream = gamesReference.onValue.listen(
-      (event) {
-        _queueGamesSnapshotProcessing(
-          event.snapshot,
-          listenerGeneration: listenerGeneration,
-        );
-      },
-      onError: (Object error, StackTrace stackTrace) {
+    _gamesStream = authAwareStream<DatabaseEvent>(
+      signedIn: _signedIn,
+      open: () => gamesReference.onValue,
+      onSourceError: (Object error, StackTrace stackTrace) {
         if (AppResumeDiagnostics.enabled) {
           AppResumeDiagnostics.record(
             'games_listener_error',
@@ -93,7 +92,14 @@ class GamesViewModel extends ChangeNotifier {
             anomalous: true,
           );
         }
-        listenerErrorZone.handleUncaughtError(error, stackTrace);
+        log('GamesViewModel: games listener failed', error: error, stackTrace: stackTrace);
+      },
+    ).listen(
+      (event) {
+        _queueGamesSnapshotProcessing(
+          event.snapshot,
+          listenerGeneration: listenerGeneration,
+        );
       },
       onDone: () {
         if (AppResumeDiagnostics.enabled) {

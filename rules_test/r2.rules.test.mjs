@@ -438,8 +438,9 @@ describe('r2 against the rules engine', () => {
       assert.equal((await peek(tip('t1/started'))).r, 'a');
     });
 
-    it('the kickoff is exact: a game that started a moment ago is locked, one that starts in a moment is open', async () => {
+    it('zero grace retains the exact kickoff deadline', async () => {
       await env.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.database().ref('AppConfig/tipGracePeriodSeconds').set(0);
         await ctx.database().ref('DAUCompsGames/c1').update({
           'upcoming/DateUtcEpochMs': Date.now() - 50,
           'started/DateUtcEpochMs': Date.now() + 60_000,
@@ -448,6 +449,30 @@ describe('r2 against the rules engine', () => {
       await no('alice', (d) => d.ref(tip('t1/upcoming')).set(tipOf('c')));
       await ok('alice', (d) => d.ref(tip('t1/started')).set(tipOf('c')));
     });
+
+    for (const [label, setting, seconds] of [
+      ['absent default', null, 120], ['configured', 300, 300],
+      ['invalid string', '300', 120], ['negative', -1, 120],
+      ['fractional', 0.5, 120],
+    ]) {
+      it(`grace ${label}: owner writes while competitors cannot read, then the reverse`, async () => {
+        await env.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.database().ref('AppConfig/tipGracePeriodSeconds').set(setting);
+          await ctx.database().ref('DAUCompsGames/c1/upcoming/DateUtcEpochMs')
+            .set(Date.now() - (seconds - 30) * 1000);
+        });
+        await ok('alice', (d) => d.ref(tip('t1/upcoming')).set(tipOf('c')));
+        await no('bob', (d) => d.ref(tip('t1/upcoming')).get());
+        await no('alice', (d) => d.ref('Stats/c1/live_scores_backend_v1/upcoming/history/grace').set(entry()));
+        await env.withSecurityRulesDisabled(async (ctx) => {
+          await ctx.database().ref('DAUCompsGames/c1/upcoming/DateUtcEpochMs')
+            .set(Date.now() - seconds * 1000 - 100);
+        });
+        await no('alice', (d) => d.ref(tip('t1/upcoming')).set(tipOf('d')));
+        await ok('bob', (d) => d.ref(tip('t1/upcoming')).get());
+        await ok('alice', (d) => d.ref('Stats/c1/live_scores_backend_v1/upcoming/history/grace').set(entry()));
+      });
+    }
 
     it('nobody tips for someone else, and an unlinked, anonymous or mismatched session tips for no one', async () => {
       await no('bob', (d) => d.ref(tip('t1/upcoming')).set(tipOf('c')));

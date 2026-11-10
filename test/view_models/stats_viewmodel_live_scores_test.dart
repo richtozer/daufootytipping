@@ -52,6 +52,7 @@ void main() {
     required int fixtureMatchNumber,
     required int? homeScore,
     required int? awayScore,
+    DateTime? kickoff,
   }) {
     return Game(
       dbkey: dbKey,
@@ -67,7 +68,7 @@ void main() {
         league: league,
       ),
       location: 'Test Stadium',
-      startTimeUTC: DateTime.utc(2026, 3, 26, 9),
+      startTimeUTC: kickoff ?? DateTime.utc(2026, 3, 26, 9),
       fixtureRoundNumber: fixtureRoundNumber,
       fixtureMatchNumber: fixtureMatchNumber,
       scoring: Scoring(homeTeamScore: homeScore, awayTeamScore: awayScore),
@@ -207,7 +208,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
 
@@ -245,7 +246,7 @@ void main() {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
       );
 
@@ -287,7 +288,7 @@ void main() {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
       );
 
@@ -315,7 +316,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
 
@@ -390,7 +391,7 @@ void main() {
       when(() => gamesViewModel.findGame('nrl-04-025'))
           .thenAnswer((_) async => canonicalGame);
 
-      final viewModel = StatsViewModel(comp, gamesViewModel, database: rootDb);
+      final viewModel = StatsViewModel(comp, gamesViewModel, signedIn: () => Stream.value(true), database: rootDb);
       addTearDown(viewModel.dispose);
       await _settleAsyncWork();
 
@@ -429,7 +430,7 @@ void main() {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
       );
       di.registerSingleton<StatsViewModel>(viewModel);
@@ -489,11 +490,39 @@ void main() {
     },
   );
 
+  for (final secondsSinceKickoff in [60, 121]) {
+    test('live-score entry at $secondsSinceKickoff seconds respects tipping grace', () async {
+      final game = buildGame(
+        dbKey: activeGame.dbkey, league: League.nrl,
+        fixtureRoundNumber: 4, fixtureMatchNumber: 25,
+        homeScore: null, awayScore: null,
+        kickoff: DateTime.now().toUtc().subtract(Duration(seconds: secondsSinceKickoff)),
+      );
+      final viewModel = StatsViewModel(
+        comp, gamesViewModel, database: rootDb, autoInitialize: false,
+      );
+      di.registerSingleton<StatsViewModel>(viewModel);
+      final write = viewModel.submitLiveScores(
+        tip: Tip(game: game, tipper: alice, tip: GameResult.a, submittedTimeUTC: DateTime.now().toUtc()),
+        homeScore: '8', awayScore: '0', originalHomeScore: '0', originalAwayScore: '0',
+        selectedDAUComp: comp,
+      );
+      if (secondsSinceKickoff < 120) {
+        await expectLater(write, throwsStateError);
+        verifyNever(() => liveScoresRef.update(any()));
+      } else {
+        await write;
+        verify(() => liveScoresRef.update(any())).called(1);
+      }
+      viewModel.dispose();
+    });
+  }
+
   test('submitLiveScores writes an entry for an unchanged unknown score too, as zero', () async {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
     di.registerSingleton<StatsViewModel>(viewModel);
@@ -531,7 +560,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
     di.registerSingleton<StatsViewModel>(viewModel);
@@ -571,7 +600,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
 
@@ -604,7 +633,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: rootDb,
+      signedIn: () => Stream.value(true), database: rootDb,
       autoInitialize: false,
     );
 

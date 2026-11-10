@@ -149,6 +149,31 @@ void main() {
     await di.reset();
   });
 
+  test('games listener closes on sign-out and reopens on sign-in', () async {
+    final auth = StreamController<bool>.broadcast();
+    final viewModel = GamesViewModel(
+      comp, dauCompsViewModel, teamsViewModel: teamsViewModel,
+      database: rootDb, signedIn: () => auth.stream,
+    );
+    await settleAsyncWork();
+    expect(gamesController.hasListener, isFalse);
+    auth.add(true);
+    await settleAsyncWork();
+    expect(gamesController.hasListener, isTrue);
+    auth.add(false);
+    await settleAsyncWork();
+    expect(gamesController.hasListener, isFalse);
+    auth.add(true);
+    await settleAsyncWork();
+    expect(gamesController.hasListener, isTrue);
+    // A refusal is reported, not rethrown to the uncaught-error zone.
+    gamesController.addError(StateError('permission-denied'));
+    await settleAsyncWork();
+    expect(gamesController.hasListener, isFalse);
+    viewModel.dispose();
+    await auth.close();
+  });
+
   test(
     'ignores out-of-season games when loading a historical competition',
     () async {
@@ -164,7 +189,7 @@ void main() {
         historicalComp,
         dauCompsViewModel,
         teamsViewModel: teamsViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
       );
 
       await settleAsyncWork();
@@ -217,7 +242,7 @@ void main() {
         comp,
         dauCompsViewModel,
         teamsViewModel: teamsViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
       );
       await settleAsyncWork();
       gamesController.add(
@@ -266,7 +291,7 @@ void main() {
         comp,
         dauCompsViewModel,
         teamsViewModel: teamsViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
       );
 
       await settleAsyncWork();

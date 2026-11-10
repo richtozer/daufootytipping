@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/live_score_history_entry.dart';
 import 'package:flutter/foundation.dart';
@@ -96,6 +98,7 @@ class StatsViewModel extends ChangeNotifier {
     this.gamesViewModel, {
     DatabaseReference? database,
     bool autoInitialize = true,
+    Stream<bool> Function()? signedIn,
     List<Duration> gameStatsRetryDelays = const [
       Duration(milliseconds: 250),
       Duration(seconds: 1),
@@ -103,6 +106,7 @@ class StatsViewModel extends ChangeNotifier {
     ],
     Future<void> Function()? refreshProtectedResourceAccess,
   }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
        _gameStatsRetryDelays = gameStatsRetryDelays,
        _refreshProtectedResourceAccess =
            refreshProtectedResourceAccess ??
@@ -119,6 +123,8 @@ class StatsViewModel extends ChangeNotifier {
       _initialize();
     }
   }
+
+  final Stream<bool> Function() _signedIn;
 
   void _initialize() async {
     // make sure the tippers viewmodel is initialized
@@ -138,12 +144,14 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> _listenToScores() async {
-    _allRoundPointsStream = _db
+    _allRoundPointsStream = authAwareStream<DatabaseEvent>(
+      signedIn: _signedIn,
+      open: () => _db
         .child(
           '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
         )
-        .onValue
-        .listen(
+        .onValue,
+    ).listen(
           _handleEventRoundPoints,
           onError: (error) {
             log('StatsViewModel() Error listening to round points: $error');
@@ -151,12 +159,14 @@ class StatsViewModel extends ChangeNotifier {
         );
     _hasRoundPointsListener = true;
 
-    _liveScoresStream = _db
+    _liveScoresStream = authAwareStream<DatabaseEvent>(
+      signedIn: _signedIn,
+      open: () => _db
         .child(
           '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
         )
-        .onValue
-        .listen(
+        .onValue,
+    ).listen(
           _handleEventLiveScores,
           onError: (error) {
             log('StatsViewModel() Error listening to live scores: $error');
@@ -202,13 +212,15 @@ class StatsViewModel extends ChangeNotifier {
 
       _isSelectedTipperPaidUpMember = isPaid;
       _gameStatsListenerSubKey = subKey;
-      _gameStatsStream = _db
+      _gameStatsStream = authAwareStream<DatabaseEvent>(
+        signedIn: _signedIn,
+        open: () => _db
           .child(statsPathRootLocal)
           .child(selectedDAUComp.dbkey!)
           .child(_gameStatsReadRoot)
           .child(subKey)
-          .onValue
-          .listen(
+          .onValue,
+      ).listen(
             (event) {
               if (_disposed) {
                 return;
@@ -1104,6 +1116,9 @@ class StatsViewModel extends ChangeNotifier {
     required DAUComp selectedDAUComp,
   }) async {
     await _submitLock.synchronized(() async {
+      if (tippingIsOpen(tip.game.startTimeUTC)) {
+        throw StateError('Live scoring opens after tipping closes. Please wait until the grace period ends.');
+      }
       final currentHomeScore = tip.game.scoring?.currentScore(ScoringTeam.home);
       final currentAwayScore = tip.game.scoring?.currentScore(ScoringTeam.away);
       final homeScoreChanged = homeScore != originalHomeScore;
