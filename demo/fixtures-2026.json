@@ -1,0 +1,2156 @@
+{
+  "provenance": "Public 2026 fixtures/results extracted from local end-of-season export; no user data.",
+  "sourceUrls": [
+    "https://fixturedownload.com/feed/json/afl-2026",
+    "https://fixturedownload.com/feed/json/nrl-2026"
+  ],
+  "rounds": [
+    {
+      "roundStartDate": "2026-02-28 23:15:00Z",
+      "roundEndDate": "2026-03-08 11:20:00Z"
+    },
+    {
+      "roundStartDate": "2026-03-12 05:30:00Z",
+      "roundEndDate": "2026-03-15 10:15:00Z"
+    },
+    {
+      "roundStartDate": "2026-03-19 05:30:00Z",
+      "roundEndDate": "2026-03-22 10:15:00Z"
+    },
+    {
+      "roundStartDate": "2026-03-26 05:30:00Z",
+      "roundEndDate": "2026-03-29 10:15:00Z"
+    },
+    {
+      "roundStartDate": "2026-04-02 05:30:00Z",
+      "roundEndDate": "2026-04-06 09:05:00Z"
+    },
+    {
+      "roundStartDate": "2026-04-09 06:40:00Z",
+      "roundEndDate": "2026-04-12 12:15:00Z"
+    },
+    {
+      "roundStartDate": "2026-04-16 06:30:00Z",
+      "roundEndDate": "2026-04-19 10:10:00Z"
+    },
+    {
+      "roundStartDate": "2026-04-23 06:30:00Z",
+      "roundEndDate": "2026-04-26 09:40:00Z"
+    },
+    {
+      "roundStartDate": "2026-04-30 06:30:00Z",
+      "roundEndDate": "2026-05-03 12:20:00Z"
+    },
+    {
+      "roundStartDate": "2026-05-07 06:50:00Z",
+      "roundEndDate": "2026-05-10 09:05:00Z"
+    },
+    {
+      "roundStartDate": "2026-05-14 06:30:00Z",
+      "roundEndDate": "2026-05-17 11:25:00Z"
+    },
+    {
+      "roundStartDate": "2026-05-21 06:30:00Z",
+      "roundEndDate": "2026-05-24 09:05:00Z"
+    }
+  ],
+  "teams": {
+    "afl-Sydney Swans": {
+      "name": "Swans",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/swans.svg"
+    },
+    "afl-Carlton": {
+      "name": "Carlton",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/blues.svg"
+    },
+    "afl-Gold Coast Suns": {
+      "name": "Suns",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/suns.svg"
+    },
+    "afl-Geelong Cats": {
+      "name": "Cats",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/cats.svg"
+    },
+    "afl-GWS Giants": {
+      "name": "Giants",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/giants.svg"
+    },
+    "afl-Hawthorn": {
+      "name": "Hawks",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/hawks.svg"
+    },
+    "afl-Brisbane Lions": {
+      "name": "Lions",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/lions.svg"
+    },
+    "afl-Western Bulldogs": {
+      "name": "Bulldogs",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/bulldogs.svg"
+    },
+    "afl-St Kilda": {
+      "name": "Saints",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/saints.svg"
+    },
+    "afl-Collingwood": {
+      "name": "Magpies",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/magpies.svg"
+    },
+    "afl-Richmond": {
+      "name": "Tigers",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/tigers.svg"
+    },
+    "afl-Essendon": {
+      "name": "Bombers",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/bombers.svg"
+    },
+    "afl-Fremantle": {
+      "name": "Freo",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/dockers.svg"
+    },
+    "afl-Adelaide Crows": {
+      "name": "Crows",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/crows.svg"
+    },
+    "afl-North Melbourne": {
+      "name": "Norths",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/kagaroos.svg"
+    },
+    "afl-Port Adelaide": {
+      "name": "Port",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/power.svg"
+    },
+    "afl-Melbourne": {
+      "name": "Melbourne",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/demons.svg"
+    },
+    "afl-West Coast Eagles": {
+      "name": "Eagles",
+      "league": "afl",
+      "logoURI": "assets/teams/afl/eagles.svg"
+    },
+    "nrl-Knights": {
+      "name": "Knights",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Newcastle_colours.svg"
+    },
+    "nrl-Cowboys": {
+      "name": "Cowboys",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/North_Queensland_colours.svg"
+    },
+    "nrl-Bulldogs": {
+      "name": "Bulldogs",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Canterbury_colours.svg"
+    },
+    "nrl-Dragons": {
+      "name": "Dragons",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/St._George_colours.svg"
+    },
+    "nrl-Storm": {
+      "name": "Storm",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Melbourne_colours.svg"
+    },
+    "nrl-Eels": {
+      "name": "Eels",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Parramatta_colours.svg"
+    },
+    "nrl-Warriors": {
+      "name": "Warriors",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Auckland_colours.svg"
+    },
+    "nrl-Roosters": {
+      "name": "Roosters",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Eastern_Suburbs_colours.svg"
+    },
+    "nrl-Broncos": {
+      "name": "Broncos",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Brisbane_colours.svg"
+    },
+    "nrl-Panthers": {
+      "name": "Panthers",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Penrith_Panthers_square_flag_icon_with_2020_colours.svg"
+    },
+    "nrl-Sharks": {
+      "name": "Sharks",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Cronulla_colours.svg"
+    },
+    "nrl-Titans": {
+      "name": "Titans",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Gold_Coast_Titans_colours.svg"
+    },
+    "nrl-Sea Eagles": {
+      "name": "Manly",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Manly_Sea_Eagles_colours.svg"
+    },
+    "nrl-Raiders": {
+      "name": "Raiders",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Canberra_colours.svg"
+    },
+    "nrl-Dolphins": {
+      "name": "Dolphins",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Dolphins_colours.svg"
+    },
+    "nrl-Rabbitohs": {
+      "name": "Rabbitohs",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/South_Sydney_colours.svg"
+    },
+    "nrl-Wests Tigers": {
+      "name": "Tigers",
+      "league": "nrl",
+      "logoURI": "assets/teams/nrl/Wests_Tigers_colours.svg"
+    }
+  },
+  "games": {
+    "afl-00-001": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "Carlton",
+      "Location": "SCG",
+      "DateUtc": "2026-03-05 08:30:00Z",
+      "RoundNumber": 0,
+      "MatchNumber": 1,
+      "HomeTeamScore": 132,
+      "AwayTeamScore": 69
+    },
+    "afl-00-002": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "Geelong Cats",
+      "Location": "People First Stadium",
+      "DateUtc": "2026-03-06 09:05:00Z",
+      "RoundNumber": 0,
+      "MatchNumber": 2,
+      "HomeTeamScore": 125,
+      "AwayTeamScore": 69
+    },
+    "afl-00-003": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "Hawthorn",
+      "Location": "ENGIE Stadium",
+      "DateUtc": "2026-03-07 05:15:00Z",
+      "RoundNumber": 0,
+      "MatchNumber": 3,
+      "HomeTeamScore": 122,
+      "AwayTeamScore": 95
+    },
+    "afl-00-004": {
+      "HomeTeam": "Brisbane Lions",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "Gabba",
+      "DateUtc": "2026-03-07 08:35:00Z",
+      "RoundNumber": 0,
+      "MatchNumber": 4,
+      "HomeTeamScore": 106,
+      "AwayTeamScore": 111
+    },
+    "afl-00-005": {
+      "HomeTeam": "St Kilda",
+      "AwayTeam": "Collingwood",
+      "Location": "MCG",
+      "DateUtc": "2026-03-08 08:20:00Z",
+      "RoundNumber": 0,
+      "MatchNumber": 5,
+      "HomeTeamScore": 66,
+      "AwayTeamScore": 78
+    },
+    "afl-01-006": {
+      "HomeTeam": "Carlton",
+      "AwayTeam": "Richmond",
+      "Location": "MCG",
+      "DateUtc": "2026-03-12 08:30:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 6,
+      "HomeTeamScore": 75,
+      "AwayTeamScore": 71
+    },
+    "afl-01-007": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "Hawthorn",
+      "Location": "MCG",
+      "DateUtc": "2026-03-13 08:40:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 7,
+      "HomeTeamScore": 83,
+      "AwayTeamScore": 145
+    },
+    "afl-01-008": {
+      "HomeTeam": "Western Bulldogs",
+      "AwayTeam": "GWS Giants",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-03-14 02:15:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 8,
+      "HomeTeamScore": 134,
+      "AwayTeamScore": 53
+    },
+    "afl-01-009": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "Fremantle",
+      "Location": "GMHBA Stadium",
+      "DateUtc": "2026-03-14 05:15:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 9,
+      "HomeTeamScore": 110,
+      "AwayTeamScore": 100
+    },
+    "afl-01-010": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "SCG",
+      "DateUtc": "2026-03-14 08:10:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 10,
+      "HomeTeamScore": 104,
+      "AwayTeamScore": 60
+    },
+    "afl-01-011": {
+      "HomeTeam": "Collingwood",
+      "AwayTeam": "Adelaide Crows",
+      "Location": "MCG",
+      "DateUtc": "2026-03-14 08:35:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 11,
+      "HomeTeamScore": 79,
+      "AwayTeamScore": 93
+    },
+    "afl-01-012": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Port Adelaide",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-03-15 02:10:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 12,
+      "HomeTeamScore": 113,
+      "AwayTeamScore": 67
+    },
+    "afl-01-013": {
+      "HomeTeam": "Melbourne",
+      "AwayTeam": "St Kilda",
+      "Location": "MCG",
+      "DateUtc": "2026-03-15 04:15:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 13,
+      "HomeTeamScore": 120,
+      "AwayTeamScore": 107
+    },
+    "afl-01-014": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "People First Stadium",
+      "DateUtc": "2026-03-15 07:10:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 14,
+      "HomeTeamScore": 131,
+      "AwayTeamScore": 72
+    },
+    "afl-02-015": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Sydney Swans",
+      "Location": "MCG",
+      "DateUtc": "2026-03-19 08:30:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 15,
+      "HomeTeamScore": 99,
+      "AwayTeamScore": 82
+    },
+    "afl-02-016": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-03-20 08:40:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 16,
+      "HomeTeamScore": 88,
+      "AwayTeamScore": 94
+    },
+    "afl-02-017": {
+      "HomeTeam": "Richmond",
+      "AwayTeam": "Gold Coast Suns",
+      "Location": "MCG",
+      "DateUtc": "2026-03-21 02:15:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 17,
+      "HomeTeamScore": 60,
+      "AwayTeamScore": 128
+    },
+    "afl-02-018": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "St Kilda",
+      "Location": "ENGIE Stadium",
+      "DateUtc": "2026-03-21 05:15:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 18,
+      "HomeTeamScore": 74,
+      "AwayTeamScore": 78
+    },
+    "afl-02-019": {
+      "HomeTeam": "Fremantle",
+      "AwayTeam": "Melbourne",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-03-21 08:35:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 19,
+      "HomeTeamScore": 118,
+      "AwayTeamScore": 70
+    },
+    "afl-02-020": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "Essendon",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-03-22 04:15:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 20,
+      "HomeTeamScore": 133,
+      "AwayTeamScore": 70
+    },
+    "afl-02-021": {
+      "HomeTeam": "West Coast Eagles",
+      "AwayTeam": "North Melbourne",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-03-22 07:10:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 21,
+      "HomeTeamScore": 111,
+      "AwayTeamScore": 94
+    },
+    "afl-03-022": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "Adelaide Crows",
+      "Location": "GMHBA Stadium",
+      "DateUtc": "2026-03-26 08:30:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 22,
+      "HomeTeamScore": 68,
+      "AwayTeamScore": 60
+    },
+    "afl-03-023": {
+      "HomeTeam": "Collingwood",
+      "AwayTeam": "GWS Giants",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-03-27 08:40:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 23,
+      "HomeTeamScore": 87,
+      "AwayTeamScore": 54
+    },
+    "afl-03-024": {
+      "HomeTeam": "St Kilda",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-03-28 01:35:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 24,
+      "HomeTeamScore": 80,
+      "AwayTeamScore": 113
+    },
+    "afl-03-025": {
+      "HomeTeam": "Fremantle",
+      "AwayTeam": "Richmond",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-03-28 05:15:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 25,
+      "HomeTeamScore": 103,
+      "AwayTeamScore": 43
+    },
+    "afl-03-026": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "North Melbourne",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-03-28 08:35:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 26,
+      "HomeTeamScore": 69,
+      "AwayTeamScore": 81
+    },
+    "afl-03-027": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-03-29 01:30:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 27,
+      "HomeTeamScore": 90,
+      "AwayTeamScore": 92
+    },
+    "afl-03-028": {
+      "HomeTeam": "Carlton",
+      "AwayTeam": "Melbourne",
+      "Location": "MCG",
+      "DateUtc": "2026-03-29 04:15:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 28,
+      "HomeTeamScore": 77,
+      "AwayTeamScore": 100
+    },
+    "afl-04-029": {
+      "HomeTeam": "Brisbane Lions",
+      "AwayTeam": "Collingwood",
+      "Location": "Gabba",
+      "DateUtc": "2026-04-02 08:30:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 29,
+      "HomeTeamScore": 119,
+      "AwayTeamScore": 65
+    },
+    "afl-04-030": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Carlton",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-03 04:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 30,
+      "HomeTeamScore": 96,
+      "AwayTeamScore": 86
+    },
+    "afl-04-031": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "Fremantle",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-03 08:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 31,
+      "HomeTeamScore": 76,
+      "AwayTeamScore": 78
+    },
+    "afl-04-032": {
+      "HomeTeam": "Richmond",
+      "AwayTeam": "Port Adelaide",
+      "Location": "MCG",
+      "DateUtc": "2026-04-04 05:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 32,
+      "HomeTeamScore": 48,
+      "AwayTeamScore": 90
+    },
+    "afl-04-033": {
+      "HomeTeam": "West Coast Eagles",
+      "AwayTeam": "Sydney Swans",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-04-04 08:35:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 33,
+      "HomeTeamScore": 35,
+      "AwayTeamScore": 163
+    },
+    "afl-04-034": {
+      "HomeTeam": "Melbourne",
+      "AwayTeam": "Gold Coast Suns",
+      "Location": "MCG",
+      "DateUtc": "2026-04-05 05:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 34,
+      "HomeTeamScore": 109,
+      "AwayTeamScore": 89
+    },
+    "afl-04-035": {
+      "HomeTeam": "Western Bulldogs",
+      "AwayTeam": "Essendon",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-05 09:20:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 35,
+      "HomeTeamScore": 99,
+      "AwayTeamScore": 65
+    },
+    "afl-04-036": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Geelong Cats",
+      "Location": "MCG",
+      "DateUtc": "2026-04-06 05:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 36,
+      "HomeTeamScore": 92,
+      "AwayTeamScore": 91
+    },
+    "afl-05-037": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "Carlton",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-09 09:40:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 37,
+      "HomeTeamScore": 114,
+      "AwayTeamScore": 86
+    },
+    "afl-05-038": {
+      "HomeTeam": "Collingwood",
+      "AwayTeam": "Fremantle",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-10 09:40:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 38,
+      "HomeTeamScore": 39,
+      "AwayTeamScore": 45
+    },
+    "afl-05-039": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "Barossa Park",
+      "DateUtc": "2026-04-11 02:35:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 39,
+      "HomeTeamScore": 66,
+      "AwayTeamScore": 92
+    },
+    "afl-05-040": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "Melbourne",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-11 03:15:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 40,
+      "HomeTeamScore": 113,
+      "AwayTeamScore": 68
+    },
+    "afl-05-041": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "Gold Coast Suns",
+      "Location": "Norwood Oval",
+      "DateUtc": "2026-04-11 06:15:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 41,
+      "HomeTeamScore": 100,
+      "AwayTeamScore": 68
+    },
+    "afl-05-042": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-11 09:35:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 42,
+      "HomeTeamScore": 104,
+      "AwayTeamScore": 64
+    },
+    "afl-05-043": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "Norwood Oval",
+      "DateUtc": "2026-04-12 02:30:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 43,
+      "HomeTeamScore": 122,
+      "AwayTeamScore": 76
+    },
+    "afl-05-044": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "Richmond",
+      "Location": "Barossa Park",
+      "DateUtc": "2026-04-12 05:15:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 44,
+      "HomeTeamScore": 131,
+      "AwayTeamScore": 75
+    },
+    "afl-05-045": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "St Kilda",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-12 09:15:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 45,
+      "HomeTeamScore": 67,
+      "AwayTeamScore": 81
+    },
+    "afl-06-046": {
+      "HomeTeam": "Carlton",
+      "AwayTeam": "Collingwood",
+      "Location": "MCG",
+      "DateUtc": "2026-04-16 09:30:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 46,
+      "HomeTeamScore": 83,
+      "AwayTeamScore": 88
+    },
+    "afl-06-047": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "GMHBA Stadium",
+      "DateUtc": "2026-04-17 09:20:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 47,
+      "HomeTeamScore": 131,
+      "AwayTeamScore": 56
+    },
+    "afl-06-048": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "GWS Giants",
+      "Location": "SCG",
+      "DateUtc": "2026-04-17 09:50:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 48,
+      "HomeTeamScore": 107,
+      "AwayTeamScore": 66
+    },
+    "afl-06-049": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "Essendon",
+      "Location": "People First Stadium",
+      "DateUtc": "2026-04-18 03:15:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 49,
+      "HomeTeamScore": 119,
+      "AwayTeamScore": 110
+    },
+    "afl-06-050": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Port Adelaide",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-18 06:15:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 50,
+      "HomeTeamScore": 89,
+      "AwayTeamScore": 86
+    },
+    "afl-06-051": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "St Kilda",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-18 09:35:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 51,
+      "HomeTeamScore": 103,
+      "AwayTeamScore": 102
+    },
+    "afl-06-052": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Richmond",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-19 03:10:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 52,
+      "HomeTeamScore": 130,
+      "AwayTeamScore": 55
+    },
+    "afl-06-053": {
+      "HomeTeam": "Melbourne",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "MCG",
+      "DateUtc": "2026-04-19 05:15:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 53,
+      "HomeTeamScore": 104,
+      "AwayTeamScore": 102
+    },
+    "afl-06-054": {
+      "HomeTeam": "West Coast Eagles",
+      "AwayTeam": "Fremantle",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-04-19 07:10:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 54,
+      "HomeTeamScore": 41,
+      "AwayTeamScore": 97
+    },
+    "afl-07-055": {
+      "HomeTeam": "Western Bulldogs",
+      "AwayTeam": "Sydney Swans",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-23 09:30:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 55,
+      "HomeTeamScore": 60,
+      "AwayTeamScore": 126
+    },
+    "afl-07-056": {
+      "HomeTeam": "Richmond",
+      "AwayTeam": "Melbourne",
+      "Location": "MCG",
+      "DateUtc": "2026-04-24 09:40:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 56,
+      "HomeTeamScore": 72,
+      "AwayTeamScore": 126
+    },
+    "afl-07-057": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Gold Coast Suns",
+      "Location": "UTAS Stadium",
+      "DateUtc": "2026-04-25 02:30:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 57,
+      "HomeTeamScore": 112,
+      "AwayTeamScore": 63
+    },
+    "afl-07-058": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "Collingwood",
+      "Location": "MCG",
+      "DateUtc": "2026-04-25 05:20:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 58,
+      "HomeTeamScore": 60,
+      "AwayTeamScore": 137
+    },
+    "afl-07-059": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "Geelong Cats",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-04-25 08:35:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 59,
+      "HomeTeamScore": 95,
+      "AwayTeamScore": 65
+    },
+    "afl-07-060": {
+      "HomeTeam": "Fremantle",
+      "AwayTeam": "Carlton",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-04-25 10:15:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 60,
+      "HomeTeamScore": 103,
+      "AwayTeamScore": 89
+    },
+    "afl-07-061": {
+      "HomeTeam": "St Kilda",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-04-26 03:10:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 61,
+      "HomeTeamScore": 143,
+      "AwayTeamScore": 42
+    },
+    "afl-07-062": {
+      "HomeTeam": "Brisbane Lions",
+      "AwayTeam": "Adelaide Crows",
+      "Location": "Gabba",
+      "DateUtc": "2026-04-26 05:15:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 62,
+      "HomeTeamScore": 127,
+      "AwayTeamScore": 75
+    },
+    "afl-07-063": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "North Melbourne",
+      "Location": "Corroboree Group Oval Manuka",
+      "DateUtc": "2026-04-26 06:40:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 63,
+      "HomeTeamScore": 105,
+      "AwayTeamScore": 98
+    },
+    "afl-08-064": {
+      "HomeTeam": "Collingwood",
+      "AwayTeam": "Hawthorn",
+      "Location": "MCG",
+      "DateUtc": "2026-04-30 09:30:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 64,
+      "HomeTeamScore": 93,
+      "AwayTeamScore": 93
+    },
+    "afl-08-065": {
+      "HomeTeam": "Western Bulldogs",
+      "AwayTeam": "Fremantle",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-01 09:30:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 65,
+      "HomeTeamScore": 102,
+      "AwayTeamScore": 114
+    },
+    "afl-08-066": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "Port Adelaide",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-05-01 10:10:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 66,
+      "HomeTeamScore": 76,
+      "AwayTeamScore": 75
+    },
+    "afl-08-067": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-02 02:35:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 67,
+      "HomeTeamScore": 79,
+      "AwayTeamScore": 143
+    },
+    "afl-08-068": {
+      "HomeTeam": "West Coast Eagles",
+      "AwayTeam": "Richmond",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-05-02 06:15:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 68,
+      "HomeTeamScore": 88,
+      "AwayTeamScore": 99
+    },
+    "afl-08-069": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "North Melbourne",
+      "Location": "GMHBA Stadium",
+      "DateUtc": "2026-05-02 06:35:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 69,
+      "HomeTeamScore": 135,
+      "AwayTeamScore": 86
+    },
+    "afl-08-070": {
+      "HomeTeam": "Carlton",
+      "AwayTeam": "St Kilda",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-02 09:35:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 70,
+      "HomeTeamScore": 69,
+      "AwayTeamScore": 108
+    },
+    "afl-08-071": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "Melbourne",
+      "Location": "SCG",
+      "DateUtc": "2026-05-03 05:15:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 71,
+      "HomeTeamScore": 131,
+      "AwayTeamScore": 114
+    },
+    "afl-08-072": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "GWS Giants",
+      "Location": "People First Stadium",
+      "DateUtc": "2026-05-03 09:20:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 72,
+      "HomeTeamScore": 83,
+      "AwayTeamScore": 63
+    },
+    "afl-09-073": {
+      "HomeTeam": "Fremantle",
+      "AwayTeam": "Hawthorn",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-05-07 10:10:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 73,
+      "HomeTeamScore": 88,
+      "AwayTeamScore": 73
+    },
+    "afl-09-074": {
+      "HomeTeam": "Brisbane Lions",
+      "AwayTeam": "Carlton",
+      "Location": "Gabba",
+      "DateUtc": "2026-05-08 09:30:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 74,
+      "HomeTeamScore": 100,
+      "AwayTeamScore": 89
+    },
+    "afl-09-075": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-05-08 10:10:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 75,
+      "HomeTeamScore": 72,
+      "AwayTeamScore": 74
+    },
+    "afl-09-076": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Sydney Swans",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-09 03:15:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 76,
+      "HomeTeamScore": 97,
+      "AwayTeamScore": 105
+    },
+    "afl-09-077": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "Essendon",
+      "Location": "ENGIE Stadium",
+      "DateUtc": "2026-05-09 06:15:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 77,
+      "HomeTeamScore": 103,
+      "AwayTeamScore": 89
+    },
+    "afl-09-078": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "St Kilda",
+      "Location": "TIO Stadium",
+      "DateUtc": "2026-05-09 09:10:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 78,
+      "HomeTeamScore": 89,
+      "AwayTeamScore": 60
+    },
+    "afl-09-079": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "Collingwood",
+      "Location": "MCG",
+      "DateUtc": "2026-05-09 09:35:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 79,
+      "HomeTeamScore": 122,
+      "AwayTeamScore": 68
+    },
+    "afl-09-080": {
+      "HomeTeam": "Melbourne",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-10 03:10:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 80,
+      "HomeTeamScore": 99,
+      "AwayTeamScore": 67
+    },
+    "afl-09-081": {
+      "HomeTeam": "Richmond",
+      "AwayTeam": "Adelaide Crows",
+      "Location": "MCG",
+      "DateUtc": "2026-05-10 05:15:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 81,
+      "HomeTeamScore": 61,
+      "AwayTeamScore": 98
+    },
+    "afl-10-082": {
+      "HomeTeam": "Brisbane Lions",
+      "AwayTeam": "Geelong Cats",
+      "Location": "Gabba",
+      "DateUtc": "2026-05-14 09:30:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 82,
+      "HomeTeamScore": 76,
+      "AwayTeamScore": 117
+    },
+    "afl-10-083": {
+      "HomeTeam": "Sydney Swans",
+      "AwayTeam": "Collingwood",
+      "Location": "SCG",
+      "DateUtc": "2026-05-15 09:30:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 83,
+      "HomeTeamScore": 81,
+      "AwayTeamScore": 75
+    },
+    "afl-10-084": {
+      "HomeTeam": "Gold Coast Suns",
+      "AwayTeam": "Port Adelaide",
+      "Location": "TIO Stadium",
+      "DateUtc": "2026-05-15 10:10:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 84,
+      "HomeTeamScore": 98,
+      "AwayTeamScore": 73
+    },
+    "afl-10-085": {
+      "HomeTeam": "Adelaide Crows",
+      "AwayTeam": "North Melbourne",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-05-16 03:15:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 85,
+      "HomeTeamScore": 133,
+      "AwayTeamScore": 65
+    },
+    "afl-10-086": {
+      "HomeTeam": "Melbourne",
+      "AwayTeam": "Hawthorn",
+      "Location": "MCG",
+      "DateUtc": "2026-05-16 06:15:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 86,
+      "HomeTeamScore": 120,
+      "AwayTeamScore": 81
+    },
+    "afl-10-087": {
+      "HomeTeam": "Carlton",
+      "AwayTeam": "Western Bulldogs",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-16 09:35:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 87,
+      "HomeTeamScore": 74,
+      "AwayTeamScore": 62
+    },
+    "afl-10-088": {
+      "HomeTeam": "Essendon",
+      "AwayTeam": "Fremantle",
+      "Location": "MCG",
+      "DateUtc": "2026-05-17 03:10:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 88,
+      "HomeTeamScore": 61,
+      "AwayTeamScore": 104
+    },
+    "afl-10-089": {
+      "HomeTeam": "St Kilda",
+      "AwayTeam": "Richmond",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-17 05:15:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 89,
+      "HomeTeamScore": 109,
+      "AwayTeamScore": 73
+    },
+    "afl-10-090": {
+      "HomeTeam": "West Coast Eagles",
+      "AwayTeam": "GWS Giants",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-05-17 08:15:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 90,
+      "HomeTeamScore": 88,
+      "AwayTeamScore": 71
+    },
+    "afl-11-091": {
+      "HomeTeam": "Hawthorn",
+      "AwayTeam": "Adelaide Crows",
+      "Location": "UTAS Stadium",
+      "DateUtc": "2026-05-21 09:30:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 91,
+      "HomeTeamScore": 75,
+      "AwayTeamScore": 66
+    },
+    "afl-11-092": {
+      "HomeTeam": "Richmond",
+      "AwayTeam": "Essendon",
+      "Location": "MCG",
+      "DateUtc": "2026-05-22 09:45:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 92,
+      "HomeTeamScore": 74,
+      "AwayTeamScore": 56
+    },
+    "afl-11-093": {
+      "HomeTeam": "Fremantle",
+      "AwayTeam": "St Kilda",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-05-22 10:30:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 93,
+      "HomeTeamScore": 104,
+      "AwayTeamScore": 74
+    },
+    "afl-11-094": {
+      "HomeTeam": "North Melbourne",
+      "AwayTeam": "Gold Coast Suns",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-23 03:15:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 94,
+      "HomeTeamScore": 111,
+      "AwayTeamScore": 105
+    },
+    "afl-11-095": {
+      "HomeTeam": "Geelong Cats",
+      "AwayTeam": "Sydney Swans",
+      "Location": "GMHBA Stadium",
+      "DateUtc": "2026-05-23 06:15:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 95,
+      "HomeTeamScore": 107,
+      "AwayTeamScore": 80
+    },
+    "afl-11-096": {
+      "HomeTeam": "Collingwood",
+      "AwayTeam": "West Coast Eagles",
+      "Location": "MCG",
+      "DateUtc": "2026-05-23 06:35:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 96,
+      "HomeTeamScore": 92,
+      "AwayTeamScore": 82
+    },
+    "afl-11-097": {
+      "HomeTeam": "Port Adelaide",
+      "AwayTeam": "Carlton",
+      "Location": "Adelaide Oval",
+      "DateUtc": "2026-05-23 09:35:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 97,
+      "HomeTeamScore": 58,
+      "AwayTeamScore": 92
+    },
+    "afl-11-098": {
+      "HomeTeam": "GWS Giants",
+      "AwayTeam": "Brisbane Lions",
+      "Location": "ENGIE Stadium",
+      "DateUtc": "2026-05-24 02:30:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 98,
+      "HomeTeamScore": 166,
+      "AwayTeamScore": 88
+    },
+    "afl-11-099": {
+      "HomeTeam": "Western Bulldogs",
+      "AwayTeam": "Melbourne",
+      "Location": "Marvel Stadium",
+      "DateUtc": "2026-05-24 05:15:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 99,
+      "HomeTeamScore": 93,
+      "AwayTeamScore": 90
+    },
+    "nrl-01-001": {
+      "HomeTeam": "Knights",
+      "AwayTeam": "Cowboys",
+      "Location": "Allegiant Stadium",
+      "DateUtc": "2026-03-01 02:15:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 1,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 18
+    },
+    "nrl-01-002": {
+      "HomeTeam": "Bulldogs",
+      "AwayTeam": "Dragons",
+      "Location": "Allegiant Stadium",
+      "DateUtc": "2026-03-01 04:30:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 2,
+      "HomeTeamScore": 15,
+      "AwayTeamScore": 14
+    },
+    "nrl-01-003": {
+      "HomeTeam": "Storm",
+      "AwayTeam": "Eels",
+      "Location": "AAMI Park",
+      "DateUtc": "2026-03-05 09:00:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 3,
+      "HomeTeamScore": 52,
+      "AwayTeamScore": 4
+    },
+    "nrl-01-004": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Roosters",
+      "Location": "Go Media Stadium",
+      "DateUtc": "2026-03-06 07:00:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 4,
+      "HomeTeamScore": 42,
+      "AwayTeamScore": 18
+    },
+    "nrl-01-005": {
+      "HomeTeam": "Broncos",
+      "AwayTeam": "Panthers",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-03-06 09:00:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 5,
+      "HomeTeamScore": 0,
+      "AwayTeamScore": 26
+    },
+    "nrl-01-006": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Titans",
+      "Location": "Ocean Protect Stadium",
+      "DateUtc": "2026-03-07 06:30:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 6,
+      "HomeTeamScore": 50,
+      "AwayTeamScore": 10
+    },
+    "nrl-01-007": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Raiders",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-03-07 08:35:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 7,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 29
+    },
+    "nrl-01-008": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Rabbitohs",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-03-08 05:05:00Z",
+      "RoundNumber": 1,
+      "MatchNumber": 8,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 40
+    },
+    "nrl-02-009": {
+      "HomeTeam": "Broncos",
+      "AwayTeam": "Eels",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-03-12 09:00:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 9,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 40
+    },
+    "nrl-02-010": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Raiders",
+      "Location": "Go Media Stadium",
+      "DateUtc": "2026-03-13 07:00:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 10,
+      "HomeTeamScore": 40,
+      "AwayTeamScore": 6
+    },
+    "nrl-02-011": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Rabbitohs",
+      "Location": "Allianz Stadium",
+      "DateUtc": "2026-03-13 09:00:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 11,
+      "HomeTeamScore": 26,
+      "AwayTeamScore": 18
+    },
+    "nrl-02-012": {
+      "HomeTeam": "Wests Tigers",
+      "AwayTeam": "Cowboys",
+      "Location": "Leichhardt Oval",
+      "DateUtc": "2026-03-14 04:00:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 12,
+      "HomeTeamScore": 44,
+      "AwayTeamScore": 16
+    },
+    "nrl-02-013": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Storm",
+      "Location": "WIN Stadium",
+      "DateUtc": "2026-03-14 06:30:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 13,
+      "HomeTeamScore": 20,
+      "AwayTeamScore": 46
+    },
+    "nrl-02-014": {
+      "HomeTeam": "Panthers",
+      "AwayTeam": "Sharks",
+      "Location": "Carrington Park",
+      "DateUtc": "2026-03-14 08:35:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 14,
+      "HomeTeamScore": 26,
+      "AwayTeamScore": 6
+    },
+    "nrl-02-015": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Knights",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-03-15 05:05:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 15,
+      "HomeTeamScore": 16,
+      "AwayTeamScore": 36
+    },
+    "nrl-02-016": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Titans",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-03-15 07:15:00Z",
+      "RoundNumber": 2,
+      "MatchNumber": 16,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 14
+    },
+    "nrl-03-017": {
+      "HomeTeam": "Raiders",
+      "AwayTeam": "Bulldogs",
+      "Location": "GIO Stadium",
+      "DateUtc": "2026-03-19 09:00:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 17,
+      "HomeTeamScore": 10,
+      "AwayTeamScore": 14
+    },
+    "nrl-03-018": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Panthers",
+      "Location": "Allianz Stadium",
+      "DateUtc": "2026-03-20 07:00:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 18,
+      "HomeTeamScore": 4,
+      "AwayTeamScore": 40
+    },
+    "nrl-03-019": {
+      "HomeTeam": "Storm",
+      "AwayTeam": "Broncos",
+      "Location": "AAMI Park",
+      "DateUtc": "2026-03-20 09:00:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 19,
+      "HomeTeamScore": 14,
+      "AwayTeamScore": 18
+    },
+    "nrl-03-020": {
+      "HomeTeam": "Knights",
+      "AwayTeam": "Warriors",
+      "Location": "McDonald Jones Stadium",
+      "DateUtc": "2026-03-21 04:00:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 20,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 38
+    },
+    "nrl-03-021": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Dolphins",
+      "Location": "Ocean Protect Stadium",
+      "DateUtc": "2026-03-21 06:30:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 21,
+      "HomeTeamScore": 10,
+      "AwayTeamScore": 38
+    },
+    "nrl-03-022": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Wests Tigers",
+      "Location": "Polytec Stadium",
+      "DateUtc": "2026-03-21 08:35:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 22,
+      "HomeTeamScore": 20,
+      "AwayTeamScore": 16
+    },
+    "nrl-03-023": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Dragons",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-03-22 05:05:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 23,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 20
+    },
+    "nrl-03-024": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Titans",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-03-22 07:15:00Z",
+      "RoundNumber": 3,
+      "MatchNumber": 24,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 16
+    },
+    "nrl-04-025": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Roosters",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-03-26 09:00:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 25,
+      "HomeTeamScore": 16,
+      "AwayTeamScore": 33
+    },
+    "nrl-04-026": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Wests Tigers",
+      "Location": "Go Media Stadium",
+      "DateUtc": "2026-03-27 07:00:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 26,
+      "HomeTeamScore": 14,
+      "AwayTeamScore": 32
+    },
+    "nrl-04-027": {
+      "HomeTeam": "Broncos",
+      "AwayTeam": "Dolphins",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-03-27 09:00:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 27,
+      "HomeTeamScore": 26,
+      "AwayTeamScore": 12
+    },
+    "nrl-04-028": {
+      "HomeTeam": "Bulldogs",
+      "AwayTeam": "Knights",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-03-28 04:00:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 28,
+      "HomeTeamScore": 16,
+      "AwayTeamScore": 24
+    },
+    "nrl-04-029": {
+      "HomeTeam": "Panthers",
+      "AwayTeam": "Eels",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-03-28 06:30:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 29,
+      "HomeTeamScore": 48,
+      "AwayTeamScore": 20
+    },
+    "nrl-04-030": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Storm",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-03-28 08:35:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 30,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 24
+    },
+    "nrl-04-031": {
+      "HomeTeam": "Raiders",
+      "AwayTeam": "Sharks",
+      "Location": "GIO Stadium",
+      "DateUtc": "2026-03-29 05:05:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 31,
+      "HomeTeamScore": 22,
+      "AwayTeamScore": 34
+    },
+    "nrl-04-032": {
+      "HomeTeam": "Titans",
+      "AwayTeam": "Dragons",
+      "Location": "Cbus Super Stadium",
+      "DateUtc": "2026-03-29 07:15:00Z",
+      "RoundNumber": 4,
+      "MatchNumber": 32,
+      "HomeTeamScore": 22,
+      "AwayTeamScore": 14
+    },
+    "nrl-05-033": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Sea Eagles",
+      "Location": "Kayo Stadium",
+      "DateUtc": "2026-04-02 09:00:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 33,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 52
+    },
+    "nrl-05-034": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Bulldogs",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-04-03 05:05:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 34,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 24
+    },
+    "nrl-05-035": {
+      "HomeTeam": "Panthers",
+      "AwayTeam": "Storm",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-04-03 09:00:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 35,
+      "HomeTeamScore": 50,
+      "AwayTeamScore": 10
+    },
+    "nrl-05-036": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Cowboys",
+      "Location": "St George Venues Jubilee Stadium",
+      "DateUtc": "2026-04-04 06:30:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 36,
+      "HomeTeamScore": 0,
+      "AwayTeamScore": 32
+    },
+    "nrl-05-037": {
+      "HomeTeam": "Titans",
+      "AwayTeam": "Broncos",
+      "Location": "Cbus Super Stadium",
+      "DateUtc": "2026-04-04 08:35:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 37,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 26
+    },
+    "nrl-05-038": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Warriors",
+      "Location": "Ocean Protect Stadium",
+      "DateUtc": "2026-04-05 04:00:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 38,
+      "HomeTeamScore": 36,
+      "AwayTeamScore": 22
+    },
+    "nrl-05-039": {
+      "HomeTeam": "Knights",
+      "AwayTeam": "Raiders",
+      "Location": "McDonald Jones Stadium",
+      "DateUtc": "2026-04-05 06:05:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 39,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 12
+    },
+    "nrl-05-040": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Wests Tigers",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-04-06 06:05:00Z",
+      "RoundNumber": 5,
+      "MatchNumber": 40,
+      "HomeTeamScore": 20,
+      "AwayTeamScore": 22
+    },
+    "nrl-06-041": {
+      "HomeTeam": "Bulldogs",
+      "AwayTeam": "Panthers",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-04-09 09:50:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 41,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 16
+    },
+    "nrl-06-042": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Sea Eagles",
+      "Location": "WIN Stadium",
+      "DateUtc": "2026-04-10 08:00:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 42,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 28
+    },
+    "nrl-06-043": {
+      "HomeTeam": "Broncos",
+      "AwayTeam": "Cowboys",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-04-10 10:00:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 43,
+      "HomeTeamScore": 31,
+      "AwayTeamScore": 35
+    },
+    "nrl-06-044": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Raiders",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-04-11 05:00:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 44,
+      "HomeTeamScore": 34,
+      "AwayTeamScore": 36
+    },
+    "nrl-06-045": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Roosters",
+      "Location": "Optus Stadium",
+      "DateUtc": "2026-04-11 07:30:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 45,
+      "HomeTeamScore": 22,
+      "AwayTeamScore": 34
+    },
+    "nrl-06-046": {
+      "HomeTeam": "Storm",
+      "AwayTeam": "Warriors",
+      "Location": "AAMI Park",
+      "DateUtc": "2026-04-11 09:35:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 46,
+      "HomeTeamScore": 14,
+      "AwayTeamScore": 38
+    },
+    "nrl-06-047": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Titans",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-04-12 04:00:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 47,
+      "HomeTeamScore": 10,
+      "AwayTeamScore": 52
+    },
+    "nrl-06-048": {
+      "HomeTeam": "Wests Tigers",
+      "AwayTeam": "Knights",
+      "Location": "Campbelltown Sports Stadium",
+      "DateUtc": "2026-04-12 06:05:00Z",
+      "RoundNumber": 6,
+      "MatchNumber": 48,
+      "HomeTeamScore": 42,
+      "AwayTeamScore": 22
+    },
+    "nrl-07-049": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Sea Eagles",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-04-16 09:50:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 49,
+      "HomeTeamScore": 6,
+      "AwayTeamScore": 38
+    },
+    "nrl-07-050": {
+      "HomeTeam": "Raiders",
+      "AwayTeam": "Storm",
+      "Location": "GIO Stadium",
+      "DateUtc": "2026-04-17 08:00:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 50,
+      "HomeTeamScore": 26,
+      "AwayTeamScore": 22
+    },
+    "nrl-07-051": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Panthers",
+      "Location": "TIO Stadium",
+      "DateUtc": "2026-04-17 10:00:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 51,
+      "HomeTeamScore": 22,
+      "AwayTeamScore": 23
+    },
+    "nrl-07-052": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Titans",
+      "Location": "Go Media Stadium",
+      "DateUtc": "2026-04-18 05:00:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 52,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 20
+    },
+    "nrl-07-053": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Dragons",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-04-18 07:30:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 53,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 12
+    },
+    "nrl-07-054": {
+      "HomeTeam": "Wests Tigers",
+      "AwayTeam": "Broncos",
+      "Location": "Campbelltown Sports Stadium",
+      "DateUtc": "2026-04-18 09:35:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 54,
+      "HomeTeamScore": 20,
+      "AwayTeamScore": 21
+    },
+    "nrl-07-055": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Knights",
+      "Location": "Allianz Stadium",
+      "DateUtc": "2026-04-19 04:00:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 55,
+      "HomeTeamScore": 38,
+      "AwayTeamScore": 24
+    },
+    "nrl-07-056": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Bulldogs",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-04-19 06:05:00Z",
+      "RoundNumber": 7,
+      "MatchNumber": 56,
+      "HomeTeamScore": 38,
+      "AwayTeamScore": 20
+    },
+    "nrl-08-057": {
+      "HomeTeam": "Wests Tigers",
+      "AwayTeam": "Raiders",
+      "Location": "Leichhardt Oval",
+      "DateUtc": "2026-04-23 09:50:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 57,
+      "HomeTeamScore": 33,
+      "AwayTeamScore": 14
+    },
+    "nrl-08-058": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Sharks",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-04-24 08:00:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 58,
+      "HomeTeamScore": 46,
+      "AwayTeamScore": 34
+    },
+    "nrl-08-059": {
+      "HomeTeam": "Broncos",
+      "AwayTeam": "Bulldogs",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-04-24 10:00:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 59,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 12
+    },
+    "nrl-08-060": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Roosters",
+      "Location": "Allianz Stadium",
+      "DateUtc": "2026-04-25 06:00:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 60,
+      "HomeTeamScore": 16,
+      "AwayTeamScore": 62
+    },
+    "nrl-08-061": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Dolphins",
+      "Location": "Hnry Stadium",
+      "DateUtc": "2026-04-25 08:05:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 61,
+      "HomeTeamScore": 20,
+      "AwayTeamScore": 18
+    },
+    "nrl-08-062": {
+      "HomeTeam": "Storm",
+      "AwayTeam": "Rabbitohs",
+      "Location": "AAMI Park",
+      "DateUtc": "2026-04-25 10:10:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 62,
+      "HomeTeamScore": 6,
+      "AwayTeamScore": 48
+    },
+    "nrl-08-063": {
+      "HomeTeam": "Knights",
+      "AwayTeam": "Panthers",
+      "Location": "McDonald Jones Stadium",
+      "DateUtc": "2026-04-26 04:00:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 63,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 44
+    },
+    "nrl-08-064": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Eels",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-04-26 06:05:00Z",
+      "RoundNumber": 8,
+      "MatchNumber": 64,
+      "HomeTeamScore": 33,
+      "AwayTeamScore": 18
+    },
+    "nrl-09-065": {
+      "HomeTeam": "Bulldogs",
+      "AwayTeam": "Cowboys",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-05-01 08:00:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 65,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 28
+    },
+    "nrl-09-066": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Storm",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-01 10:00:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 66,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 10
+    },
+    "nrl-09-067": {
+      "HomeTeam": "Titans",
+      "AwayTeam": "Raiders",
+      "Location": "Cbus Super Stadium",
+      "DateUtc": "2026-05-02 05:00:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 67,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 28
+    },
+    "nrl-09-068": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Warriors",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-05-02 07:30:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 68,
+      "HomeTeamScore": 14,
+      "AwayTeamScore": 36
+    },
+    "nrl-09-069": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Broncos",
+      "Location": "Allianz Stadium",
+      "DateUtc": "2026-05-02 09:35:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 69,
+      "HomeTeamScore": 38,
+      "AwayTeamScore": 24
+    },
+    "nrl-09-070": {
+      "HomeTeam": "Knights",
+      "AwayTeam": "Rabbitohs",
+      "Location": "McDonald Jones Stadium",
+      "DateUtc": "2026-05-03 04:00:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 70,
+      "HomeTeamScore": 42,
+      "AwayTeamScore": 38
+    },
+    "nrl-09-071": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Wests Tigers",
+      "Location": "Ocean Protect Stadium",
+      "DateUtc": "2026-05-03 06:05:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 71,
+      "HomeTeamScore": 52,
+      "AwayTeamScore": 10
+    },
+    "nrl-09-072": {
+      "HomeTeam": "Panthers",
+      "AwayTeam": "Sea Eagles",
+      "Location": "CommBank Stadium",
+      "DateUtc": "2026-05-03 08:15:00Z",
+      "RoundNumber": 9,
+      "MatchNumber": 72,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 16
+    },
+    "nrl-10-073": {
+      "HomeTeam": "Dolphins",
+      "AwayTeam": "Bulldogs",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-07 09:50:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 73,
+      "HomeTeamScore": 44,
+      "AwayTeamScore": 12
+    },
+    "nrl-10-074": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Titans",
+      "Location": "Polytec Stadium",
+      "DateUtc": "2026-05-08 08:00:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 74,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 12
+    },
+    "nrl-10-075": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Eels",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-05-08 10:00:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 75,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 33
+    },
+    "nrl-10-076": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Knights",
+      "Location": "WIN Stadium",
+      "DateUtc": "2026-05-09 05:00:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 76,
+      "HomeTeamScore": 10,
+      "AwayTeamScore": 44
+    },
+    "nrl-10-077": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Sharks",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-05-09 07:30:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 77,
+      "HomeTeamScore": 36,
+      "AwayTeamScore": 12
+    },
+    "nrl-10-078": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Broncos",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-05-09 09:35:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 78,
+      "HomeTeamScore": 32,
+      "AwayTeamScore": 4
+    },
+    "nrl-10-079": {
+      "HomeTeam": "Storm",
+      "AwayTeam": "Wests Tigers",
+      "Location": "AAMI Park",
+      "DateUtc": "2026-05-10 04:00:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 79,
+      "HomeTeamScore": 44,
+      "AwayTeamScore": 16
+    },
+    "nrl-10-080": {
+      "HomeTeam": "Raiders",
+      "AwayTeam": "Panthers",
+      "Location": "GIO Stadium",
+      "DateUtc": "2026-05-10 06:05:00Z",
+      "RoundNumber": 10,
+      "MatchNumber": 80,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 30
+    },
+    "nrl-11-081": {
+      "HomeTeam": "Sharks",
+      "AwayTeam": "Bulldogs",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-15 08:00:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 81,
+      "HomeTeamScore": 38,
+      "AwayTeamScore": 16
+    },
+    "nrl-11-082": {
+      "HomeTeam": "Rabbitohs",
+      "AwayTeam": "Dolphins",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-15 10:05:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 82,
+      "HomeTeamScore": 10,
+      "AwayTeamScore": 32
+    },
+    "nrl-11-083": {
+      "HomeTeam": "Wests Tigers",
+      "AwayTeam": "Sea Eagles",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-16 05:00:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 83,
+      "HomeTeamScore": 18,
+      "AwayTeamScore": 46
+    },
+    "nrl-11-084": {
+      "HomeTeam": "Roosters",
+      "AwayTeam": "Cowboys",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-16 07:30:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 84,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 18
+    },
+    "nrl-11-085": {
+      "HomeTeam": "Eels",
+      "AwayTeam": "Storm",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-16 09:45:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 85,
+      "HomeTeamScore": 8,
+      "AwayTeamScore": 34
+    },
+    "nrl-11-086": {
+      "HomeTeam": "Titans",
+      "AwayTeam": "Knights",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-17 04:00:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 86,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 36
+    },
+    "nrl-11-087": {
+      "HomeTeam": "Warriors",
+      "AwayTeam": "Broncos",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-17 06:05:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 87,
+      "HomeTeamScore": 42,
+      "AwayTeamScore": 12
+    },
+    "nrl-11-088": {
+      "HomeTeam": "Panthers",
+      "AwayTeam": "Dragons",
+      "Location": "Suncorp Stadium",
+      "DateUtc": "2026-05-17 08:25:00Z",
+      "RoundNumber": 11,
+      "MatchNumber": 88,
+      "HomeTeamScore": 28,
+      "AwayTeamScore": 6
+    },
+    "nrl-12-089": {
+      "HomeTeam": "Raiders",
+      "AwayTeam": "Dolphins",
+      "Location": "GIO Stadium",
+      "DateUtc": "2026-05-21 09:50:00Z",
+      "RoundNumber": 12,
+      "MatchNumber": 89,
+      "HomeTeamScore": 22,
+      "AwayTeamScore": 30
+    },
+    "nrl-12-090": {
+      "HomeTeam": "Bulldogs",
+      "AwayTeam": "Storm",
+      "Location": "Accor Stadium",
+      "DateUtc": "2026-05-22 10:00:00Z",
+      "RoundNumber": 12,
+      "MatchNumber": 90,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 20
+    },
+    "nrl-12-091": {
+      "HomeTeam": "Dragons",
+      "AwayTeam": "Warriors",
+      "Location": "St George Venues Jubilee Stadium",
+      "DateUtc": "2026-05-23 07:30:00Z",
+      "RoundNumber": 12,
+      "MatchNumber": 91,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 30
+    },
+    "nrl-12-092": {
+      "HomeTeam": "Sea Eagles",
+      "AwayTeam": "Titans",
+      "Location": "4 Pines Park",
+      "DateUtc": "2026-05-23 09:35:00Z",
+      "RoundNumber": 12,
+      "MatchNumber": 92,
+      "HomeTeamScore": 12,
+      "AwayTeamScore": 10
+    },
+    "nrl-12-093": {
+      "HomeTeam": "Cowboys",
+      "AwayTeam": "Rabbitohs",
+      "Location": "Queensland Country Bank Stadium",
+      "DateUtc": "2026-05-24 06:05:00Z",
+      "RoundNumber": 12,
+      "MatchNumber": 93,
+      "HomeTeamScore": 30,
+      "AwayTeamScore": 18
+    }
+  }
+}

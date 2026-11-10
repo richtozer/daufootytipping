@@ -33,6 +33,7 @@ import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
@@ -62,6 +63,12 @@ Future<void> main() async {
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
+  );
+  // Only the demo backend (`start_local_backend.sh --demo`) runs the Auth
+  // emulator; other local sessions keep signing in with real Firebase Auth.
+  const bool useAuthEmulator = bool.fromEnvironment(
+    'USE_AUTH_EMULATOR',
+    defaultValue: false,
   );
   const String webAppCheckDebugToken = String.fromEnvironment(
     'WEB_APP_CHECK_DEBUG_TOKEN',
@@ -139,6 +146,11 @@ Future<void> main() async {
 
   // Initialize Firebase.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Configure Auth before any listener or repository can use the default app.
+  if (kDebugMode && useFirebaseEmulators && useAuthEmulator) {
+    await FirebaseAuth.instance.useAuthEmulator(firebaseEmulatorHost, 8099);
+  }
 
   // Configure Realtime Database immediately after Firebase init so persistence
   // is set before any downstream code can create references/listeners.
@@ -273,7 +285,7 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
     log(
-      'Firebase emulators configured: database=$firebaseEmulatorHost:8000, functions=$firebaseEmulatorHost:9229, firestore=$firebaseEmulatorHost:8081',
+      'Firebase emulators configured: auth=${useAuthEmulator ? '$firebaseEmulatorHost:8099' : 'live'}, database=$firebaseEmulatorHost:8000, functions=$firebaseEmulatorHost:9229, firestore=$firebaseEmulatorHost:8081',
     );
   } else if (kDebugMode) {
     log(
