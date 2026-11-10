@@ -47,7 +47,19 @@ Launch **App: Demo emulators (selected device)** or **App: Demo emulators
 (Chrome)**. These add `--dart-define=USE_AUTH_EMULATOR=true`; the ordinary
 local launches keep using real Firebase Auth and cannot sign in to demo
 accounts. Fully restart the app after changing backend modes. Sign out of any
-previous account and use the email/password form:
+previous account and use the email/password form.
+
+Each demo start creates the Auth accounts afresh, so a simulator's saved sign-in
+from an earlier start can no longer refresh its token. Once its last token
+expires (within an hour), the database never connects and startup ends on
+"Can't reach the server". Clear that simulator's saved sign-in and sign in
+again (its App Check debug token is stored elsewhere and is kept):
+
+```sh
+xcrun simctl keychain <simulator-udid> reset
+```
+
+The demo accounts:
 
 - Account: `daisy@demo.example.test`
 - Password: read `emulator/demo/credentials.json` (randomly generated locally).
