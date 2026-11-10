@@ -461,6 +461,7 @@ class GameTipViewModel extends ChangeNotifier {
     tipperKey: tip.tipper.dbkey ?? '',
     gameKey: tip.game.dbkey,
     choice: tip.tip.name,
+    submittedUtcSeconds: tip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
     gameLabel: '${tip.game.homeTeam.name} v ${tip.game.awayTeam.name}',
     kickoffUtcMs: tip.game.startTimeUTC.toUtc().millisecondsSinceEpoch,
     queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,

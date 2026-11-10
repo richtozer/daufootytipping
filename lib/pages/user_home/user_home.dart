@@ -6,6 +6,7 @@ import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
@@ -35,7 +36,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
       ? di<UnconfirmedTipsService>()
       : null;
   bool _tipNoticeShowing = false;
-  bool _unconfirmedTipsSettled = false;
+  TipsViewModel? _watchedTips;
   final OutstandingTipsAppBadgeController _appBadgeController =
       OutstandingTipsAppBadgeController(AppBadgeService());
   late final RestorableInt _currentIndex = RestorableInt(0);
@@ -151,40 +152,54 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     }
 
     _trackTipsContentReadyIfNeeded();
-    _settleUnconfirmedTipsOnce();
+    _watchQueuedTips();
   }
 
-  /// Tips queued in an earlier run, which the database may have sent, or may
-  /// have had refused because the game had started by then. Settled once the
-  /// signed-in tipper's tips have loaded.
-  void _settleUnconfirmedTipsOnce() {
+  /// Keeps an eye on the signed-in tipper's tips for any that were queued and
+  /// have since disappeared, which means the server refused them. Follows the
+  /// tips view model as the selected tipper or competition changes.
+  void _watchQueuedTips() {
+    final tips = _dauCompsViewModel.selectedTipperTipsViewModel;
+    if (_unconfirmedTips == null || identical(tips, _watchedTips)) {
+      return;
+    }
+    _watchedTips?.removeListener(_lookAtQueuedTips);
+    _watchedTips = tips;
+    tips?.addListener(_lookAtQueuedTips);
+    _lookAtQueuedTips();
+  }
+
+  void _lookAtQueuedTips() {
     final UnconfirmedTipsService? service = _unconfirmedTips;
     final String? compKey = _dauCompsViewModel.selectedDAUComp?.dbkey;
-    final tipsViewModel = _dauCompsViewModel.selectedTipperTipsViewModel;
+    final TipsViewModel? tips = _watchedTips;
     final tipper = _tippersViewModel.selectedTipper;
     final String? tipperKey = tipper.dbkey;
-    if (_unconfirmedTipsSettled ||
+    if (!mounted ||
         service == null ||
         compKey == null ||
         tipperKey == null ||
-        tipsViewModel == null ||
+        tips == null ||
+        !tips.isInitialLoadComplete ||
         tipper.isAnonymous) {
       return;
     }
-    _unconfirmedTipsSettled = true;
-    unawaited(() async {
-      await tipsViewModel.initialLoadCompleted;
-      if (!mounted) {
-        return;
-      }
-      await service.reconcile(
+    unawaited(
+      service.observe(
         compKey: compKey,
         tipperKey: tipperKey,
-        storedChoice: (String gameKey) =>
-            tipsViewModel.submittedResultForGame(gameKey, tipper)?.name,
-      );
-      _showTipNotices();
-    }());
+        shown: (String gameKey) {
+          final shownTip = tips.submittedTipForGame(gameKey, tipper);
+          return shownTip == null
+              ? null
+              : (
+                  choice: shownTip.tip.name,
+                  submittedUtcSeconds:
+                      shownTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
+                );
+        },
+      ),
+    );
   }
 
   /// Says so when a tip did not count, however long after it was made that
@@ -264,6 +279,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     _dauCompsViewModel.removeListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.removeListener(_handleHomeViewModelsUpdated);
     _unconfirmedTips?.removeListener(_showTipNotices);
+    _unconfirmedTips?.stopObserving();
+    _watchedTips?.removeListener(_lookAtQueuedTips);
     _currentIndex.dispose();
     super.dispose();
   }

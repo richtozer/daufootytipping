@@ -39,6 +39,18 @@ DatabaseReference configuredDatabaseRef([String? path]) {
   return path == null ? database.ref() : database.ref(path);
 }
 
+/// Whether the database has a live connection to the server, as it changes: true
+/// or false, or null if the database reports something else.
+Stream<bool?> realtimeDatabaseConnectionStates([FirebaseDatabase? database]) {
+  return (database ?? configuredRealtimeDatabase)
+      .ref('.info/connected')
+      .onValue
+      .map<bool?>(
+        (DatabaseEvent event) =>
+            event.snapshot.value is bool ? event.snapshot.value as bool : null,
+      );
+}
+
 /// Restarts the native Realtime Database transport and waits until the SDK
 /// reports a live server connection. Listeners and queued writes are retained.
 Future<void> restartRealtimeDatabaseConnection({
@@ -48,10 +60,7 @@ Future<void> restartRealtimeDatabaseConnection({
   final FirebaseDatabase target = database ?? configuredRealtimeDatabase;
   await target.goOffline();
   await target.goOnline();
-  await _waitUntilRealtimeDatabaseConnected(
-    target,
-    timeout: connectionTimeout,
-  );
+  await _waitUntilRealtimeDatabaseConnected(target, timeout: connectionTimeout);
 }
 
 Future<void> _waitUntilRealtimeDatabaseConnected(
@@ -60,18 +69,21 @@ Future<void> _waitUntilRealtimeDatabaseConnected(
 }) async {
   final Completer<void> connected = Completer<void>();
   late final StreamSubscription<DatabaseEvent> subscription;
-  subscription = database.ref('.info/connected').onValue.listen(
-    (event) {
-      if (event.snapshot.value == true && !connected.isCompleted) {
-        connected.complete();
-      }
-    },
-    onError: (Object error, StackTrace stackTrace) {
-      if (!connected.isCompleted) {
-        connected.completeError(error, stackTrace);
-      }
-    },
-  );
+  subscription = database
+      .ref('.info/connected')
+      .onValue
+      .listen(
+        (event) {
+          if (event.snapshot.value == true && !connected.isCompleted) {
+            connected.complete();
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!connected.isCompleted) {
+            connected.completeError(error, stackTrace);
+          }
+        },
+      );
 
   try {
     await connected.future.timeout(timeout);

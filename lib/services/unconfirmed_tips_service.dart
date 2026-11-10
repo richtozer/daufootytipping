@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
@@ -13,6 +14,7 @@ class UnconfirmedTip {
     required this.tipperKey,
     required this.gameKey,
     required this.choice,
+    required this.submittedUtcSeconds,
     required this.gameLabel,
     required this.kickoffUtcMs,
     required this.queuedAtUtcMs,
@@ -23,6 +25,7 @@ class UnconfirmedTip {
     tipperKey: json['tipperKey'] as String,
     gameKey: json['gameKey'] as String,
     choice: json['choice'] as String,
+    submittedUtcSeconds: json['submittedUtcSeconds'] as int,
     gameLabel: json['gameLabel'] as String,
     kickoffUtcMs: json['kickoffUtcMs'] as int,
     queuedAtUtcMs: json['queuedAtUtcMs'] as int,
@@ -35,6 +38,10 @@ class UnconfirmedTip {
   /// The result tipped, as the stored letter (`GameResult.name`).
   final String choice;
 
+  /// When the tip was made, in the whole seconds the database stores with it. A
+  /// stored tip made later than this is a newer tip, not this one.
+  final int submittedUtcSeconds;
+
   /// Words for the user: "Home v Away".
   final String gameLabel;
   final int kickoffUtcMs;
@@ -45,6 +52,7 @@ class UnconfirmedTip {
     'tipperKey': tipperKey,
     'gameKey': gameKey,
     'choice': choice,
+    'submittedUtcSeconds': submittedUtcSeconds,
     'gameLabel': gameLabel,
     'kickoffUtcMs': kickoffUtcMs,
     'queuedAtUtcMs': queuedAtUtcMs,
@@ -69,6 +77,13 @@ class UnconfirmedTip {
       Object.hash(compKey, tipperKey, gameKey, choice, queuedAtUtcMs);
 }
 
+/// A tip as the device's tips listener shows it: the result and when it was made.
+///
+/// This is what the device believes, not what the server holds. The database
+/// applies a write it has not yet sent to what it shows, so a tip queued on the
+/// device appears here whether or not the server ever accepts it.
+typedef ShownTip = ({String choice, int submittedUtcSeconds});
+
 /// Remembers the tips the server has not confirmed, and tells the user when one
 /// turns out not to have counted.
 ///
@@ -78,12 +93,31 @@ class UnconfirmedTip {
 /// the app, where the original write has no one left to tell. This keeps the
 /// queued tips on the device so that either way the user hears about it, instead
 /// of finding the game scored against a tip they believe they made.
+///
+/// The device cannot see from the data alone whether the server has accepted a
+/// queued tip: a tip waiting to be sent and a tip the server holds look the same.
+/// So a tip is never settled as counted from what the listener shows. Only the
+/// write's own answer says that (in the run that made it). What the listener can
+/// show is that a tip is no longer there: the database drops a refused write and
+/// the tip disappears. That is believed only while the connection is up, and only
+/// once it has held for [settleFor], because a tip that was in fact accepted can
+/// vanish for an instant when the database replays and refuses a write it had
+/// already sent.
 class UnconfirmedTipsService extends ChangeNotifier {
   UnconfirmedTipsService({
     Future<SharedPreferences> Function()? preferences,
     DateTime Function()? clock,
+    Stream<bool?>? connectionStates,
+    this.settleFor = const Duration(seconds: 3),
   }) : _preferences = preferences ?? SharedPreferences.getInstance,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _connected = connectionStates == null {
+    _connectionSubscription = connectionStates?.listen(
+      _connectionChanged,
+      onError: (Object error, StackTrace stackTrace) =>
+          _connectionChanged(false),
+    );
+  }
 
   static const String storageKey = 'unconfirmed_tips';
 
@@ -91,84 +125,76 @@ class UnconfirmedTipsService extends ChangeNotifier {
   /// it, so the list cannot grow without end.
   static const Duration keepFor = Duration(days: 14);
 
+  /// How long a queued tip must have been missing from the listener, with the
+  /// connection up, before the user is told it did not count.
+  final Duration settleFor;
+
   final Future<SharedPreferences> Function() _preferences;
   final DateTime Function() _clock;
   final List<String> _notices = <String>[];
+  StreamSubscription<bool?>? _connectionSubscription;
+
+  /// Whether the database reports a live connection. Without a source of
+  /// connection states (tests only) the connection is taken to be up.
+  bool _connected;
+
+  Future<void> _queue = Future<void>.value();
+  _Look? _look;
+  Timer? _settleTimer;
 
   /// What the user should be told, oldest first, until [takeNotices].
   List<String> get notices => List<String>.unmodifiable(_notices);
 
   /// The tips now waiting for the server.
-  Future<List<UnconfirmedTip>> pending() => _load();
+  Future<List<UnconfirmedTip>> pending() => _serialized(_load);
 
   /// [tip] has been handed to the database but not confirmed. A newer tip for the
   /// same game replaces an older one.
-  Future<void> queued(UnconfirmedTip tip) async {
+  Future<void> queued(UnconfirmedTip tip) => _serialized(() async {
     final List<UnconfirmedTip> all = await _load();
     all
       ..removeWhere(tip.isForSameGameAs)
       ..add(tip);
     await _save(all);
-  }
+  });
 
   /// The server confirmed [tip] after all.
-  Future<void> accepted(UnconfirmedTip tip) async {
-    await _forget(tip);
-  }
+  Future<void> accepted(UnconfirmedTip tip) => _serialized(() => _forget(tip));
 
   /// The server refused [tip] after the screen had stopped waiting. A tip that a
   /// newer one for the same game has replaced says nothing: the newer one will
   /// report for itself.
-  Future<void> rejected(UnconfirmedTip tip) async {
+  Future<void> rejected(UnconfirmedTip tip) => _serialized(() async {
     if (!await _forget(tip)) {
       return;
     }
-    _notices.add(
-      'Your tip for ${tip.gameLabel} was not counted. The server did not accept '
-      'it, most likely because the game had started before it arrived.',
-    );
+    _notices.add(_refusedNotice(tip));
     notifyListeners();
-  }
+  });
 
-  /// Settles the tips queued in an earlier run, for [compKey] and [tipperKey]
-  /// only. [storedChoice] gives what the server holds for a game (the stored
-  /// letter, or null if no tip). A queued tip the server now holds is forgotten.
-  /// One it does not hold, for a game that has started, never arrived in time: the
-  /// user is told. One for a game still to start stays queued, because it may yet
-  /// be sent.
-  Future<void> reconcile({
+  /// Looks at what the tips listener now shows ([shown], for a game key; null if
+  /// no tip) for [tipperKey] in [compKey], against the tips queued earlier. Call
+  /// it whenever that changes.
+  ///
+  /// A queued tip shown as queued stays queued: that says nothing about the
+  /// server. One replaced by a newer tip is forgotten, silently. One that is not
+  /// shown at all is believed lost only if it stays missing for [settleFor] with
+  /// the connection up (see the class comment); then the user is told, and the
+  /// tip forgotten.
+  Future<void> observe({
     required String compKey,
     required String tipperKey,
-    required String? Function(String gameKey) storedChoice,
-  }) async {
-    final int nowMs = _clock().toUtc().millisecondsSinceEpoch;
-    final List<UnconfirmedTip> all = await _load();
-    final List<UnconfirmedTip> keep = <UnconfirmedTip>[];
-    var told = false;
-    for (final UnconfirmedTip tip in all) {
-      if (tip.compKey != compKey || tip.tipperKey != tipperKey) {
-        keep.add(tip);
-        continue;
-      }
-      if (storedChoice(tip.gameKey) == tip.choice) {
-        continue;
-      }
-      if (tip.kickoffUtcMs <= nowMs) {
-        _notices.add(
-          'Your tip for ${tip.gameLabel} never reached the server before the '
-          'game started, so it was not counted.',
-        );
-        told = true;
-        continue;
-      }
-      keep.add(tip);
-    }
-    if (keep.length != all.length) {
-      await _save(keep);
-    }
-    if (told) {
-      notifyListeners();
-    }
+    required ShownTip? Function(String gameKey) shown,
+  }) {
+    _look = _Look(compKey: compKey, tipperKey: tipperKey, shown: shown);
+    return _serialized(() => _review(announce: false));
+  }
+
+  /// Stops looking at the listener: the screen it belongs to has gone.
+  void stopObserving() {
+    _look = null;
+    _settleTimer?.cancel();
+    _settleTimer = null;
   }
 
   /// Hands over the notices and clears them, so each is shown exactly once and one
@@ -178,6 +204,106 @@ class UnconfirmedTipsService extends ChangeNotifier {
     _notices.clear();
     return taken;
   }
+
+  @override
+  void dispose() {
+    stopObserving();
+    unawaited(_connectionSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _connectionChanged(bool? connected) {
+    _connected = connected == true;
+    if (_connected) {
+      unawaited(_serialized(() => _review(announce: false)));
+    }
+  }
+
+  /// Runs [action] after every operation requested before it has finished, so
+  /// that two overlapping operations cannot each read the stored list and then
+  /// overwrite each other's changes.
+  Future<T> _serialized<T>(Future<T> Function() action) {
+    final Completer<T> result = Completer<T>();
+    _queue = _queue.then((_) async {
+      try {
+        result.complete(await action());
+      } on Object catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
+  }
+
+  /// With [announce] false, forgets tips that newer ones have replaced and starts
+  /// the wait for those that are missing. With it true (the wait is over), tells
+  /// the user about the tips still missing.
+  Future<void> _review({required bool announce}) async {
+    final _Look? look = _look;
+    if (look == null) {
+      return;
+    }
+    final List<UnconfirmedTip> all = await _load();
+    final List<UnconfirmedTip> keep = <UnconfirmedTip>[];
+    var anyMissing = false;
+    var told = false;
+    for (final UnconfirmedTip tip in all) {
+      if (tip.compKey != look.compKey || tip.tipperKey != look.tipperKey) {
+        keep.add(tip);
+        continue;
+      }
+      switch (_standing(tip, look.shown(tip.gameKey))) {
+        case _Standing.shown:
+          keep.add(tip);
+        case _Standing.replaced:
+          break;
+        case _Standing.missing when !_connected:
+          keep.add(tip);
+        case _Standing.missing when announce:
+          _notices.add(_notCountedNotice(tip));
+          told = true;
+        case _Standing.missing:
+          anyMissing = true;
+          keep.add(tip);
+      }
+    }
+    if (keep.length != all.length) {
+      await _save(keep);
+    }
+    if (anyMissing && !(_settleTimer?.isActive ?? false)) {
+      _settleTimer = Timer(settleFor, () {
+        unawaited(_serialized(() => _review(announce: true)));
+      });
+    } else if (!anyMissing) {
+      _settleTimer?.cancel();
+      _settleTimer = null;
+    }
+    if (told) {
+      notifyListeners();
+    }
+  }
+
+  _Standing _standing(UnconfirmedTip tip, ShownTip? shown) {
+    if (shown == null) {
+      return _Standing.missing;
+    }
+    if (shown.choice == tip.choice) {
+      return _Standing.shown;
+    }
+    return shown.submittedUtcSeconds > tip.submittedUtcSeconds
+        ? _Standing.replaced
+        : _Standing.missing;
+  }
+
+  String _refusedNotice(UnconfirmedTip tip) =>
+      'Your tip for ${tip.gameLabel} was not counted. The server did not accept '
+      'it, most likely because the game had started before it arrived.';
+
+  String _notCountedNotice(UnconfirmedTip tip) =>
+      tip.kickoffUtcMs <= _clock().toUtc().millisecondsSinceEpoch
+      ? 'Your tip for ${tip.gameLabel} never reached the server before the '
+            'game started, so it was not counted.'
+      : 'Your tip for ${tip.gameLabel} did not reach the server. Please check '
+            'it on the Tips page and tip again.';
 
   Future<bool> _forget(UnconfirmedTip tip) async {
     final List<UnconfirmedTip> all = await _load();
@@ -230,4 +356,28 @@ class UnconfirmedTipsService extends ChangeNotifier {
       log('UnconfirmedTipsService: could not keep the queued tips: $error');
     }
   }
+}
+
+/// How a queued tip stands against what the listener shows.
+enum _Standing {
+  /// The listener shows this very tip: queued or accepted, the device cannot say.
+  shown,
+
+  /// The listener shows a newer tip for the game, so this one is history.
+  replaced,
+
+  /// The listener shows no tip for the game, or only an older one.
+  missing,
+}
+
+class _Look {
+  const _Look({
+    required this.compKey,
+    required this.tipperKey,
+    required this.shown,
+  });
+
+  final String compKey;
+  final String tipperKey;
+  final ShownTip? Function(String gameKey) shown;
 }

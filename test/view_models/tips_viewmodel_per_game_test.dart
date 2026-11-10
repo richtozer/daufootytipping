@@ -99,12 +99,15 @@ void main() {
     scoring: Scoring(homeTeamScore: 10, awayTeamScore: 8),
   );
 
-  TipsViewModel build() => TipsViewModel.forTipperGames(
+  TipsViewModel build({
+    Duration retryDelay = TipsViewModel.defaultGameReadRetryDelay,
+  }) => TipsViewModel.forTipperGames(
     _MockTippersViewModel(),
     comp,
     games,
     tipper,
     database: database.root,
+    gameReadRetryDelay: retryDelay,
   );
 
   setUp(() {
@@ -283,10 +286,104 @@ void main() {
       await database.emit(tipPath(alsoStarted), null);
       await loaded;
 
-      expect(tips.submittedResultForGame(started.dbkey, tipper), GameResult.a);
-      expect(tips.submittedResultForGame(alsoStarted.dbkey, tipper), isNull);
+      expect(
+        tips.submittedTipForGame(started.dbkey, tipper)?.tip,
+        GameResult.a,
+      );
+      expect(tips.submittedTipForGame(alsoStarted.dbkey, tipper), isNull);
       // findTip gives a started game with no tip a default, which is not a tip.
       expect((await tips.findTip(alsoStarted, tipper))?.tip, GameResult.d);
+    });
+
+    group('a game the server would not show yet', () {
+      const quickRetry = Duration(milliseconds: 10);
+      const longEnoughForARetry = Duration(milliseconds: 60);
+
+      test('is tried afresh by the next request, not skipped', () async {
+        final tips = build(retryDelay: const Duration(hours: 1));
+        addTearDown(tips.dispose);
+        final loaded = tips.watchGames([started]);
+        await database.fail(tipPath(started));
+        await loaded;
+        expect(database.controllers[tipPath(started)]!.hasListener, isFalse);
+
+        final again = tips.watchGames([started]);
+        await database.emit(tipPath(started), {'r': 'a', 't': 1700000000});
+        await again;
+
+        expect(database.requestedPaths, [tipPath(started), tipPath(started)]);
+        expect(database.controllers[tipPath(started)]!.hasListener, isTrue);
+        expect((await tips.findTip(started, tipper))?.tip.name, 'a');
+      });
+
+      test(
+        'is tried again on its own, and shows once the server agrees',
+        () async {
+          final tips = build(retryDelay: quickRetry);
+          addTearDown(tips.dispose);
+          final loaded = tips.watchGames([started]);
+          await database.fail(tipPath(started));
+          await loaded;
+
+          await Future<void>.delayed(longEnoughForARetry);
+          expect(database.requestedPaths, [tipPath(started), tipPath(started)]);
+          await database.emit(tipPath(started), {'r': 'e', 't': 1700000000});
+
+          expect((await tips.findTip(started, tipper))?.tip.name, 'e');
+        },
+      );
+
+      test('is given up on after a few tries, until asked for again', () async {
+        final tips = build(retryDelay: quickRetry);
+        addTearDown(tips.dispose);
+        final loaded = tips.watchGames([started]);
+        await database.fail(tipPath(started));
+        await loaded;
+        for (
+          var retry = 1;
+          retry <= TipsViewModel.maxAutomaticGameReadRetries;
+          retry++
+        ) {
+          await Future<void>.delayed(longEnoughForARetry);
+          await database.fail(tipPath(started));
+        }
+        await Future<void>.delayed(longEnoughForARetry * 2);
+
+        expect(
+          database.requestedPaths,
+          hasLength(1 + TipsViewModel.maxAutomaticGameReadRetries),
+        );
+
+        final asked = tips.watchGames([started]);
+        await database.emit(tipPath(started), {'r': 'a', 't': 1700000000});
+        await asked;
+        expect((await tips.findTip(started, tipper))?.tip.name, 'a');
+      });
+
+      test('is not tried again once it is no longer wanted', () async {
+        final tips = build(retryDelay: quickRetry);
+        addTearDown(tips.dispose);
+        final loaded = tips.watchGames([started]);
+        await database.fail(tipPath(started));
+        await loaded;
+        await tips.watchGames(const []);
+
+        await Future<void>.delayed(longEnoughForARetry);
+
+        expect(database.requestedPaths, [tipPath(started)]);
+      });
+
+      test('is not tried again once the view model is disposed', () async {
+        final tips = build(retryDelay: quickRetry);
+        final loaded = tips.watchGames([started]);
+        await database.fail(tipPath(started));
+        await loaded;
+        tips.dispose();
+
+        await Future<void>.delayed(longEnoughForARetry);
+
+        expect(database.requestedPaths, [tipPath(started)]);
+      });
     });
 
     test('disposing closes every listener', () async {

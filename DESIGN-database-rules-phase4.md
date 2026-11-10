@@ -1539,13 +1539,42 @@ devices once slice 2 is in a TestFlight build.
   arrives before kickoff. We will tell you if it does not count." A tip the database has not confirmed within the
   limit is recorded on the device (`UnconfirmedTipsService`, SharedPreferences, forgotten after 14 days). If the
   server later rejects it, the home page shows a "Tip not counted" dialog; if the server confirms it, the record is
-  dropped. A tip queued by an app that was then closed is settled on the next launch, once the signed-in tipper's tips
-  have loaded: one the server now holds is forgotten, one for a game that has started and is not there is reported,
-  one for a game still to start stays queued. A tip replaced by a newer one for the same game reports nothing for the
-  older one. Tested at the service (14), the view model (4: remembered, rejected after the limit, confirmed late,
+  dropped. (That first version settled a tip queued by an app that was then closed from the first tips snapshot of the next
+  launch; the real SDK showed that to be wrong, see "Review fixes" below.) A tip replaced by a newer one for the same
+  game reports nothing for the older one. Tested at the service (14), the view model (4: remembered, rejected after the limit, confirmed late,
   rejected before the limit) and the home page (3); nine deliberate breakages caught in the service and view model,
   three in the home page. A rejection that arrives in the instant between the limit and the record being written
   would be missed (accepted: the next launch's settle still reports it).
+
+**Review fixes to slice 3 (10 November 2026), and what the real SDK does with a queued tip.** A reviewer found two
+queued-tip problems and one in the drill-down. For the first the fake tests could not settle the question, so it was
+run against the real iOS Realtime Database SDK (12.19.3, persistence on, a throwaway emulator with a rule that refuses
+writes once a flag is set; a scratch app in the session scratchpad, not in the repository): write offline, kill the
+process, restart offline, restart online.
+- *Offline restart.* Both the listener and `get()` report the queued tip as present, although the server has never seen
+  it. A local snapshot is not proof of server acceptance; the first version forgot the tip on exactly that evidence, so
+  a later refusal would have gone unreported.
+- *Online restart, write refused.* The listener first emits the tip (the replayed write, applied locally), then emits
+  "absent" a few milliseconds after the connection comes up, when the refusal reverts it. `get()` behaves the same
+  (local view while a listener is active, so it is no server read either).
+- *Online restart, write accepted.* Nothing changes. A queued tip and an accepted tip look identical in the data.
+- *So:* the data can prove a tip did **not** count, never that it did. `UnconfirmedTipsService.observe` now follows the
+  tips listener for the signed-in tipper: a tip shown stays queued (no verdict); a tip replaced by a newer one (later
+  submitted time) is forgotten silently; a tip missing is reported only if it stays missing for 3 s **and** the
+  connection is up (`.info/connected`), because an accepted tip can vanish for an instant if the database replays and
+  refuses a write it had already sent. Offline, nothing is decided. A tip missing before its game starts is reported
+  with "please check it and tip again" (a tip lost with the process on web, which has no persistence, is the usual way
+  to get there). Accepted entries are not tidied from the data; they go in 14 days, or when the write itself answers.
+- *Overlapping operations.* The service's operations ran load, change, save independently, so two at once could lose
+  one another's change. All operations now go through one queue. Tested with a deliberately slow store; removing the
+  queue fails three tests.
+- *Failed per-game listeners.* A game the server refused stayed in the watched set, so later `watchGames` calls skipped
+  it and, if the device's clock was ahead of the server's at kickoff, the game stayed blank until the screen was
+  reopened. A failed listener is now cancelled and dropped, the next `watchGames` opens a fresh one, and it is also
+  tried again on its own, up to 3 times 5 s apart.
+- *Still to do before release (the reviewer asked for it):* run the queued-tip scenario (offline tip, kill, restart,
+  game started, refused) in the real app against R2 rules, signed in by hand; the probe above establishes the SDK's
+  behaviour, not the app's wiring.
 
 **Slice 6 built (9 November 2026): the admin tipper screens.**
 - *Reading.* While the signed-in tipper is an administrator, `TippersViewModel` also listens to `/TipperPrivate` (which
@@ -1685,6 +1714,16 @@ before the real purge (Step B), and the purge tool must refuse to run while eith
    a tipper after the identity backfill (one on the copy, holding every private field in its public record). A final
    backfill pass (which needs a fresh Auth export) must audit it and build its private record and index entries before
    the purge; until then the purge must leave it alone, as the emulator script did.
+
+**Pre-release checks that need the real app and the local callables (10 November 2026; asked for by the reviewer).**
+Fakes cannot establish these, so they are recorded here rather than left to memory. Neither needs production; neither
+should enable `coexist` in production just to test the screens.
+- *Queued tip, end to end, against R2 rules.* In the real app against the emulators with the R2 rules loaded, signed in
+  by hand: tip with the connection down, kill the app, let the game start, restart (offline first, then online). The
+  tip must stay unreported while offline and be reported once online. The SDK's behaviour is already established
+  (section 6k, "Review fixes to slice 3"); this checks the app's wiring of it.
+- *Admin edit and merge against the real local callables* (emulator functions, mode `coexist`): edit name, email and
+  role; merge two tippers with a preview; the refusals (taken alias, last administrator).
 
 ## 9. Rollback
 

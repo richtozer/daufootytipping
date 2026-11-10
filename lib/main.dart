@@ -284,7 +284,9 @@ Future<void> main() async {
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
   di.registerLazySingleton<UnconfirmedTipsService>(
-    () => UnconfirmedTipsService(),
+    () => UnconfirmedTipsService(
+      connectionStates: realtimeDatabaseConnectionStates(),
+    ),
   );
 
   // The image cache's first use looks up the temp directory, which the
@@ -417,14 +419,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
     _connectionLossMonitor = ConnectionLossMonitor(
-      connectionStates: configuredRealtimeDatabase
-          .ref('.info/connected')
-          .onValue
-          .map<bool?>(
-            (event) => event.snapshot.value is bool
-                ? event.snapshot.value as bool
-                : null,
-          ),
+      connectionStates: realtimeDatabaseConnectionStates(),
       analytics: FirebaseAnalyticsService(),
     );
     // The Profile page shows the same state on a card that cannot be dismissed.

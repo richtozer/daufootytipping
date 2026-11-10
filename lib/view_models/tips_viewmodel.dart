@@ -71,7 +71,8 @@ class TipsViewModel extends ChangeNotifier {
     this._tipper, {
     DatabaseReference? database,
     bool listenToTips = true,
-  }) : _db = database ?? configuredDatabaseRef() {
+  }) : _db = database ?? configuredDatabaseRef(),
+       _gameReadRetryDelay = defaultGameReadRetryDelay {
     log('TipsViewModel.forTipper constructor for tipper ${_tipper.dbkey}');
     _gamesViewModel.addListener(_update);
     if (listenToTips) {
@@ -91,15 +92,30 @@ class TipsViewModel extends ChangeNotifier {
     this._gamesViewModel,
     this._tipper, {
     DatabaseReference? database,
-  }) : _db = database ?? configuredDatabaseRef() {
+    Duration gameReadRetryDelay = defaultGameReadRetryDelay,
+  }) : _db = database ?? configuredDatabaseRef(),
+       _gameReadRetryDelay = gameReadRetryDelay {
     _perGame = true;
     log('TipsViewModel.forTipperGames constructor for tipper ${_tipper.dbkey}');
     _gamesViewModel.addListener(_update);
   }
 
+  /// How long to wait before trying again to read a game the server would not
+  /// show: the device's clock may be a little ahead of the server's, so the game
+  /// has started here but its tips are not yet readable there.
+  static const Duration defaultGameReadRetryDelay = Duration(seconds: 5);
+
+  /// How many times in a row a game is tried again without being asked to.
+  static const int maxAutomaticGameReadRetries = 3;
+
   bool _perGame = false;
+  bool _disposed = false;
+  final Duration _gameReadRetryDelay;
   final Map<String, StreamSubscription<DatabaseEvent>> _gameStreams = {};
   final Map<String, Tip> _perGameTips = {};
+  Map<String, Game> _wantedGames = {};
+  final Map<String, int> _failedGameReads = {};
+  Timer? _gameReadRetryTimer;
 
   /// Per-game mode only (anything else ignores the call): listens to the tips of
   /// exactly [games], opens a listener for each game not yet watched and closes
@@ -107,14 +123,19 @@ class TipsViewModel extends ChangeNotifier {
   /// and notifies nobody, so a screen may call it on every refresh. Completes
   /// once every newly watched game has answered once; a game the server refuses
   /// to show (its kickoff has not passed there yet) counts as answered, with no
-  /// tip.
+  /// tip. Such a game is not watched any more, so asking again tries it afresh,
+  /// and it is tried again on its own a few times, a few seconds apart.
   Future<void> watchGames(Iterable<Game> games) async {
-    if (!_perGame) {
+    if (!_perGame || _disposed) {
       return;
     }
     final Map<String, Game> wanted = {
       for (final game in games) game.dbkey: game,
     };
+    _wantedGames = wanted;
+    _failedGameReads.removeWhere(
+      (String key, int _) => !wanted.containsKey(key),
+    );
 
     bool changed = false;
     for (final String key
@@ -133,13 +154,15 @@ class TipsViewModel extends ChangeNotifier {
       }
       final Completer<void> firstAnswer = Completer<void>();
       firstAnswers.add(firstAnswer.future);
-      _gameStreams[entry.key] = _db
+      late final StreamSubscription<DatabaseEvent> subscription;
+      subscription = _db
           .child(
             '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/${entry.key}',
           )
           .onValue
           .listen(
             (DatabaseEvent event) {
+              _failedGameReads.remove(entry.key);
               _applyGameSnapshot(entry.value, event.snapshot);
               if (!firstAnswer.isCompleted) {
                 firstAnswer.complete();
@@ -149,14 +172,13 @@ class TipsViewModel extends ChangeNotifier {
               log(
                 'TipsViewModel.watchGames() cannot read the tip for game ${entry.key}: $error',
               );
-              if (_perGameTips.remove(entry.key) != null) {
-                _publishPerGameTips();
-              }
+              _gameReadFailed(entry.key, subscription);
               if (!firstAnswer.isCompleted) {
                 firstAnswer.complete();
               }
             },
           );
+      _gameStreams[entry.key] = subscription;
     }
 
     if (changed) {
@@ -164,6 +186,33 @@ class TipsViewModel extends ChangeNotifier {
     }
     await Future.wait(firstAnswers);
     _completeInitialLoadIfNeeded();
+  }
+
+  /// The server would not show the tip for [gameKey], and a listener it has
+  /// refused does not recover. Drops it, so that the next [watchGames] opens a
+  /// fresh one, and tries once more on its own after a short wait, a few times.
+  void _gameReadFailed(
+    String gameKey,
+    StreamSubscription<DatabaseEvent> failed,
+  ) {
+    unawaited(failed.cancel());
+    if (identical(_gameStreams[gameKey], failed)) {
+      _gameStreams.remove(gameKey);
+    }
+    if (_perGameTips.remove(gameKey) != null) {
+      _publishPerGameTips();
+    }
+    final int failures = (_failedGameReads[gameKey] ?? 0) + 1;
+    _failedGameReads[gameKey] = failures;
+    if (failures > maxAutomaticGameReadRetries || _disposed) {
+      return;
+    }
+    if (_gameReadRetryTimer?.isActive ?? false) {
+      return;
+    }
+    _gameReadRetryTimer = Timer(_gameReadRetryDelay, () {
+      unawaited(watchGames(_wantedGames.values));
+    });
   }
 
   void _applyGameSnapshot(Game game, DataSnapshot snapshot) {
@@ -544,15 +593,16 @@ class TipsViewModel extends ChangeNotifier {
         .length;
   }
 
-  /// What [tipper] has submitted for the game with [gameKey], or null if they
-  /// have not tipped it. Unlike [findTip], a game never tipped is not given a
-  /// default tip.
-  GameResult? submittedResultForGame(String gameKey, Tipper tipper) {
+  /// The tip [tipper] has made for the game, as this device shows it, or null if
+  /// they have not tipped it. Unlike [findTip], a game never tipped is not given a
+  /// default tip. A tip the device has queued but the server has not yet accepted
+  /// is shown too.
+  Tip? submittedTipForGame(String gameKey, Tipper tipper) {
     for (final tip in _listOfTips) {
       if (tip != null &&
           tip.game.dbkey == gameKey &&
           tip.tipper.dbkey == tipper.dbkey) {
-        return tip.tip;
+        return tip;
       }
     }
     return null;
@@ -566,6 +616,8 @@ class TipsViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _gameReadRetryTimer?.cancel();
     _tipsStream?.cancel(); // stop listening to stream
     for (final StreamSubscription<DatabaseEvent> stream
         in _gameStreams.values) {

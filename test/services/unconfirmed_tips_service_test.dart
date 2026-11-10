@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,12 +11,17 @@ void main() {
       .subtract(const Duration(hours: 3))
       .millisecondsSinceEpoch;
 
+  // The tips below were made ten minutes ago.
+  final int tippedAt =
+      now.subtract(const Duration(minutes: 10)).millisecondsSinceEpoch ~/ 1000;
+
   UnconfirmedTip tip({
     String compKey = 'comp-1',
     String tipperKey = 'tipper-1',
     String gameKey = 'game-1',
     String choice = 'a',
     String gameLabel = 'Home v Away',
+    int? submittedUtcSeconds,
     int? kickoffUtcMs,
     int? queuedAtUtcMs,
   }) => UnconfirmedTip(
@@ -22,6 +29,7 @@ void main() {
     tipperKey: tipperKey,
     gameKey: gameKey,
     choice: choice,
+    submittedUtcSeconds: submittedUtcSeconds ?? tippedAt,
     gameLabel: gameLabel,
     kickoffUtcMs: kickoffUtcMs ?? future,
     queuedAtUtcMs:
@@ -153,70 +161,269 @@ void main() {
     );
   });
 
-  group('settling the tips queued in an earlier run', () {
-    Future<UnconfirmedTipsService> reconciled(
-      List<UnconfirmedTip> queued,
-      Map<String, String> onServer, {
-      String compKey = 'comp-1',
-      String tipperKey = 'tipper-1',
-    }) async {
-      final service = build();
-      for (final queuedTip in queued) {
-        await service.queued(queuedTip);
-      }
-      await service.reconcile(
-        compKey: compKey,
-        tipperKey: tipperKey,
-        storedChoice: (gameKey) => onServer[gameKey],
-      );
-      return service;
-    }
-
-    test('a tip the server holds needs no notice', () async {
-      final service = await reconciled(
-        [tip(kickoffUtcMs: past)],
-        {'game-1': 'a'},
-      );
-
-      expect(service.notices, isEmpty);
-      expect(await service.pending(), isEmpty);
-    });
-
-    test('a tip for a game that has started, which the server never got, is reported', () async {
-      final service = await reconciled([tip(kickoffUtcMs: past)], {});
-
-      expect(service.notices.single, contains('Home v Away'));
-      expect(service.notices.single, contains('never reached the server'));
-      expect(await service.pending(), isEmpty);
-    });
-
-    test(
-      'a different tip on the server for a started game is reported too',
-      () async {
-        final service = await reconciled(
-          [tip(kickoffUtcMs: past)],
-          {'game-1': 'e'},
-        );
-
-        expect(service.notices, hasLength(1));
+  group('operations that overlap', () {
+    // A store that is slow to answer, so that without care two operations would
+    // both read the list before either has written it back.
+    UnconfirmedTipsService slow() => UnconfirmedTipsService(
+      clock: () => now,
+      preferences: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        return SharedPreferences.getInstance();
       },
     );
 
-    test('a tip for a game still to start stays queued, silently', () async {
-      final service = await reconciled([tip(kickoffUtcMs: future)], {});
+    test('two tips queued at once are both kept', () async {
+      final service = slow();
+
+      await Future.wait([
+        service.queued(tip(gameKey: 'game-1')),
+        service.queued(tip(gameKey: 'game-2')),
+        service.queued(tip(gameKey: 'game-3')),
+      ]);
+
+      expect((await service.pending()).map((t) => t.gameKey).toSet(), {
+        'game-1',
+        'game-2',
+        'game-3',
+      });
+    });
+
+    test('a tip queued while another is confirmed is not lost', () async {
+      final service = slow();
+      await service.queued(tip(gameKey: 'game-1'));
+
+      await Future.wait([
+        service.accepted(tip(gameKey: 'game-1')),
+        service.queued(tip(gameKey: 'game-2')),
+      ]);
+
+      expect((await service.pending()).map((t) => t.gameKey), ['game-2']);
+    });
+
+    test('a tip queued while another is refused is not lost', () async {
+      final service = slow();
+      await service.queued(tip(gameKey: 'game-1'));
+
+      await Future.wait([
+        service.rejected(tip(gameKey: 'game-1')),
+        service.queued(tip(gameKey: 'game-2')),
+      ]);
+
+      expect((await service.pending()).map((t) => t.gameKey), ['game-2']);
+      expect(service.notices, hasLength(1));
+    });
+  });
+
+  group('what the tips listener shows of the queued tips', () {
+    const settle = Duration(milliseconds: 20);
+    const longerThanSettle = Duration(milliseconds: 120);
+
+    late StreamController<bool?> connection;
+    late Map<String, ShownTip> shown;
+    late UnconfirmedTipsService service;
+
+    ShownTip? Function(String) shownOnDevice() =>
+        (gameKey) => shown[gameKey];
+
+    Future<void> look({
+      String compKey = 'comp-1',
+      String tipperKey = 'tipper-1',
+    }) => service.observe(
+      compKey: compKey,
+      tipperKey: tipperKey,
+      shown: shownOnDevice(),
+    );
+
+    Future<void> connect(bool up) async {
+      connection.add(up);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+
+    setUp(() {
+      connection = StreamController<bool?>.broadcast();
+      shown = <String, ShownTip>{};
+      service = UnconfirmedTipsService(
+        clock: () => now,
+        connectionStates: connection.stream,
+        settleFor: settle,
+      );
+    });
+
+    tearDown(() async {
+      service.dispose();
+      await connection.close();
+    });
+
+    test(
+      'a tip the device shows is not taken as counted, nor as lost',
+      () async {
+        await connect(true);
+        await service.queued(tip(kickoffUtcMs: past));
+        shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
+
+        await look();
+        await Future<void>.delayed(longerThanSettle);
+
+        expect(service.notices, isEmpty);
+        expect(await service.pending(), hasLength(1));
+      },
+    );
+
+    test(
+      'a tip the device shows is left alone while the connection is down',
+      () async {
+        await connect(false);
+        await service.queued(tip(kickoffUtcMs: past));
+        shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
+
+        await look();
+        await Future<void>.delayed(longerThanSettle);
+
+        expect(service.notices, isEmpty);
+        expect(await service.pending(), hasLength(1));
+      },
+    );
+
+    test('a missing tip is reported once it has stayed missing', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      var notified = 0;
+      service.addListener(() => notified++);
+
+      await look();
+      expect(service.notices, isEmpty, reason: 'not on the first look');
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices.single, contains('Home v Away'));
+      expect(service.notices.single, contains('never reached the server'));
+      expect(notified, 1);
+      expect(await service.pending(), isEmpty);
+    });
+
+    test('a missing tip for a game still to start asks to tip again', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: future));
+
+      await look();
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices.single, contains('did not reach the server'));
+      expect(service.notices.single, contains('tip again'));
+      expect(await service.pending(), isEmpty);
+    });
+
+    test('a tip that comes back within the wait is not reported', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+
+      shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
+      await look();
+      await Future<void>.delayed(longerThanSettle);
 
       expect(service.notices, isEmpty);
       expect(await service.pending(), hasLength(1));
     });
 
+    test('nothing is decided while the connection is down', () async {
+      await connect(false);
+      await service.queued(tip(kickoffUtcMs: past));
+
+      await look();
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices, isEmpty);
+      expect(await service.pending(), hasLength(1));
+    });
+
+    test('a missing tip is reported once the connection returns', () async {
+      await connect(false);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+      await Future<void>.delayed(longerThanSettle);
+      expect(service.notices, isEmpty);
+
+      await connect(true);
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices, hasLength(1));
+    });
+
+    test('the connection dropping during the wait stops the report', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+
+      await connect(false);
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices, isEmpty);
+      expect(await service.pending(), hasLength(1));
+    });
+
+    test(
+      'a newer tip for the game replaces the queued one, silently',
+      () async {
+        await connect(true);
+        await service.queued(tip(choice: 'a', kickoffUtcMs: past));
+        shown['game-1'] = (choice: 'e', submittedUtcSeconds: tippedAt + 60);
+
+        await look();
+        await Future<void>.delayed(longerThanSettle);
+
+        expect(service.notices, isEmpty);
+        expect(await service.pending(), isEmpty);
+      },
+    );
+
+    test(
+      'an older tip showing instead means the queued one was refused',
+      () async {
+        await connect(true);
+        await service.queued(tip(choice: 'a', kickoffUtcMs: past));
+        shown['game-1'] = (choice: 'e', submittedUtcSeconds: tippedAt - 3600);
+
+        await look();
+        await Future<void>.delayed(longerThanSettle);
+
+        expect(service.notices, hasLength(1));
+        expect(await service.pending(), isEmpty);
+      },
+    );
+
     test('another competition or another tipper is left alone', () async {
-      final service = await reconciled([
-        tip(compKey: 'comp-2', kickoffUtcMs: past),
-        tip(tipperKey: 'tipper-2', kickoffUtcMs: past),
-      ], {});
+      await connect(true);
+      await service.queued(tip(compKey: 'comp-2', kickoffUtcMs: past));
+      await service.queued(tip(tipperKey: 'tipper-2', kickoffUtcMs: past));
+
+      await look();
+      await Future<void>.delayed(longerThanSettle);
 
       expect(service.notices, isEmpty);
       expect(await service.pending(), hasLength(2));
+    });
+
+    test('a tip refused in this run is not reported a second time', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+
+      await service.rejected(tip(kickoffUtcMs: past));
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices, hasLength(1));
+    });
+
+    test('a screen that has gone stops the wait', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+
+      service.stopObserving();
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.notices, isEmpty);
+      expect(await service.pending(), hasLength(1));
     });
   });
 }
