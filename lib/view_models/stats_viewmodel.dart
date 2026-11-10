@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/live_score_history_entry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -176,8 +178,7 @@ class StatsViewModel extends ChangeNotifier {
         selectedDAUComp,
       );
       final subKey = isPaid ? 'paid' : 'free';
-      if (_hasGameStatsListener &&
-          _gameStatsListenerSubKey == subKey) {
+      if (_hasGameStatsListener && _gameStatsListenerSubKey == subKey) {
         _isSelectedTipperPaidUpMember = isPaid;
         return;
       }
@@ -238,9 +239,7 @@ class StatsViewModel extends ChangeNotifier {
 
           for (final entry in roundPointsJson.entries) {
             roundPoints[entry.key.toString()] = RoundStats.fromJson(
-              Map<String, dynamic>.from(
-                entry.value as Map<dynamic, dynamic>,
-              ),
+              Map<String, dynamic>.from(entry.value as Map<dynamic, dynamic>),
               fallbackRoundNumber: roundIndex + 1,
             );
           }
@@ -433,9 +432,8 @@ class StatsViewModel extends ChangeNotifier {
           final currentLiveScore = liveScoreEntry['current'] is Map
               ? Map<String, dynamic>.from(liveScoreEntry['current'] as Map)
               : liveScoreEntry;
-          final crowdSourcedScores = Scoring.fromJson(
-            currentLiveScore,
-          ).crowdSourcedScores;
+          final crowdSourcedScores = Scoring.fromJson(currentLiveScore)
+              .crowdSourcedScores;
           if (crowdSourcedScores != null && crowdSourcedScores.isNotEmpty) {
             nextLiveScoresByGameDbKey[gameDbKey] = crowdSourcedScores;
           }
@@ -614,8 +612,7 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   GameStatsLoadState gameStatsLoadStateFor(Game game) {
-    return _gameStatsLoadStates[game.dbkey] ??
-        GameStatsLoadState.notRequested;
+    return _gameStatsLoadStates[game.dbkey] ?? GameStatsLoadState.notRequested;
   }
 
   void getGamesStatsEntry(Game game, bool forceUpdate) {
@@ -657,15 +654,17 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     GameStatsEntry? dbEntry;
-    for (var attempt = 0;; attempt++) {
+    for (var attempt = 0; ; attempt++) {
       try {
         dbEntry = await _getGameStatsEntry(game);
         break;
       } catch (error, stackTrace) {
         final isProtectedResourceError =
             StartupAppCheckSupport.isRetryableProtectedResourceError(error);
-        final isTransientDisconnect = CrashlyticsErrorClassifier
-            .isTransientRealtimeDatabaseDisconnect(error);
+        final isTransientDisconnect =
+            CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+              error,
+            );
         if (!isProtectedResourceError && !isTransientDisconnect) {
           rethrow;
         }
@@ -909,9 +908,7 @@ class StatsViewModel extends ChangeNotifier {
     // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};
     if (previousRankRound > 0) {
-      previousRoundRanks = _calculateCumulativeRankUpToRound(
-        previousRankRound,
-      );
+      previousRoundRanks = _calculateCumulativeRankUpToRound(previousRankRound);
     }
 
     // Calculate the leaderboard for the current comp
@@ -1107,12 +1104,8 @@ class StatsViewModel extends ChangeNotifier {
     required DAUComp selectedDAUComp,
   }) async {
     await _submitLock.synchronized(() async {
-      final currentHomeScore = tip.game.scoring?.currentScore(
-        ScoringTeam.home,
-      );
-      final currentAwayScore = tip.game.scoring?.currentScore(
-        ScoringTeam.away,
-      );
+      final currentHomeScore = tip.game.scoring?.currentScore(ScoringTeam.home);
+      final currentAwayScore = tip.game.scoring?.currentScore(ScoringTeam.away);
       final homeScoreChanged = homeScore != originalHomeScore;
       final awayScoreChanged = awayScore != originalAwayScore;
 
@@ -1155,6 +1148,10 @@ class StatsViewModel extends ChangeNotifier {
     });
   }
 
+  /// Records [submittedScores] for [game], one create-only entry each under the
+  /// game's `history`. That is all a client may write: the running score
+  /// (`current`) is built from the history by the server and arrives through the
+  /// live scores listener.
   Future<void> _writeLiveScoreToDb(
     Game game,
     List<CrowdSourcedScore> submittedScores,
@@ -1164,13 +1161,10 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     final updates = <String, Object?>{
-      '${game.dbkey}/current': _liveScoreCurrentPayload(game),
+      for (final score in submittedScores)
+        '${game.dbkey}/history/${liveScoreHistoryKey(score)}':
+            liveScoreHistoryEntry(score),
     };
-    for (final score in submittedScores) {
-      final historyKey =
-          '${score.submittedTimeUTC.microsecondsSinceEpoch}-${score.scoreTeam.name}';
-      updates['${game.dbkey}/history/$historyKey'] = score.toJson();
-    }
 
     await _db
         .child(statsPathRootLocal)
@@ -1178,30 +1172,8 @@ class StatsViewModel extends ChangeNotifier {
         .child(p.liveScoresBackendRoot)
         .update(updates);
     log(
-      'StatsViewModel._writeLiveScoreToDb() Wrote live score current snapshot for game ${game.dbkey}',
+      'StatsViewModel._writeLiveScoreToDb() Wrote ${submittedScores.length} live score entries for game ${game.dbkey}',
     );
-  }
-
-  Map<String, Object?> _liveScoreCurrentPayload(Game game) {
-    final scoring = game.scoring;
-    CrowdSourcedScore? latestScore;
-    for (final score in scoring?.crowdSourcedScores ?? <CrowdSourcedScore>[]) {
-      if (latestScore == null ||
-          score.submittedTimeUTC.isAfter(latestScore.submittedTimeUTC)) {
-        latestScore = score;
-      }
-    }
-
-    return <String, Object?>{
-      'homeInterimScore': scoring?.currentScore(ScoringTeam.home),
-      'awayInterimScore': scoring?.currentScore(ScoringTeam.away),
-      'submittedTimeUTC': latestScore?.submittedTimeUTC.toIso8601String(),
-      'tipperID': latestScore?.tipperID,
-      'gameComplete': latestScore?.gameComplete ?? false,
-      'crowdSourcedScores': scoring?.crowdSourcedScores
-          ?.map((score) => score.toJson())
-          .toList(),
-    };
   }
 
   bool _hasOfficialFixtureScores(Game? game) {

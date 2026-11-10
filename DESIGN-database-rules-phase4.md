@@ -1601,8 +1601,27 @@ process, restart offline, restart online.
 - *Needs mode `coexist`.* Admin edits and merges are identity callables, so under mode `off` they say "Changing
   tippers is switched off at the moment." Until the mode moves, the R2 client cannot edit a tipper's name, email or
   role from the admin screens; paid ticks work.
-- *Still direct writes, for slice 4:* live scores. (Push tokens and the account deletion flow were the others; slice 5
-  below moved them, and the own alias went with slice 7.)
+- *Still direct writes:* none after slice 4 below. (Live scores were the last; push tokens and the account deletion
+  flow went with slice 5, the own alias with slice 7.)
+
+**Slice 4 built (10 November 2026): live scores.**
+- *History only.* `StatsViewModel._writeLiveScoreToDb` writes one create-only entry per submitted score under
+  `{game}/history/{micros}-{team}` and nothing else. The `current` snapshot writer (`_liveScoreCurrentPayload`) is
+  deleted: under R2 only the server builds `current`, from the history, and it reaches the client through the existing
+  live scores listener. Each entry has exactly the four fields the R2 rules allow (`tipperID`, `scoreTeam`,
+  `interimScore`, `t`), `t` being `ServerValue.timestamp`, never the device's clock; the client's `submittedTimeUTC`
+  and `gameComplete` are no longer written (a contract test reads `config/generated/database.rules.r2.json` and
+  compares its allowed fields with the entry's, so the two cannot drift apart). The server's `LiveScoreEntry` already
+  reads a numeric `t` in milliseconds. The shared `CrowdSourcedScore.gameComplete` stays, because the server's
+  `current` snapshot still carries it (always false) and the client parses that.
+- *What the user sees.* The local score still updates at once, as before; other tippers see it when the server's
+  aggregator writes `current` (a trigger away, instead of the client's own write). While the aggregator is in `shadow`
+  nothing updates `current` for these submissions: the accepted window risk of section 6, which Gates A and B are
+  there to keep from mattering. The rules refuse a score for a game that has not started by the server's clock or that
+  already has its official score, which a device with its clock ahead will meet at kickoff; the live score dialog now
+  says so in words instead of showing the raw error.
+- 17 tests (write shape 3, entry and rules contract 4, message 2, and the changed write tests), seven deliberate
+  breakages caught.
 
 **Slice 5 built (10 November 2026): push tokens and account deletion.**
 - *Tokens.* `FirebaseMessagingService` no longer touches `/AllTippersTokens`: it registers through

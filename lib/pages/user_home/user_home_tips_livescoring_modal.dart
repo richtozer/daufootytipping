@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -6,6 +7,18 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 enum _ActiveScoreField { home, away }
+
+/// What to tell a tipper whose live score was not saved. The rules refuse a score
+/// for a game that has not started by the server's clock, or that already has
+/// its official score, and both are common at the edges of a game, so say so
+/// rather than showing the raw error.
+String liveScoreSaveFailureMessage(Object error) {
+  if (error is FirebaseException && error.code == 'permission-denied') {
+    return 'The score was not saved. The game may not have started yet, or it '
+        'may already have its official score.';
+  }
+  return 'Unable to save live scores: $error';
+}
 
 class LiveScoringModal extends StatefulWidget {
   final Tip tip;
@@ -232,7 +245,7 @@ class _LiveScoringModalState extends State<LiveScoringModal> {
                                     SnackBar(
                                       backgroundColor: Colors.red,
                                       content: Text(
-                                        'Unable to save live scores: $error',
+                                        liveScoreSaveFailureMessage(error),
                                       ),
                                     ),
                                   );
