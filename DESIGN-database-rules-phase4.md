@@ -1912,9 +1912,26 @@ a device or a signed-in session, and these are the owner's manual checks. None n
   rules a tip before and after kickoff (the rejection a queued tip meets), another tipper's tips game by game and never
   at the tipper or competition node, the live-score entry and what it may not contain, photo and paid ticks, and that
   unlinking ends access.
-- *One short app-level smoke test against the emulators (the harness substitutes REST adapters for the Firebase
-  plugins and does not drive the pages):* sign in, edit your alias, edit a tipper as an administrator, merge two
-  tippers. There is no need to repeat the 52 cases by hand.
+- *App-level smoke test against the emulators: DONE (10 November 2026), on the new build.* The reviewer's point was that
+  the integration harness substitutes REST adapters for the Firebase plugins and does not drive the pages. So the real
+  web app (debug build, `USE_FIREBASE_EMULATORS` and `USE_AUTH_EMULATOR`) was driven in the browser pane against the
+  owner's demo backend, restarted so that it ran the new Dart functions (the demo data is in the post-purge shape, mode
+  `final`, R2 rules). Throwaway accounts were made on the Auth emulator with a generated password, and removed afterwards.
+  *Sign-in and first sign-up:* an account with no tipper is asked for an alias and the callable creates the tipper; the
+  record has only a name in the public node and the identity fields, index entry and role in the private one.
+  *Alias edit:* a free name is accepted, shows at once, and moves the alias index entry on the server; a name another
+  tipper has (in a different case) is refused in plain words ("already used by another tipper, or too similar") with
+  the dialog left open and Save usable. *Administrator:* a tipper promoted by writing the role in the private record
+  sees the admin functions card after signing in; the Admin Tippers list shows all tippers with logins, last-login
+  dates and the admin tag (read from the private records under the R2 rules); editing a tipper changes the name through
+  the admin callable and the paid competitions through the direct write, both confirmed on the server. *Merge:* choosing
+  a target runs the server's dry run and shows "move N tips, move the login, move the sign-in account, delete the
+  source"; Merge asks for confirmation, then merges: the source's records and alias claim are gone, its account now
+  indexes to the target, and the list shrinks by one. Callables work from web in debug (the local App Check debug token
+  is accepted). Nothing wrong was found in the app or the server. The one thing that needed care was the harness's
+  own: Flutter web text fields in the browser pane append rather than replace typed text, and a dropdown needs its
+  list scrolled; neither is a product matter. *Not covered:* demoting an administrator in the app (the rehearsal
+  covers it in the functions and the rules), tipping, and anything on a device.
 - *Queued tip, on a device or simulator against the emulators with the R2 rules loaded, signed in by hand:* tip with
   the connection down, kill the app, let the game start, restart (offline first, then online). The tip must stay
   unreported while offline and be reported once online. The SDK's behaviour is established (section 6k, "Review fixes
