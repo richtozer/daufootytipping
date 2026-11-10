@@ -1610,6 +1610,29 @@ process, restart offline, restart online.
   status, photos and live-score history remain direct client writes, by design: the R2 rules allow exactly those
   (a tip before kickoff, the owner's photo, an administrator's paid ticks, a create-only history entry).
 
+**Slice 8 built (10 November 2026): the client integration harness.**
+- *What it is.* `scripts/test-client-integration.sh` compiles `functions_dart/bin/server.dart`, starts a Database
+  emulator under the repository's OS boundary (`rules_test/support/isolated.sh`: loopback only, no credentials) with the
+  R1-compat rules, starts the compiled server beside it in emulator mode, and runs `flutter test test/integration`.
+  The tests use the app's own `IdentityService`, `LinkedTipperResolver`, `DeviceTokenRegistrar`, `AccountDeletion`,
+  `aliasFailureMessage`, `adminFailureMessage` and `liveScoreHistoryEntry`. Only what cannot run outside a device is
+  stood in for: accounts are unsigned tokens (accepted only because the server is in emulator mode), and database
+  reads and writes are the same paths and payloads over the emulator's REST interface, with the user's token in the
+  `auth` parameter so the rules apply. Outside the script the tests skip, so `flutter test` is unaffected.
+- *What it proves.* 52 tests: sign-in and alias (9), tokens and account deletion (10), admin edit and merge (11), and 22
+  on the R2 rules using data the real callables wrote under R1-compat, the state the cutover will find. Eight
+  deliberate breakages, five in the real server (unlink leaves the index entry; unlink keeps the private link; a token
+  is not taken from its old holder; anyone is an administrator; a role change is not written to the private record),
+  one in the rules in force (R2 tests run on R1-compat) and two in the client's live-score entry, were each caught.
+- *What it found.* Nothing wrong in the client or the server: every real failure along the way was the harness's own.
+  Three of them are worth keeping: the emulator treats an `Authorization: Bearer` header as the administrator's and
+  evaluates the rules only for a token in the `auth` parameter (my first version passed every refusal check
+  vacuously); the emulator wants the standard claims (`iss`, `aud`, `iat`, `exp`, `auth_time`) in a test token; and a
+  new sign-up needs `AppConfig/createLinkedTipper` to be `true`. One server behaviour was confirmed rather than
+  assumed: the merge moves tips only in competitions listed under `AllDAUComps`.
+- *What it cannot do.* The Firebase Auth, Messaging and Database plugins, Apple and Google sign-in, and the pages.
+  Those remain the device checks in section 8.
+
 **Slice 4 built (10 November 2026): live scores.**
 - *History only.* `StatsViewModel._writeLiveScoreToDb` writes one create-only entry per submitted score under
   `{game}/history/{micros}-{team}` and nothing else. The `current` snapshot writer (`_liveScoreCurrentPayload`) is
@@ -1793,20 +1816,31 @@ before the real purge (Step B), and the purge tool must refuse to run while eith
    backfill pass (which needs a fresh Auth export) must audit it and build its private record and index entries before
    the purge; until then the purge must leave it alone, as the emulator script did.
 
-**Pre-release checks that need the real app and the local callables (10 November 2026; asked for by the reviewer).**
-Fakes cannot establish these, so they are recorded here rather than left to memory. Neither needs production; neither
-should enable `coexist` in production just to test the screens.
-- *Queued tip, end to end, against R2 rules.* In the real app against the emulators with the R2 rules loaded, signed in
-  by hand: tip with the connection down, kill the app, let the game start, restart (offline first, then online). The
-  tip must stay unreported while offline and be reported once online. The SDK's behaviour is already established
-  (section 6k, "Review fixes to slice 3"); this checks the app's wiring of it.
-- *Account deletion and push-token registration, end to end* with the local callables, using a throwaway Apple or
-  Google account signed in by hand: delete with a fresh sign-in, with an old one (the sign-in-again prompt, and
-  cancelling it), and with the connection cut after the unlink then retried; confirm the tipper record is unlinked,
-  the token gone, and signing up again links back to the same record. Also confirm a token moves when a second tipper
-  signs in on the same device.
-- *Admin edit and merge against the real local callables* (emulator functions, mode `coexist`): edit name, email and
-  role; merge two tippers with a preview; the refusals (taken alias, last administrator).
+**Pre-release checks (10 November 2026; asked for by the reviewer).** The wiring is now checked by
+`scripts/test-client-integration.sh` (section 6k, "Slice 8 built"), which runs the app's own client classes against
+the real Dart callable server and the real rulesets, before and after the cutover to R2. That leaves only what needs
+a device or a signed-in session, and these are the owner's manual checks. None needs production; none should enable
+`coexist` in production just to test the screens.
+- *Covered by the harness (do not repeat by hand):* sign-up and sign-in, alias changes and refusals, push-token
+  registration and moving, the full deletion order (token, unlink, then the account) including a deletion that fails
+  after the unlink and is run again, and signing up again linking back to the same record; admin edit, the refusals
+  (taken alias, invalid email, last administrator, not an administrator) and merge with its dry run; and under the R2
+  rules a tip before and after kickoff (the rejection a queued tip meets), another tipper's tips game by game and never
+  at the tipper or competition node, the live-score entry and what it may not contain, photo and paid ticks, and that
+  unlinking ends access.
+- *Queued tip, on a device or simulator against the emulators with the R2 rules loaded, signed in by hand:* tip with
+  the connection down, kill the app, let the game start, restart (offline first, then online). The tip must stay
+  unreported while offline and be reported once online. The SDK's behaviour is established (section 6k, "Review fixes
+  to slice 3") and the rules' refusal is covered above; this checks the app's wiring of them.
+- *Apple and Google sign-in again, and a real push token, on a device:* delete an account with a fresh sign-in, with an
+  old one (the sign-in-again prompt, and cancelling it, which must leave the tipper linked), and with the connection
+  cut after the unlink and then retried; confirm the real token is removed and a second tipper signing in on the same
+  device takes it.
+- *Account deletion refused under mode `off`:* the message appears and nothing is deleted (covered by the harness; worth
+  one look on a device for the wording).
+- *Production settings to confirm before an R2 client ships:* `AppConfig/createLinkedTipper` is `true` (without it a
+  new sign-up is answered `creation_disabled`), the identity mode is `coexist`, and the live-score aggregator is
+  `active` (section 6i).
 
 ## 9. Rollback
 

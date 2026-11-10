@@ -138,6 +138,7 @@ dart format lib/                         # MANDATORY - must pass
 npm --prefix functions test              # TypeScript functions (node:test)
 (cd functions_dart && dart test)         # Dart functions
 (cd packages/dau_shared && dart test)    # Shared package
+scripts/test-client-integration.sh       # Client classes vs the real callable server and rulesets (emulators)
 
 # Firebase deployment
 firebase deploy --only hosting
