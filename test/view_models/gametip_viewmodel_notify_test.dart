@@ -582,6 +582,43 @@ void main() {
         expect(unconfirmed.notices, isEmpty);
       });
 
+      test(
+        'is remembered before the write reaches the database, so closing the '
+        'app straight away loses nothing',
+        () async {
+          bool? rememberedWhenSent;
+          when(() => mockDb.update(any())).thenAnswer((_) async {
+            rememberedWhenSent = (await unconfirmed.pending()).any(
+              (UnconfirmedTip tip) => tip.gameKey == currentGame.dbkey,
+            );
+            return serverAnswer.future;
+          });
+
+          await expectLater(
+            vm.addTip(tipOf(GameResult.b)),
+            throwsA(isA<WriteNotConfirmedException>()),
+          );
+
+          expect(
+            rememberedWhenSent,
+            isTrue,
+            reason: 'a record made only after the wait is lost if the app closes first',
+          );
+        },
+      );
+
+      test(
+        'that the server confirms in time leaves nothing remembered',
+        () async {
+          when(() => mockDb.update(any())).thenAnswer((_) async {});
+
+          await vm.addTip(tipOf(GameResult.b));
+
+          expect(await unconfirmed.pending(), isEmpty);
+          expect(unconfirmed.notices, isEmpty);
+        },
+      );
+
       test('that the rules reject after the screen stopped waiting is reported to the user', () async {
         await expectLater(
           vm.addTip(tipOf(GameResult.b)),

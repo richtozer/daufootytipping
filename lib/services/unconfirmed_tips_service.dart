@@ -153,8 +153,10 @@ class UnconfirmedTipsService extends ChangeNotifier {
   /// The tips now waiting for the server.
   Future<List<UnconfirmedTip>> pending() => _queue.run(_load);
 
-  /// [tip] has been handed to the database but not confirmed. A newer tip for the
-  /// same game replaces an older one.
+  /// [tip] is about to be handed to the database, which holds it on the device
+  /// until it can be sent. Call it before the write, so that a process that ends
+  /// before the write is answered still leaves the record behind. A newer tip for
+  /// the same game replaces an older one.
   Future<void> queued(UnconfirmedTip tip) => _queue.run(() async {
     final List<UnconfirmedTip> all = await _load();
     all
@@ -163,8 +165,11 @@ class UnconfirmedTipsService extends ChangeNotifier {
     await _save(all);
   });
 
-  /// The server confirmed [tip] after all.
-  Future<void> accepted(UnconfirmedTip tip) => _queue.run(() => _forget(tip));
+  /// The write for [tip] has been answered where the user can see it (accepted,
+  /// or refused while the screen was still waiting and so reported there), or
+  /// accepted after the screen stopped waiting. Nothing is outstanding, and
+  /// nothing is said.
+  Future<void> answered(UnconfirmedTip tip) => _queue.run(() => _forget(tip));
 
   /// The server refused [tip] after the screen had stopped waiting. A tip that a
   /// newer one for the same game has replaced says nothing: the newer one will

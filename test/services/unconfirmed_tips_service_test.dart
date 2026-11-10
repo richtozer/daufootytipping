@@ -62,7 +62,7 @@ void main() {
       final service = build();
       await service.queued(tip());
 
-      await service.accepted(tip());
+      await service.answered(tip());
 
       expect(await service.pending(), isEmpty);
     });
@@ -79,7 +79,7 @@ void main() {
         await service.queued(older);
         await service.queued(newer);
 
-        await service.accepted(older);
+        await service.answered(older);
 
         expect(await service.pending(), [newer]);
       },
@@ -202,7 +202,7 @@ void main() {
       await service.queued(tip(gameKey: 'game-1'));
 
       await Future.wait([
-        service.accepted(tip(gameKey: 'game-1')),
+        service.answered(tip(gameKey: 'game-1')),
         service.queued(tip(gameKey: 'game-2')),
       ]);
 

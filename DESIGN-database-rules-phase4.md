@@ -1944,7 +1944,11 @@ a device or a signed-in session, and these are the owner's manual checks. None n
   not have reached the server before the game started. Please check it on the Tips page." appeared once, for that game
   only. The other tip was accepted (the server holds it), stayed selected, and produced no notice. The dialog is the
   inferred wording ("could not confirm"), not "was not counted", as intended.
-  *The gap:* a tip is recorded on the device only when the screen stops waiting, 15 s after it is made
+  *Gap FIXED and verified (10 November 2026, second run):* the record is now made before the write is handed to the
+  database and forgotten when the write is answered on the screen (`UnconfirmedTipsService.answered`); a regression test
+  captures what is stored at the instant the write is sent. Re-run on the simulator with the app killed 1 s and about 3 s
+  after tapping: the queued tips survived, the refused one produced the same dialog, the accepted one nothing.
+  *The gap as first found:* a tip was recorded on the device only when the screen stopped waiting, 15 s after it was made
   (`awaitAcknowledgement` returns `stillPending`, then `UnconfirmedTipsService.queued`). The first run killed the app
   about 11 s after tapping; the queued write survived and was refused after kickoff exactly as above, but there was no
   record, so there was no notice, and the tip simply reverted to the default. So a tip made without a connection and

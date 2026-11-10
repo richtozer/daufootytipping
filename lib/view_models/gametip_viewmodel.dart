@@ -375,42 +375,54 @@ class GameTipViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['${p.tipsPathRoot}/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
+      final UnconfirmedTipsService? unconfirmedTips = _unconfirmedTipsService();
+      final UnconfirmedTip unconfirmed = _unconfirmedRecord(tip);
+      // Kept on the device before the write is handed to the database, not
+      // after the wait: the database holds a write it cannot send across a
+      // restart, and if the app closes before the screen stops waiting, this is
+      // the only record that a tip is outstanding.
+      await unconfirmedTips?.queued(unconfirmed);
       final Future<void> write = AppResumeDiagnostics.trackWrite<void>(
         'tip_submit',
         () => _db.update(updates),
         details: const <String, Object?>{'pathCount': 1},
       );
-      final UnconfirmedTipsService? unconfirmedTips = _unconfirmedTipsService();
-      final UnconfirmedTip unconfirmed = _unconfirmedRecord(tip);
-      final WriteAcknowledgement acknowledgement = await awaitAcknowledgement(
-        write,
-        limit: _writeAcknowledgementLimit,
-        onLateError: (Object error, StackTrace stackTrace) {
-          log(
-            'GameTipsViewModel.addTip() queued tip was rejected: $error',
-            error: error,
-            stackTrace: stackTrace,
-          );
-          // The screen has stopped waiting, so this is the only way the user
-          // hears that the tip did not count.
-          unawaited(unconfirmedTips?.rejected(unconfirmed));
-        },
-      );
+      final WriteAcknowledgement acknowledgement;
+      try {
+        acknowledgement = await awaitAcknowledgement(
+          write,
+          limit: _writeAcknowledgementLimit,
+          onLateError: (Object error, StackTrace stackTrace) {
+            log(
+              'GameTipsViewModel.addTip() queued tip was rejected: $error',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            // The screen has stopped waiting, so this is the only way the user
+            // hears that the tip did not count.
+            unawaited(unconfirmedTips?.rejected(unconfirmed));
+          },
+        );
+      } on Object {
+        // Refused while the screen was still waiting: the screen reports it.
+        await unconfirmedTips?.answered(unconfirmed);
+        rethrow;
+      }
       if (acknowledgement == WriteAcknowledgement.stillPending) {
         // The database keeps the write and sends it when the connection
-        // recovers. Keep a record of it on the device, so that a rejection or a
-        // closed app is still reported, and the Firestore record of the tip for
-        // when it is sent.
-        await unconfirmedTips?.queued(unconfirmed);
+        // recovers. The record stays on the device, so that a rejection or a
+        // closed app is still reported; the Firestore record of the tip waits
+        // for the write to be sent.
         unawaited(
           write.then<void>((_) async {
-            await unconfirmedTips?.accepted(unconfirmed);
+            await unconfirmedTips?.answered(unconfirmed);
             await (_writeTipLog ?? _addLogOfTipToFirestore)(tip);
           }, onError: (Object _) {}),
         );
         log('GameTipsViewModel.addTip() tip not confirmed within the limit');
         throw const WriteNotConfirmedException('tip submission');
       }
+      await unconfirmedTips?.answered(unconfirmed);
       log('new tip submitted: ${updates.toString()}');
 
       _tip = tip; // update the tip with the new tip
