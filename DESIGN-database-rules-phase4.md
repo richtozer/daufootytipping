@@ -1712,9 +1712,11 @@ Local only. Nothing is deployed, and the production cutover is a separate decisi
 **Server admin authorization is the validated private role.** An administrator, for the identity callables
 (`admin-update-tipper`, `admin-merge-tippers`) and for the older admin endpoints (`admin-fixture-download`,
 `admin-scoring-rescore`, `admin-check-fixture-url`), is the tipper whose `/AuthIndex` entry names them and whose
-private record names them back and says `admin`: the same test the R2 rules apply, so what the rules let an
-administrator do and what the functions let them do cannot come apart. A role changed by `admin-update-tipper`
-takes effect at once in both. One implementation (`resolveCallerTipperFrom` in `caller.dart`, used through
+private record names them back and says `admin`: the same test the R2 rules apply, so **under R2** what the rules let
+an administrator do and what the functions let them do cannot come apart, and a role changed by `admin-update-tipper`
+takes effect at once in both. **This is not true under R1-compat**, which is live now and is the rollback target: its
+rules still name the allowlisted accounts, so there a promoted or demoted tipper changes only what the functions allow,
+not what the database allows (see the rollback section). One implementation (`resolveCallerTipperFrom` in `caller.dart`, used through
 `admin_gate.dart`) serves the REST handle of the callables and the other handles of the older endpoints. A failed
 read refuses the call; an anonymous caller is refused without a read. The compile-time list is gone from the
 functions: `functions_dart/bin/admin_allowlist.g.dart` is deleted, the generator no longer emits it, and
@@ -1744,9 +1746,11 @@ the restore tool now uses too).
 - *Unresolved records block everything.* A public record with identity fields and no private record (a tipper created
   by a 1.4.x client after the backfill: "run the final backfill pass first"), a field that differs between the copies
   (including a creation time or a role), a field only the public record has, or a login time that cannot be read:
-  exit 1 naming the opaque id and field, never a value; nothing is written for any tipper.
+  exit 1 naming the opaque id and field, never a value; nothing is written for any tipper. This holds on the second
+  read of `--apply` as well as the first: a record that becomes unresolved between the two reads adds nothing to the
+  patch for the others, so the second plan's blockers are checked on their own, before anything is saved or written.
 - *Apply* needs `--project` and `--snapshot <file>`; refuses unless the identity mode is `freeze` or `off`, no request
-  is in flight, a second read plans exactly the same patch and the snapshot file does not already exist; saves
+  is in flight, a second read finds nothing unresolved and plans exactly the same patch, and the snapshot file does not already exist; saves
   `/AllTippers` as it was to the snapshot (it holds addresses: keep it under `test/data/`) **before** writing; and
   afterwards reads again, which must plan nothing. Run again as the sweep it finds nothing and needs no snapshot.
 - Tested: 22 planner tests and 20 tool tests (sixteen deliberate breakages caught, one weak test strengthened), the
@@ -1842,7 +1846,10 @@ the git tag of the pre-cutover functions recorded; rollback scripts present and 
 `test/integration/cutover_rehearsal_test.dart`, section 6l). **Administrators, read-only:** every uid in
 `config/admin-auth-uids.json` must already be a validated administrator in the data (indexed, record naming them
 back, role `admin`) before the functions carrying the role-based gate are deployed, because those functions no longer
-consult the list; compare the two by hand or with a one-off read, naming counts and opaque ids only.
+consult the list. **Compare in both directions**, by hand or with a one-off read, naming counts and opaque ids only:
+(a) allowlisted accounts that lack a valid private link or role, who would lose the admin endpoints, and (b) validated
+private administrators who are not on the list, who **gain** endpoint access with this deployment, whether or not that
+was intended. The comparison needs doing before deployment, not before the app-level smoke test.
 
 **Step A: stop and drain, reconcile, R2 rules.** Target 30 minutes, **04:00 to 05:00 Australian Eastern
 time (AEDT, UTC+11) on a weekday**, which is about 17:00 to 18:00 UTC the previous day and a quiet hour
@@ -1931,6 +1938,15 @@ a device or a signed-in session, and these are the owner's manual checks. None n
 Rollback is coordinated across rules, data shape, backend version and client mode. **The target is
 R1-compat, never plain R1**, while any R2 client exists, because the R2 client reads `AuthIndex` and
 `TipperPrivate`.
+
+**Administrators during and after a rollback to R1-compat.** The functions decide who is an administrator from the
+validated private role; the R1-compat rules still decide from the allowlist in `config/admin-auth-uids.json`. Until
+R2 is back, the two can differ for anyone whose role was changed since the allowlist was written: a tipper promoted
+by `admin-update-tipper` can use the admin callables but cannot make the direct database writes an administrator
+needs (paid ticks, a tip for another tipper); a demoted one loses the callables but keeps the direct writes if they
+are still on the list. So during the rollback stage **do not promote or demote administrators**; if one must change,
+change the role through the callable and the allowlist together (and redeploy the rules) so both agree. The restore
+tool does not touch roles.
 
 | Failure | Action |
 |---|---|

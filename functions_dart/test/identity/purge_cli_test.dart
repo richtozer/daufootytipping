@@ -346,6 +346,23 @@ void main() {
         expect(run.err, contains('data changed'));
       });
 
+      test('a tipper becomes unresolved between the two reads', () async {
+        // A new record with identity fields and no private record adds nothing to
+        // the patch for the others, so only the blocker check can see it.
+        store.onRead = (read) {
+          if (read == 2) {
+            store.tippers['t3'] = _publicRecord('cy', 'cy.secret@example.test');
+          }
+        };
+
+        final run = await _run(apply, store);
+
+        expectUntouched(run);
+        expect(run.err, contains('unresolved'));
+        expect(run.err, contains('t3'));
+        expect(run.err + run.out, isNot(contains('example.test')));
+      });
+
       test('the snapshot cannot be saved', () async {
         final run = await _run(apply, store, failWrites: true);
 

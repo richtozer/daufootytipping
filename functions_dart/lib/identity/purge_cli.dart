@@ -21,7 +21,7 @@ Usage: dart run bin/identity_purge.dart [options]
   (no options)      plan only: read the two nodes and say what would be written. Writes nothing.
   --out <file>      also write the patch to <file>. It holds no email address, only removals, login times and names.
   --apply           write it. Needs --project and --snapshot. Refuses unless the identity mode is freeze or off and no
-                    request is in flight, and unless a second read plans exactly the same patch. Afterwards it reads
+                    request is in flight, and unless a second read finds nothing unresolved and plans exactly the same patch. Afterwards it reads
                     again and the plan must be empty.
   --snapshot <file> before writing, save /AllTippers as it is now to <file> (it holds email addresses: keep it under
                     test/data/, which is git-ignored). A file already there is never overwritten.
@@ -141,6 +141,18 @@ Future<int> runPurgeCli(
   }
 
   final second = await read();
+  // A record that has become unresolved since the first read adds nothing to the
+  // patch for the others, so the patch alone would not show it.
+  if (second.plan.isBlocked) {
+    err.writeln(
+      'STOP: ${second.plan.blocking.length} tipper(s) are unresolved on the second read, so nothing '
+      'was written:',
+    );
+    for (final finding in second.plan.blocking) {
+      err.writeln('  $finding');
+    }
+    return 1;
+  }
   if (jsonEncode(second.plan.patch) != jsonEncode(first.plan.patch)) {
     err.writeln(
       'STOP: the data changed between the two reads, so nothing was written. Run it again.',
