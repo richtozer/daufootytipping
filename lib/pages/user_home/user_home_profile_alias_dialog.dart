@@ -1,5 +1,9 @@
+import 'package:dau_shared/dau_shared.dart' show UpdateTipperAliasResult;
+import 'package:dau_shared/services/identity_keys.dart' show isValidAlias;
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/pages/user_home/alias_failure_message.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
+import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_nav/app_nav_placement.dart';
@@ -31,6 +35,7 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
   );
   late final bool _isNewTipper = widget.tipper.name.isEmpty;
   String? _errorMessage;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -39,6 +44,9 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) {
+      return;
+    }
     final String newName = _nameController.text.trim();
     if (newName.isEmpty) {
       setState(() => _errorMessage = 'Alias cannot be empty.');
@@ -50,8 +58,24 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
       );
       return;
     }
+    if (!isValidAlias(newName)) {
+      setState(
+        () => _errorMessage =
+            'Alias needs at least one letter or number, and must not be '
+            'too long.',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _errorMessage = null;
+    });
     try {
-      await di<TippersViewModel>().setTipperName(widget.tipper.dbkey!, newName);
+      final UpdateTipperAliasResult result = await di<IdentityService>()
+          .updateTipperAlias(newName);
+      // The server has the new name; show it now rather than when the tipper
+      // list next arrives.
+      di<TippersViewModel>().applyOwnAlias(result.tipperId, result.alias);
       if (!mounted) return;
       // A new tipper goes on to the home page, otherwise the dialog just closes.
       if (_isNewTipper) {
@@ -60,8 +84,12 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
       } else {
         Navigator.of(context).pop();
       }
-    } catch (e) {
-      setState(() => _errorMessage = 'Error: $e');
+    } on IdentityFailure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _errorMessage = aliasFailureMessage(failure);
+      });
     }
   }
 
@@ -117,10 +145,19 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
       actions: [
         if (!_isNewTipper)
           OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _saving ? null : () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
       ],
     );
   }

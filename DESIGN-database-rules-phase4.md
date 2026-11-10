@@ -1601,8 +1601,28 @@ process, restart offline, restart online.
 - *Needs mode `coexist`.* Admin edits and merges are identity callables, so under mode `off` they say "Changing
   tippers is switched off at the moment." Until the mode moves, the R2 client cannot edit a tipper's name, email or
   role from the admin screens; paid ticks work.
-- *Still direct writes, for slices 5 and 7:* the signed-in user's own alias (`setTipperName`, slice 7), push tokens
-  and the account deletion flow (slice 5), live scores (slice 4).
+- *Still direct writes, for slices 4 and 5:* push tokens and the account deletion flow (slice 5), live scores
+  (slice 4). (The signed-in user's own alias was the third; slice 7 below moved it.)
+
+**Slice 7 built (10 November 2026): small items.**
+- *Own alias.* The Profile alias dialog now calls `update-tipper-alias` (`IdentityService.updateTipperAlias`) instead of
+  writing `name` and checking the tipper list itself; the server's alias claim is the only uniqueness check, so the
+  client-side duplicate scan and `TippersViewModel.setTipperName` are gone. Failures are explained from the machine
+  reason (`alias_failure_message.dart`: taken, not allowed, busy, switched off, not linked, unreachable, signed out).
+  Save and Cancel are off while the server is answering, so a second tap cannot send a second call; a refusal leaves
+  the dialog open to try again. On success `TippersViewModel.applyOwnAlias` shows the new name at once on the public
+  record and on the signed-in copy (which keeps its private fields), as the old direct write did through its local
+  echo; the tippers stream confirms it. A first alias for a new tipper is already given at sign-in
+  (`createWithAlias`), so the dialog's "create" case is only the legacy empty-name record. 25 tests (dialog 11, message
+  8, view model 2, plus the rest of the Profile page's), ten deliberate breakages caught.
+- *Update App on web (D13).* The button threw on web (`dart:io` `Platform`). It now reloads the page on web, after
+  unregistering any service worker so the reload cannot be answered from an old cached copy, and the notice and
+  button say "Reload" with "close the tab and reopen the site" as the fallback; on iOS and Android it opens the
+  store, and says so in words if the store cannot be opened (it used to throw). The web code
+  (`lib/platform/reload_page_web.dart`) cannot run in the VM tests: it was compiled to JavaScript and run in a browser.
+  The page reloaded, and with two stand-in service-worker registrations both were unregistered first. The built-in
+  browser pane would not register a real service worker, so that part is shown with stand-ins, not a real worker.
+  9 widget tests, six breakages caught.
 
 ## 7. Timeline, back-planned from the season
 

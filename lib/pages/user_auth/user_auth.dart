@@ -370,10 +370,7 @@ class UserAuthPageState extends State<UserAuthPage> {
                                 padding: EdgeInsets.all(8.0),
                                 child: Column(
                                   children: [
-                                    Text(
-                                      "This version of the app is no longer supported, please update the app from the app store.",
-                                      textAlign: TextAlign.center,
-                                    ),
+                                    UnsupportedVersionMessage(),
                                     Padding(
                                       padding: EdgeInsets.all(10.0),
                                       child: UpdateAppLink(),

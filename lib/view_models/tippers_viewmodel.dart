@@ -16,7 +16,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:dau_shared/services/identity_keys.dart' show normaliseAlias;
 
 class TippersViewModel extends ChangeNotifier {
   List<Tipper> _tippers = [];
@@ -273,53 +272,25 @@ class TippersViewModel extends ChangeNotifier {
     }
   }
 
-  // method to set or update tipper name. Make sure name is unique in the _tippers list, if not, throw an error
-  // Save any changes to the database using updateTipperAttribute
-  Future<void> setTipperName(String tipperDbKey, String? newName) async {
-    if (!_initialLoadCompleter.isCompleted) {
-      log(
-        'TippersViewModel() Waiting for initial Tipper load to complete, setTipperName()',
-      );
-      await _initialLoadCompleter.future;
-      log('TippersViewModel() tipper load complete, setTipperName()');
-    }
-
-    Tipper? tipperToUpdate = await findTipper(tipperDbKey);
-
-    if (tipperToUpdate == null) {
-      log('TippersViewModel() TipperToUpdate is null. Skipping update.');
-      return;
-    }
-
-    if (tipperToUpdate.name == newName) {
-      log('TippersViewModel() Tipper: $tipperDbKey already has name: $newName');
-      return;
-    }
-
-    if (newName == null || newName.isEmpty) {
-      throw 'Tipper name cannot be empty';
-    }
-
-    final normalisedNew = normaliseAlias(newName);
-    if (_tippers.any(
-      (tipper) => normaliseAlias(tipper.name) == normalisedNew,
-    )) {
-      throw 'Tipper name $newName is too similar to an existing alias.\n\nIf you were a tipper in previous years, then it may be that you have duplicate profiles. This is likely due to changing logon methods.\n\nPlease contact DAU Support to resolve this issue.';
-    }
-
-    await updateTipperAttribute(tipperDbKey, "name", newName);
-    await saveBatchOfTipperChangesToDb();
-
-    tipperToUpdate.name = newName;
-    if (_authenticatedTipper?.dbkey == tipperDbKey) {
-      _authenticatedTipper = tipperToUpdate;
-    }
-    if (_selectedTipper.dbkey == tipperDbKey) {
-      _selectedTipper = tipperToUpdate;
+  /// The server has changed the signed-in tipper's alias to [alias] (the
+  /// `update-tipper-alias` callable has answered). Shows it at once, on the
+  /// public record and on the signed-in copy that carries the private fields,
+  /// rather than when the tippers stream next delivers it.
+  void applyOwnAlias(String tipperDbKey, String alias) {
+    final Tipper? listed = _tippers.firstWhereOrNull(
+      (tipper) => tipper.dbkey == tipperDbKey,
+    );
+    final Tipper? signedIn = _authenticatedTipper?.dbkey == tipperDbKey
+        ? _authenticatedTipper
+        : null;
+    final Tipper? selected = _selectedTipper.dbkey == tipperDbKey
+        ? _selectedTipper
+        : null;
+    for (final Tipper? tipper in <Tipper?>[listed, signedIn, selected]) {
+      tipper?.name = alias;
     }
     notifyListeners();
-
-    log('TippersViewModel() Tipper: $tipperDbKey name updated to: $newName');
+    log('TippersViewModel() Tipper: $tipperDbKey alias is now: $alias');
   }
 
   Future<void> updateTipperAttribute(
