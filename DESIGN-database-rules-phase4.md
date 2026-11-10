@@ -1576,9 +1576,8 @@ process, restart offline, restart online.
   it and, if the device's clock was ahead of the server's at kickoff, the game stayed blank until the screen was
   reopened. A failed listener is now cancelled and dropped, the next `watchGames` opens a fresh one, and it is also
   tried again on its own, up to 3 times 5 s apart.
-- *Still to do before release (the reviewer asked for it):* run the queued-tip scenario (offline tip, kill, restart,
-  game started, refused) in the real app against R2 rules, signed in by hand; the probe above establishes the SDK's
-  behaviour, not the app's wiring.
+- *The reviewer asked for the queued-tip scenario (offline tip, kill, restart, game started, refused) in the real app
+  against R2 rules.* Done on 10 November 2026; the result, including one gap it found, is in section 8, "Queued tip".
 
 **Slice 6 built (9 November 2026): the admin tipper screens.**
 - *Reading.* While the signed-in tipper is an administrator, `TippersViewModel` also listens to `/TipperPrivate` (which
@@ -1929,10 +1928,34 @@ a device or a signed-in session, and these are the owner's manual checks. None n
   own: Flutter web text fields in the browser pane append rather than replace typed text, and a dropdown needs its
   list scrolled; neither is a product matter. *Not covered:* demoting an administrator in the app (the rehearsal
   covers it in the functions and the rules), tipping, and anything on a device.
-- *Queued tip, on a device or simulator against the emulators with the R2 rules loaded, signed in by hand:* tip with
-  the connection down, kill the app, let the game start, restart (offline first, then online). The tip must stay
-  unreported while offline and be reported once online. The SDK's behaviour is established (section 6k, "Review fixes
-  to slice 3") and the rules' refusal is covered above; this checks the app's wiring of them.
+- *Queued tip: DONE (10 November 2026), on an iPhone 16 Pro simulator, with one gap found.* The app was a debug build
+  with `--dart-define=EMULATOR_PERSISTENCE=true` (the offline cache on, as in production; see `demo/README.md`),
+  signed in by hand as a throwaway tipper against the owner's demo backend (R2 rules, mode `final`). "No connection"
+  was made by pausing the database emulator process (`kill -STOP`), then killing and relaunching the app while it was
+  still paused, then resuming it (`kill -CONT`) after kickoff. Two games were tipped offline each time: one whose
+  kickoff was moved to a few minutes ahead, so that it started before the server saw the tip, and one with a distant
+  kickoff. Results, against the server's own contents afterwards:
+  *While offline:* a red "Not connected... Your tips are kept on this phone" banner; after 15 s the orange "Your tip has
+  not reached the server yet... it only counts if it arrives before kickoff. We will tell you if it does not count."
+  *After a cold start, still offline:* both tips appear selected and the round badge counts them (the cache shows queued
+  writes as present, as the SDK probe found); nothing is reported, which is right, since nothing is known. *After the
+  database came back:* the tip for the game that had started was refused (the server holds no tip for it) and, about
+  three seconds later, the dialog "Please check your tips: We could not confirm your tip for Storm v Rabbitohs. It may
+  not have reached the server before the game started. Please check it on the Tips page." appeared once, for that game
+  only. The other tip was accepted (the server holds it), stayed selected, and produced no notice. The dialog is the
+  inferred wording ("could not confirm"), not "was not counted", as intended.
+  *The gap:* a tip is recorded on the device only when the screen stops waiting, 15 s after it is made
+  (`awaitAcknowledgement` returns `stillPending`, then `UnconfirmedTipsService.queued`). The first run killed the app
+  about 11 s after tapping; the queued write survived and was refused after kickoff exactly as above, but there was no
+  record, so there was no notice, and the tip simply reverted to the default. So a tip made without a connection and
+  followed within 15 s by the app being killed (or by the system ending a backgrounded app) is lost without a word if
+  it is later refused. It is narrow, and the loss itself (kickoff before the connection returns) is not new. The fix, if
+  wanted, is small: record the tip before waiting and forget it when the write is confirmed. It adds one local write per
+  tip, and it was not made, because the hardening scope is frozen; it is the owner's call.
+  *Not run:* the online-restart variant (relaunch with the connection up, so the queue is sent at launch); the SDK probe
+  covers it, and the dialog path is the same. Unrelated, and not examined: signing out logged unhandled
+  `permission-denied` errors from database listeners in the debug console (listeners still attached as the session
+  ends); nothing showed on screen.
 - *Apple and Google sign-in again, and a real push token, on a device:* delete an account with a fresh sign-in, with an
   old one (the sign-in-again prompt, and cancelling it, which must leave the tipper linked), and with the connection
   cut after the unlink and then retried; confirm the real token is removed and a second tipper signing in on the same

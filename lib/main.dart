@@ -70,6 +70,13 @@ Future<void> main() async {
     'USE_AUTH_EMULATOR',
     defaultValue: false,
   );
+  // Opt-in: an emulator build that keeps the offline cache, as production does,
+  // so a write queued without a connection survives a restart. Off by default:
+  // a persistent cache outlives a demo restart that re-imports the data.
+  const bool emulatorPersistence = bool.fromEnvironment(
+    'EMULATOR_PERSISTENCE',
+    defaultValue: false,
+  );
   const String webAppCheckDebugToken = String.fromEnvironment(
     'WEB_APP_CHECK_DEBUG_TOKEN',
   );
@@ -154,7 +161,19 @@ Future<void> main() async {
 
   // Configure Realtime Database immediately after Firebase init so persistence
   // is set before any downstream code can create references/listeners.
-  final FirebaseDatabase database = FirebaseDatabase.instance;
+  // The plugin applies only the first of "use the emulator" and "persist" that it
+  // is given, so a persistent emulator build names the emulator in the database
+  // address instead of calling useDatabaseEmulator.
+  final bool persistInEmulator =
+      kDebugMode && useFirebaseEmulators && emulatorPersistence && !kIsWeb;
+  final FirebaseDatabase database = persistInEmulator
+      ? FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL:
+              'http://$firebaseEmulatorHost:8000'
+              '?ns=${Firebase.app().options.projectId}-default-rtdb',
+        )
+      : FirebaseDatabase.instance;
   if (AppResumeDiagnostics.enabled) {
     try {
       database.setLoggingEnabled(true);
@@ -171,14 +190,21 @@ Future<void> main() async {
     }
   }
   if (kDebugMode && useFirebaseEmulators) {
-    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    if (persistInEmulator) {
+      configureRealtimeDatabasePersistence(
+        database,
+        platform: defaultTargetPlatform,
+      );
+    } else {
+      database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    }
     FirebaseFunctions.instance.useFunctionsEmulator(firebaseEmulatorHost, 9229);
     StartupProfiling.instant(
       'startup.database_configured',
       arguments: <String, Object?>{
         'mode': 'emulator',
-        'persistenceEnabled': false,
-        'cacheMb': 0,
+        'persistenceEnabled': persistInEmulator,
+        'cacheMb': persistInEmulator ? 100 : 0,
       },
     );
   } else {

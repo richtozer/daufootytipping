@@ -49,6 +49,14 @@ local launches keep using real Firebase Auth and cannot sign in to demo
 accounts. Fully restart the app after changing backend modes. Sign out of any
 previous account and use the email/password form.
 
+To try what happens to a tip made without a connection (it is queued, and still
+there after the app is killed and relaunched), add
+`--dart-define=EMULATOR_PERSISTENCE=true` on iOS or Android. That keeps the
+database's offline cache, as production does; by default the emulator build has none.
+Pause the database emulator process (`kill -STOP <pid>`, resume with `kill -CONT`)
+to cut the connection. The cache outlives a demo restart that re-imports the data,
+so uninstall the app (or reset the simulator) before switching back to a fresh demo.
+
 Each demo start creates the Auth accounts afresh, so a simulator's saved sign-in
 from an earlier start can no longer refresh its token. Once its last token
 expires (within an hour), the database never connects and startup ends on
