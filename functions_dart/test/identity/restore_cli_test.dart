@@ -3,12 +3,13 @@ import 'dart:io';
 
 import 'package:dart_functions/identity/admission.dart';
 import 'package:dart_functions/identity/mode_control.dart';
+import 'package:dart_functions/identity/identity_records_store.dart';
 import 'package:dart_functions/identity/restore_cli.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:test/test.dart';
 
 /// The two nodes, held in memory, applying a patch the way the database does.
-class _MemoryStore implements RestoreStore {
+class _MemoryStore implements IdentityRecordsStore {
   _MemoryStore(this.tippers, this.privateRecords);
 
   Map<String, Object?> tippers;
@@ -316,7 +317,7 @@ void main() {
           );
         }
 
-        final store = CliRestoreStore(project: 'proj', runner: runner);
+        final store = CliIdentityRecordsStore(project: 'proj', runner: runner);
         expect(await store.readTippers(), <String, Object?>{'a': 1});
         expect(await store.readTipperPrivate(), <String, Object?>{'a': 1});
         await store.applyPatch(<String, Object?>{
@@ -351,7 +352,7 @@ void main() {
         String executable,
         List<String> arguments,
       ) async => ProcessResult(0, 1, '', 'boom');
-      final store = CliRestoreStore(project: 'proj', runner: runner);
+      final store = CliIdentityRecordsStore(project: 'proj', runner: runner);
       await expectLater(store.readTippers(), throwsA(isA<StateError>()));
     });
 
@@ -361,7 +362,7 @@ void main() {
         List<String> arguments,
       ) async => ProcessResult(0, 0, 'null\n', '');
       expect(
-        await CliRestoreStore(project: 'p', runner: runner).readTippers(),
+        await CliIdentityRecordsStore(project: 'p', runner: runner).readTippers(),
         isNull,
       );
     });

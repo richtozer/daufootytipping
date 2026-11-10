@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:dart_functions/identity/emulator_tools.dart';
+import 'package:dart_functions/identity/identity_records_store.dart';
 import 'package:dart_functions/identity/mode_control.dart';
 import 'package:dart_functions/identity/restore_cli.dart';
 
@@ -10,12 +12,15 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   final executable = Platform.environment['FIREBASE_BIN'] ?? 'firebase';
+  final emulator = emulatorDatabaseFromEnvironment(Platform.environment);
   exitCode = await runRestoreCli(
     arguments,
-    storeFor: (project) =>
-        CliRestoreStore(project: project, executable: executable),
-    modeFor: (project) =>
-        CliModeStore(project: project, executable: executable),
+    storeFor: (project) => emulator != null
+        ? RestIdentityRecordsStore(emulator)
+        : CliIdentityRecordsStore(project: project, executable: executable),
+    modeFor: (project) => emulator != null
+        ? RestModeStore(emulator)
+        : CliModeStore(project: project, executable: executable),
     out: stdout,
     err: stderr,
   );

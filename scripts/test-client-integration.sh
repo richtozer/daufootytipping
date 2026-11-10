@@ -7,6 +7,9 @@
 #   functions_dart/bin/server.dart, started in emulator mode)  ->  a Realtime
 #   Database emulator running the REAL rulesets (config/generated/*.json).
 #
+# The same emulator is what the cutover rehearsal (test/integration/cutover_rehearsal_test.dart)
+# runs the real mode, purge and restore tools against.
+#
 # It covers what fakes cannot: that what the client sends is what the server
 # accepts, that the server's errors are what the client reads, and that the data the
 # callables write is data the rulesets accept, before and after the cutover to R2.
@@ -34,8 +37,10 @@ project="demo-dau-rules"
 stage="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/client-integration.XXXXXX")" && pwd -P)"
 trap 'rm -rf "${stage}"' EXIT
 
-echo "Compiling the Dart functions server..."
-(cd "${repo_root}/functions_dart" && dart compile exe bin/server.dart -o "${stage}/server" >/dev/null)
+echo "Compiling the Dart functions server and the identity tools..."
+for program in server identity_mode identity_purge identity_restore; do
+  (cd "${repo_root}/functions_dart" && dart compile exe "bin/${program}.dart" -o "${stage}/${program}" >/dev/null)
+done
 
 cat > "${stage}/firebase.json" <<JSON
 {
@@ -87,6 +92,11 @@ if [ "\${ready}" != "1" ]; then
 fi
 cd "${repo_root}"
 export INTEGRATION_SERVER_URL="http://127.0.0.1:${server_port}"
+# The identity tools, as the owner runs them; with the emulator's host variable set (it is) they
+# read and write the emulator instead of going through the Firebase CLI to a project.
+export IDENTITY_MODE_TOOL="${stage}/identity_mode"
+export IDENTITY_PURGE_TOOL="${stage}/identity_purge"
+export IDENTITY_RESTORE_TOOL="${stage}/identity_restore"
 flutter test --no-pub --suppress-analytics --concurrency=1 ${test_args}
 status=\$?
 if [ "\${status}" != "0" ]; then

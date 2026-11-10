@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:dart_functions/identity/mode_control.dart';
+import 'package:dart_functions/identity/purge_cli.dart';
+import 'package:dart_functions/identity/identity_records_store.dart';
 import 'package:dart_functions/identity/restore_cli.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
@@ -9,12 +11,9 @@ import 'package:test/test.dart';
 
 import '../support/emulator.dart';
 
-/// The rollback rehearsal (DESIGN-database-rules-phase4.md, section 9): the database in the shape cutover step B
-/// leaves it, the restore tool run against it through the same code the owner runs, and the result compared with
-/// what was there before the purge.
-///
-/// [modelOfThePurge] is this test's own statement of step B as the plan defines it. The real purge tool is built in
-/// M8; when it is, its tests should run this same round trip with it in place of the model.
+/// The rollback rehearsal (DESIGN-database-rules-phase4.md, section 9): the database before cutover step B, the
+/// real purge tool run against it, then the restore tool, and the result compared with what was there before the
+/// purge. Both tools run through the same code the owner runs.
 
 Map<String, Object?> _preCutover() => <String, Object?>{
   // Linked, with a photo and a paid comp.
@@ -76,29 +75,6 @@ Map<String, Object?> _preCutover() => <String, Object?>{
   },
 };
 
-/// What cutover step B does to `/AllTippers` (section 8): removes the private fields and the two legacy fields
-/// from every record, and gives a record left with none of the public fields a placeholder name so that it does
-/// not vanish. `/TipperPrivate` is untouched.
-Map<String, Object?> modelOfThePurge(Map<String, Object?> tippers) {
-  final purged = <String, Object?>{};
-  for (final entry in tippers.entries) {
-    final record = Map<String, Object?>.of(
-      entry.value! as Map<String, Object?>,
-    );
-    for (final field in [
-      ...tipperPrivateFieldNames,
-      ...tipperLegacyFieldNames,
-    ]) {
-      record.remove(field);
-    }
-    if (!tipperPublicFieldNames.any(record.containsKey)) {
-      record['name'] = placeholderTipperName(entry.key);
-    }
-    purged[entry.key] = record;
-  }
-  return purged;
-}
-
 Map<String, Object?> _privateOf(Map<String, Object?> tippers) {
   final records = <String, Object?>{};
   for (final entry in tippers.entries) {
@@ -125,12 +101,24 @@ void main() {
     setUp(() async {
       await clearEmulatorDatabase(db);
       before = _preCutover();
-      // The database as step B leaves it: public records purged, private records complete.
-      await db.ref('AllTippers').set(modelOfThePurge(before));
+      await db.ref('AllTippers').set(before);
       await db.ref('TipperPrivate').set(_privateOf(before));
       await db.ref(identityModePath).update(<String, Object?>{
         'mode': 'freeze',
       });
+      // The database as step B leaves it, by the real purge tool.
+      final out = StringBuffer();
+      final err = StringBuffer();
+      final code = await runPurgeCli(
+        <String>['--apply', '--project', 'p', '--snapshot', 'snapshot.json'],
+        storeFor: (_) => RestIdentityRecordsStore(db),
+        modeFor: (_) => RestModeStore(db),
+        out: out,
+        err: err,
+        writeFile: (path, contents) async {},
+        fileExists: (_) => false,
+      );
+      expect(code, 0, reason: '$err');
     });
 
     Future<({int code, String out, String err})> restore(
@@ -140,7 +128,7 @@ void main() {
       final err = StringBuffer();
       final code = await runRestoreCli(
         args,
-        storeFor: (_) => RestRestoreStore(db),
+        storeFor: (_) => RestIdentityRecordsStore(db),
         modeFor: (_) => RestModeStore(db),
         out: out,
         err: err,
@@ -153,7 +141,7 @@ void main() {
                 as Map<String, dynamic>)
             .cast<String, Object?>();
 
-    test('the purge model leaves the shape the plan describes', () async {
+    test('the purge leaves the shape the plan describes', () async {
       final purged = await tippersNow();
       expect(
         purged.keys.toSet(),

@@ -1,98 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dart_functions/identity/identity_records_store.dart';
 import 'package:dart_functions/identity/mode_control.dart';
 import 'package:dart_functions/identity/restore_public.dart';
 import 'package:dart_functions/identity/server_mode.dart';
-import 'package:dart_functions/rtdb/rest_database.dart';
-import 'package:dau_shared/constants/paths.dart' as paths;
-
-/// The Firebase project the restore targets unless told otherwise.
-const String defaultRestoreProject = 'dau-footy-tipping-f8a42';
-
-/// The two nodes the restore reads, and the one write it makes. Two
-/// implementations, as for the mode tool: over the REST handle (tests, against
-/// the emulator) and over the Firebase CLI the owner is logged into.
-abstract interface class RestoreStore {
-  Future<Object?> readTippers();
-
-  Future<Object?> readTipperPrivate();
-
-  /// Applies [patch] (paths from the database root) as one update.
-  Future<void> applyPatch(Map<String, Object?> patch);
-}
-
-/// A [RestoreStore] over the REST handle.
-class RestRestoreStore implements RestoreStore {
-  RestRestoreStore(this._database);
-
-  final RestDatabase _database;
-
-  @override
-  Future<Object?> readTippers() async =>
-      (await _database.ref(paths.tippersPath).once()).value;
-
-  @override
-  Future<Object?> readTipperPrivate() async =>
-      (await _database.ref(paths.tipperPrivatePath).once()).value;
-
-  @override
-  Future<void> applyPatch(Map<String, Object?> patch) =>
-      _database.ref('/').update(patch);
-}
-
-/// A [RestoreStore] over the Firebase CLI. The patch is handed over in a file in
-/// a private temporary folder (it holds email addresses), deleted afterwards.
-class CliRestoreStore implements RestoreStore {
-  CliRestoreStore({
-    required this.project,
-    this.executable = 'firebase',
-    ProcessRunner? runner,
-  }) : _run = runner ?? Process.run;
-
-  final String project;
-  final String executable;
-  final ProcessRunner _run;
-
-  Future<String> _firebase(List<String> arguments) async {
-    final result = await _run(executable, [...arguments, '--project', project]);
-    if (result.exitCode != 0) {
-      throw StateError(
-        'firebase ${arguments.first} failed (exit ${result.exitCode}): ${result.stderr}',
-      );
-    }
-    return '${result.stdout}';
-  }
-
-  Future<Object?> _read(String path) async {
-    final text = (await _firebase(['database:get', path])).trim();
-    return text.isEmpty ? null : jsonDecode(text);
-  }
-
-  @override
-  Future<Object?> readTippers() => _read(paths.tippersPath);
-
-  @override
-  Future<Object?> readTipperPrivate() => _read(paths.tipperPrivatePath);
-
-  @override
-  Future<void> applyPatch(Map<String, Object?> patch) async {
-    final folder = await Directory.systemTemp.createTemp('identity-restore-');
-    try {
-      final file = File('${folder.path}/patch.json');
-      await file.writeAsString(jsonEncode(patch));
-      await _firebase([
-        'database:update',
-        '/',
-        file.path,
-        '--force',
-        '--disable-triggers',
-      ]);
-    } finally {
-      await folder.delete(recursive: true);
-    }
-  }
-}
 
 const String restoreToolUsage =
     '''
@@ -108,7 +20,7 @@ Usage: dart run bin/identity_restore.dart [options]
   --apply          write it. Needs --project. Refuses unless the identity mode is freeze or off and no request is in
                    flight, and unless a second read plans exactly the same patch. Afterwards it reads again and the
                    plan must be empty.
-  --project <id>   default $defaultRestoreProject for a plan; --apply must name it.
+  --project <id>   default $defaultIdentityProject for a plan; --apply must name it.
 
 Run it BEFORE deploying R1-compat on the way back (R1's record check needs authuid and tipperRole), and with
 the functions' triggers suppressed, which --apply does. The output names counts and opaque ids only.
@@ -119,7 +31,7 @@ Exit codes: 0 done (or nothing to do), 1 blocked or not verified, 2 usage.
 /// project, so tests can supply ones over the emulator.
 Future<int> runRestoreCli(
   List<String> arguments, {
-  required RestoreStore Function(String project) storeFor,
+  required IdentityRecordsStore Function(String project) storeFor,
   required ModeStore Function(String project) modeFor,
   required StringSink out,
   required StringSink err,
@@ -144,11 +56,11 @@ Future<int> runRestoreCli(
   if (apply && project == null) {
     err.writeln(
       'ERROR: this writes data, so the project must be named: add --project <id> '
-      '(production is $defaultRestoreProject).',
+      '(production is $defaultIdentityProject).',
     );
     return 2;
   }
-  final targetProject = project ?? defaultRestoreProject;
+  final targetProject = project ?? defaultIdentityProject;
   final store = storeFor(targetProject);
 
   Future<RestorePlan> plan() async => planPublicIdentityRestore(

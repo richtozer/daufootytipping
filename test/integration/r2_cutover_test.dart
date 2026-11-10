@@ -354,8 +354,8 @@ void main() {
         final path =
             '${paths.tippersPath}/${annTipper.dbkey}/compsParticipatedIn';
 
-        expect((await admin.client.put(path, {_comp: true})).ok, isTrue);
-        expect((await ann.client.put(path, {_comp: true})).denied, isTrue);
+        expect((await admin.client.put(path, [_comp])).ok, isTrue);
+        expect((await ann.client.put(path, [_comp])).denied, isTrue);
       },
     );
 

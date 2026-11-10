@@ -1730,6 +1730,53 @@ functions: `functions_dart/bin/admin_allowlist.g.dart` is deleted, the generator
   callables at once and losing them when demoted, an administrator whose account is no longer linked refused, and the
   52 integration tests with the administrator now a seeded role.
 
+**The purge (cutover step B) is a previewable tool.** `functions_dart/bin/identity_purge.dart` mirrors the restore tool
+(planner in `purge_public.dart`, command line in `purge_cli.dart`, both over the shared `IdentityRecordsStore`, which
+the restore tool now uses too).
+- *Plan by default.* With no options it reads the two nodes and says what it would do, writing nothing: how many fields
+  from how many records, how many later login times it will keep, how many tippers get a placeholder name. Output is
+  counts and opaque ids only; the optional `--out` patch holds removals, login times and names, no address.
+- *What it removes.* The seven private fields and the two legacy fields from every public record, in one multi-path
+  update, once the private record holds them. The private value must equal the public one (an empty public `authuid`
+  equals a private record with none; two times are equal if they are the same instant, whatever their text).
+- *Newer login times are kept.* A public `acctLoggedOnUTC` later than the private one (a 1.4.x sign-in since the
+  backfill) is written into the private record in the same update that removes the public one.
+- *Unresolved records block everything.* A public record with identity fields and no private record (a tipper created
+  by a 1.4.x client after the backfill: "run the final backfill pass first"), a field that differs between the copies
+  (including a creation time or a role), a field only the public record has, or a login time that cannot be read:
+  exit 1 naming the opaque id and field, never a value; nothing is written for any tipper.
+- *Apply* needs `--project` and `--snapshot <file>`; refuses unless the identity mode is `freeze` or `off`, no request
+  is in flight, a second read plans exactly the same patch and the snapshot file does not already exist; saves
+  `/AllTippers` as it was to the snapshot (it holds addresses: keep it under `test/data/`) **before** writing; and
+  afterwards reads again, which must plan nothing. Run again as the sweep it finds nothing and needs no snapshot.
+- Tested: 22 planner tests and 20 tool tests (sixteen deliberate breakages caught, one weak test strengthened), the
+  existing rollback rehearsal now using the real purge instead of its hand-written model, and the cutover rehearsal.
+
+**The three identity tools run against a local emulator.** `identity_mode`, `identity_purge` and `identity_restore`
+use the emulator named by `FIREBASE_DATABASE_EMULATOR_HOST` when it is set, and otherwise the Firebase CLI to a named
+project as before. The variable names a host and port, never a project, so it cannot point a tool at production.
+
+**The cutover rehearsal** (`test/integration/cutover_rehearsal_test.dart`, run by `scripts/test-client-integration.sh`
+with the real compiled server and the three compiled tools) tells one story on the emulator: tippers made by the
+real callables, plus what 1.4.x clients leave behind (a later public login time, a tipper with no private record, the
+two legacy fields, a tipper with no alias). **Step A:** mode `freeze` and drain; the freeze rules refuse an identity
+write and a contact change and a refused callable shows the stop is real, while photos continue; the purge refuses
+while the unresolved tipper exists and writes nothing; the final-backfill output is stood in for by a direct write;
+then R2 rules, mode `coexist`, aggregator `active`. **Verification window:** a linked tipper signs in under R2 with no
+server call; **a newly promoted administrator gains** the admin callables, the private records, every tip and the paid
+ticks at once, and **the demoted one loses all four**, in the functions and in the rules; tipping before kickoff
+works and after it is refused. **Step B:** the purge plans, applies with its snapshot, mode `final`; no address or
+identity field is left in the public list, the placeholder name appears, Ann's later login time is in her private
+record, the app still signs everyone in (role and identity from the private record), the administrator still
+administers, a sign-up in mode `final` leaves only a name in the public record, and the sweep finds nothing and needs
+no snapshot. **Rollback:** `freeze`, the restore tool, R1-compat, `coexist`, aggregator `shadow`; every tipper has
+the legacy fields back for 1.4.x clients (including the login time carried across the purge), Bob's demotion
+survives, the R2 client still signs in and a 1.4.x-style own-record write is allowed again. It takes about three
+minutes, mostly the mode tool draining. Deliberate breakages in the purge, the admin gate, the restore and the
+rulesets each fail it (see the commit).
+- *What it does not do:* the final backfill from a real Auth export, the real functions deployment, the owner's
+  attendance and timing, or anything on a device. The production cutover remains a separate decision.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
@@ -1791,7 +1838,11 @@ pieces stay deployed.
 
 **Pre-flight (days before):** floor in force and adoption acceptable; drift report reviewed; audit run;
 backup export of `/AllTippers`, `/TipperPrivate`, the indexes and `/AllTips`; Cloud Run revisions and
-the git tag of the pre-cutover functions recorded; rollback scripts present and rehearsed.
+the git tag of the pre-cutover functions recorded; rollback scripts present and rehearsed (the rehearsal is
+`test/integration/cutover_rehearsal_test.dart`, section 6l). **Administrators, read-only:** every uid in
+`config/admin-auth-uids.json` must already be a validated administrator in the data (indexed, record naming them
+back, role `admin`) before the functions carrying the role-based gate are deployed, because those functions no longer
+consult the list; compare the two by hand or with a one-off read, naming counts and opaque ids only.
 
 **Step A: stop and drain, reconcile, R2 rules.** Target 30 minutes, **04:00 to 05:00 Australian Eastern
 time (AEDT, UTC+11) on a weekday**, which is about 17:00 to 18:00 UTC the previous day and a quiet hour
@@ -1824,7 +1875,7 @@ the audit job, function errors and support messages.
 
 **Step B: drain, then purge.** Preconditions: M3b deployed and proven; window clean; fresh backup. Set
 mode `freeze` and drain, so no request admitted under `coexist` is still running and none can restore a
-public contact field afterwards. Take the snapshot, remove the public PII fields from every record
+public contact field afterwards. Take the snapshot (the purge tool's `--snapshot`, required with `--apply`), remove the public PII fields from every record
 (give a tipper who has no public field a placeholder name, and delete the legacy `active` and `tipperID`
 fields: decisions 8 and 9, section 6d), set mode `final`, run the audit (which now fails on any public contact data) and the post-deploy
 verification again. The purge is idempotent and is run once more after a short wait as a sweep. The
@@ -1832,7 +1883,8 @@ snapshot and the restore script stay for at least one season month.
 
 **Cutover checklist: two findings from the R2 client's emulator rounds (9 November 2026).** Both were found on a
 copy of production reshaped to the post-purge shape; neither blocks client development, both must be reconciled
-before the real purge (Step B), and the purge tool must refuse to run while either is open.
+before the real purge (Step B). **The purge tool now enforces both** (`bin/identity_purge.dart`, section 6l): finding 1
+is handled by the tool itself, finding 2 makes it refuse.
 1. **A newer public `acctLoggedOnUTC`.** A 1.4.x client's sign-in refreshes the public login time, so the public copy
    can be ahead of the private one (two tippers on the copy). The purge must first copy the newer value into
    `TipperPrivate`, never drop it ("a present public field wins", as the merge already rules).
@@ -1853,6 +1905,9 @@ a device or a signed-in session, and these are the owner's manual checks. None n
   rules a tip before and after kickoff (the rejection a queued tip meets), another tipper's tips game by game and never
   at the tipper or competition node, the live-score entry and what it may not contain, photo and paid ticks, and that
   unlinking ends access.
+- *One short app-level smoke test against the emulators (the harness substitutes REST adapters for the Firebase
+  plugins and does not drive the pages):* sign in, edit your alias, edit a tipper as an administrator, merge two
+  tippers. There is no need to repeat the 52 cases by hand.
 - *Queued tip, on a device or simulator against the emulators with the R2 rules loaded, signed in by hand:* tip with
   the connection down, kill the app, let the game start, restart (offline first, then online). The tip must stay
   unreported while offline and be reported once online. The SDK's behaviour is established (section 6k, "Review fixes
