@@ -209,7 +209,8 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     if (!mounted || service == null || _tipNoticeShowing) {
       return;
     }
-    final List<String> messages = service.takeNotices();
+    final notices = service.takeNotices();
+    final List<String> messages = notices.messages;
     if (messages.isEmpty) {
       return;
     }
@@ -219,7 +220,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
         context: context,
         builder: (BuildContext dialogContext) => AlertDialog(
           icon: const Icon(Icons.info_outline),
-          title: const Text('Tip not counted'),
+          title: Text(
+            notices.allConfirmed ? 'Tip not counted' : 'Please check your tips',
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

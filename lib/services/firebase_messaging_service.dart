@@ -25,7 +25,11 @@ class FirebaseMessagingService {
 
   /// Tells the server which push tokens are the signed-in tipper's.
   DeviceTokenRegistrar get _registrar => _tokens ??=
-      _tokensOverride ?? DeviceTokenRegistrar(identity: di<IdentityService>());
+      _tokensOverride ??
+      DeviceTokenRegistrar(
+        identity: di<IdentityService>(),
+        currentAccount: () => auth.currentUser?.uid,
+      );
   Future<void>? _initializationFuture;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();

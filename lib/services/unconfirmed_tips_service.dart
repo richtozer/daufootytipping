@@ -132,7 +132,8 @@ class UnconfirmedTipsService extends ChangeNotifier {
 
   final Future<SharedPreferences> Function() _preferences;
   final DateTime Function() _clock;
-  final List<String> _notices = <String>[];
+  final List<({String message, bool confirmed})> _notices =
+      <({String message, bool confirmed})>[];
   StreamSubscription<bool?>? _connectionSubscription;
 
   /// Whether the database reports a live connection. Without a source of
@@ -144,7 +145,10 @@ class UnconfirmedTipsService extends ChangeNotifier {
   Timer? _settleTimer;
 
   /// What the user should be told, oldest first, until [takeNotices].
-  List<String> get notices => List<String>.unmodifiable(_notices);
+  List<String> get notices => <String>[
+    for (final ({String message, bool confirmed}) notice in _notices)
+      notice.message,
+  ];
 
   /// The tips now waiting for the server.
   Future<List<UnconfirmedTip>> pending() => _queue.run(_load);
@@ -169,7 +173,7 @@ class UnconfirmedTipsService extends ChangeNotifier {
     if (!await _forget(tip)) {
       return;
     }
-    _notices.add(_refusedNotice(tip));
+    _notices.add((message: _refusedNotice(tip), confirmed: true));
     notifyListeners();
   });
 
@@ -200,8 +204,16 @@ class UnconfirmedTipsService extends ChangeNotifier {
 
   /// Hands over the notices and clears them, so each is shown exactly once and one
   /// that arrives while the others are on screen is kept for the next time.
-  List<String> takeNotices() {
-    final List<String> taken = List<String>.of(_notices);
+  /// [allConfirmed] is true only if every notice reports a write the server
+  /// actually refused; any other notice is an inference from the tips the device
+  /// shows, and is worded as one.
+  ({List<String> messages, bool allConfirmed}) takeNotices() {
+    final taken = (
+      messages: notices,
+      allConfirmed: _notices.every(
+        (({String message, bool confirmed}) notice) => notice.confirmed,
+      ),
+    );
     _notices.clear();
     return taken;
   }
@@ -215,9 +227,14 @@ class UnconfirmedTipsService extends ChangeNotifier {
 
   void _connectionChanged(bool? connected) {
     _connected = connected == true;
-    if (_connected) {
-      unawaited(_queue.run(() => _review(announce: false)));
+    if (!_connected) {
+      // The wait is for time spent connected: a drop, however brief, starts it
+      // again once the connection is back.
+      _settleTimer?.cancel();
+      _settleTimer = null;
+      return;
     }
+    unawaited(_queue.run(() => _review(announce: false)));
   }
 
   /// With [announce] false, forgets tips that newer ones have replaced and starts
@@ -245,7 +262,10 @@ class UnconfirmedTipsService extends ChangeNotifier {
         case _Standing.missing when !_connected:
           keep.add(tip);
         case _Standing.missing when announce:
-          _notices.add(_notCountedNotice(tip));
+          _notices.add((
+            message: _couldNotConfirmNotice(tip),
+            confirmed: false,
+          ));
           told = true;
         case _Standing.missing:
           anyMissing = true;
@@ -284,12 +304,15 @@ class UnconfirmedTipsService extends ChangeNotifier {
       'Your tip for ${tip.gameLabel} was not counted. The server did not accept '
       'it, most likely because the game had started before it arrived.';
 
-  String _notCountedNotice(UnconfirmedTip tip) =>
+  /// For a tip the device no longer shows, which is an inference: the database
+  /// may simply not have caught up, so it is not said to have been refused.
+  String _couldNotConfirmNotice(UnconfirmedTip tip) =>
       tip.kickoffUtcMs <= _clock().toUtc().millisecondsSinceEpoch
-      ? 'Your tip for ${tip.gameLabel} never reached the server before the '
-            'game started, so it was not counted.'
-      : 'Your tip for ${tip.gameLabel} did not reach the server. Please check '
-            'it on the Tips page and tip again.';
+      ? 'We could not confirm your tip for ${tip.gameLabel}. It may not have '
+            'reached the server before the game started. Please check it on the '
+            'Tips page.'
+      : 'We could not confirm your tip for ${tip.gameLabel}. Please check it on '
+            'the Tips page, and tip again if it is missing.';
 
   Future<bool> _forget(UnconfirmedTip tip) async {
     final List<UnconfirmedTip> all = await _load();

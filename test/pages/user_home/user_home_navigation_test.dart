@@ -584,8 +584,9 @@ void main() {
         await pumpHome(tester);
         await letTheServiceSettle(tester);
 
-        expect(find.text('Tip not counted'), findsOneWidget);
-        expect(find.textContaining('never reached the server'), findsOneWidget);
+        expect(find.text('Please check your tips'), findsOneWidget);
+        expect(find.text('Tip not counted'), findsNothing);
+        expect(find.textContaining('could not confirm'), findsOneWidget);
       },
     );
 
@@ -604,8 +605,8 @@ void main() {
       await pumpHome(tester);
       await letTheServiceSettle(tester);
 
-      expect(find.text('Tip not counted'), findsOneWidget);
-      expect(find.textContaining('tip again'), findsOneWidget);
+      expect(find.text('Please check your tips'), findsOneWidget);
+      expect(find.textContaining('tip again if it is missing'), findsOneWidget);
     });
 
     testWidgets(

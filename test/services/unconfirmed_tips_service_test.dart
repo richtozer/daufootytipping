@@ -123,6 +123,15 @@ void main() {
       expect(await service.pending(), isEmpty);
     });
 
+    test('a refusal is reported as confirmed', () async {
+      final service = build();
+      await service.queued(tip());
+
+      await service.rejected(tip());
+
+      expect(service.takeNotices().allConfirmed, isTrue);
+    });
+
     test('says nothing for a tip a newer one has replaced', () async {
       final service = build();
       final older = tip(
@@ -147,7 +156,7 @@ void main() {
           tip(gameKey: 'game-1', gameLabel: 'First v One'),
         );
 
-        final first = service.takeNotices();
+        final first = service.takeNotices().messages;
         await service.queued(tip(gameKey: 'game-2', gameLabel: 'Second v Two'));
         await service.rejected(
           tip(gameKey: 'game-2', gameLabel: 'Second v Two'),
@@ -155,8 +164,8 @@ void main() {
 
         expect(first.single, contains('First v One'));
         expect(service.notices.single, contains('Second v Two'));
-        expect(service.takeNotices(), hasLength(1));
-        expect(service.takeNotices(), isEmpty);
+        expect(service.takeNotices().messages, hasLength(1));
+        expect(service.takeNotices().messages, isEmpty);
       },
     );
   });
@@ -295,7 +304,9 @@ void main() {
       await Future<void>.delayed(longerThanSettle);
 
       expect(service.notices.single, contains('Home v Away'));
-      expect(service.notices.single, contains('never reached the server'));
+      expect(service.notices.single, contains('could not confirm'));
+      expect(service.notices.single, contains('before the game started'));
+      expect(service.notices.single, isNot(contains('not counted')));
       expect(notified, 1);
       expect(await service.pending(), isEmpty);
     });
@@ -307,9 +318,62 @@ void main() {
       await look();
       await Future<void>.delayed(longerThanSettle);
 
-      expect(service.notices.single, contains('did not reach the server'));
-      expect(service.notices.single, contains('tip again'));
+      expect(service.notices.single, contains('could not confirm'));
+      expect(service.notices.single, contains('tip again if it is missing'));
       expect(await service.pending(), isEmpty);
+    });
+
+    test('a missing tip is reported as unconfirmed, not as refused', () async {
+      await connect(true);
+      await service.queued(tip(kickoffUtcMs: past));
+      await look();
+      await Future<void>.delayed(longerThanSettle);
+
+      expect(service.takeNotices().allConfirmed, isFalse);
+    });
+
+    test(
+      'one refusal and one inference together are not all confirmed',
+      () async {
+        await connect(true);
+        await service.queued(tip(gameKey: 'game-1', kickoffUtcMs: past));
+        await service.queued(tip(gameKey: 'game-2', kickoffUtcMs: past));
+        await look();
+        await Future<void>.delayed(longerThanSettle);
+        await service.queued(tip(gameKey: 'game-3', kickoffUtcMs: past));
+        await service.rejected(tip(gameKey: 'game-3', kickoffUtcMs: past));
+
+        final taken = service.takeNotices();
+
+        expect(taken.messages, hasLength(3));
+        expect(taken.allConfirmed, isFalse);
+      },
+    );
+
+    test('a brief drop of the connection starts the wait again', () async {
+      final slow = UnconfirmedTipsService(
+        clock: () => now,
+        connectionStates: connection.stream,
+        settleFor: const Duration(milliseconds: 120),
+      );
+      addTearDown(slow.dispose);
+      await connect(true);
+      await slow.queued(tip(kickoffUtcMs: past));
+      await slow.observe(
+        compKey: 'comp-1',
+        tipperKey: 'tipper-1',
+        shown: shownOnDevice(),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      await connect(false);
+      await connect(true);
+      // The first wait would be over by now; the new one has barely begun.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(slow.notices, isEmpty);
+
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(slow.notices, hasLength(1));
     });
 
     test('a tip that comes back within the wait is not reported', () async {

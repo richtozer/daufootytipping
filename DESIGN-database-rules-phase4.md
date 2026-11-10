@@ -1562,9 +1562,13 @@ process, restart offline, restart online.
   tips listener for the signed-in tipper: a tip shown stays queued (no verdict); a tip replaced by a newer one (later
   submitted time) is forgotten silently; a tip missing is reported only if it stays missing for 3 s **and** the
   connection is up (`.info/connected`), because an accepted tip can vanish for an instant if the database replays and
-  refuses a write it had already sent. Offline, nothing is decided. A tip missing before its game starts is reported
-  with "please check it and tip again" (a tip lost with the process on web, which has no persistence, is the usual way
-  to get there). Accepted entries are not tidied from the data; they go in 14 days, or when the write itself answers.
+  refuses a write it had already sent. Offline, nothing is decided. The 3 s is a heuristic, not proof that the
+  listener has caught up, so an inferred failure says "We could not confirm your tip for ... please check it on the
+  Tips page" under the title "Please check your tips"; "Tip not counted" and "not counted" wording are reserved for an
+  actual write rejection (`rejected()`). A drop of the connection, however brief, cancels the wait; it starts again
+  after the reconnection (an earlier version let the timer survive a brief drop and fire straight after it). A tip
+  missing before its game starts is told to tip again if it is missing (a tip lost with the process on web, which has
+  no persistence, is the usual way to get there). Accepted entries are not tidied from the data; they go in 14 days, or when the write itself answers.
 - *Overlapping operations.* The service's operations ran load, change, save independently, so two at once could lose
   one another's change. All operations now go through one queue. Tested with a deliberately slow store; removing the
   queue fails three tests.
@@ -1601,8 +1605,10 @@ process, restart offline, restart online.
 - *Needs mode `coexist`.* Admin edits and merges are identity callables, so under mode `off` they say "Changing
   tippers is switched off at the moment." Until the mode moves, the R2 client cannot edit a tipper's name, email or
   role from the admin screens; paid ticks work.
-- *Still direct writes:* none after slice 4 below. (Live scores were the last; push tokens and the account deletion
-  flow went with slice 5, the own alias with slice 7.)
+- *Migrated, and what stays direct.* The identity operations the survey listed (linking, own alias, push tokens,
+  account deletion, admin edits and merges) now go through callables; slices 5 and 7 below finished them. Tips, paid
+  status, photos and live-score history remain direct client writes, by design: the R2 rules allow exactly those
+  (a tip before kickoff, the owner's photo, an administrator's paid ticks, a create-only history entry).
 
 **Slice 4 built (10 November 2026): live scores.**
 - *History only.* `StatsViewModel._writeLiveScoreToDb` writes one create-only entry per submitted score under
@@ -1630,7 +1636,10 @@ process, restart offline, restart online.
   `DeviceTokenRegistrar`: every call goes through one queue (the server expects a client's register and unregister
   for a token in order), a server that cannot be reached is tried again after 5 s and 30 s (the waits are outside the
   queue, so a removal is not held up behind them), a refusal is final for now, and a registration failure is logged,
-  never thrown. A token refresh removes the old token only if it had been registered. Signing out removes the token
+  never thrown. A removal of a token voids any registration of that token still waiting to be retried or queued, and a change of the
+  signed-in account voids registrations and removals asked for by the earlier account (a per-token counter and an
+  account check, so a retry cannot undo a removal and one account's work is not done under another's). A token refresh
+  removes the old token only if it had been registered. Signing out removes the token
   best-effort for 10 s and then signs out regardless (`unregisterCurrentTokenIfPossible`): an offline sign-out must not
   hang; the server moves the token to the next tipper who registers on the device, or drops it as stale.
 - *Account deletion* is `AccountDeletion` (`lib/services/account_deletion.dart`), no longer in `TippersViewModel`:
@@ -1640,7 +1649,10 @@ process, restart offline, restart online.
   provider still wants a fresher sign-in at the last step, the person signs in again and the delete is retried. A
   deletion that fails after the unlink is simply run again: the token step finds `not_linked` and carries on, the
   unlink says `unlinked: false`, the account is deleted (tested as the design asked). `FirebaseDeletableAccount` is the
-  thin Firebase Auth adapter; the Apple reauthentication keeps the old code's tolerance of five error codes.
+  thin Firebase Auth adapter. Every failure of signing in again is passed on, Apple's included: the old delete flow
+  let five Apple error codes (`user-mismatch`, `invalid-credential` and others) through as success, which would have
+  let this flow remove the token and unlink before finding out the sign-in had failed. Only a call that returns
+  without an error counts as signing in again.
 - *Shared queue.* `SerialQueue` (`lib/services/serial_queue.dart`) is the one-at-a-time runner both this and
   `UnconfirmedTipsService` use.
 - *Needs mode `coexist`.* Under mode `off` the callables refuse, so no push token is registered and **deleting an

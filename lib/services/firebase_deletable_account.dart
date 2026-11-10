@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:daufootytipping/services/account_deletion.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -22,6 +20,10 @@ class FirebaseDeletableAccount implements DeletableAccount {
   @override
   DateTime? get lastSignInTime => _auth.currentUser?.metadata.lastSignInTime;
 
+  /// Has the person sign in again. Any failure is passed on: the deletion goes
+  /// on to remove the push token and unlink the tipper, and must not do either
+  /// unless signing in again is known to have worked, which is only when this
+  /// returns without an error.
   @override
   Future<void> reauthenticate() async {
     final User user = _user;
@@ -30,31 +32,11 @@ class FirebaseDeletableAccount implements DeletableAccount {
     }
     switch (user.providerData.first.providerId) {
       case 'apple.com':
-        await _reauthenticateWithApple(user);
+        await user.reauthenticateWithProvider(AppleAuthProvider());
       case 'google.com':
         await user.reauthenticateWithProvider(GoogleAuthProvider());
       case final String other:
         throw UnsupportedError('Cannot sign in again with $other');
-    }
-  }
-
-  Future<void> _reauthenticateWithApple(User user) async {
-    try {
-      await user.reauthenticateWithProvider(AppleAuthProvider());
-    } on FirebaseAuthException catch (e) {
-      // These codes were let through by the delete flow before it unlinked
-      // accounts, and are still. Apple reports some of them although the sign-in
-      // went through; if it did not, the delete asks for a fresher sign-in and
-      // says so.
-      if (e.code == 'user-mismatch' ||
-          e.code == 'user-not-found' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-verification-code' ||
-          e.code == 'invalid-verification-id') {
-        log('FirebaseDeletableAccount: Apple sign-in again said ${e.code}');
-        return;
-      }
-      rethrow;
     }
   }
 
