@@ -190,6 +190,14 @@ class EmulatorDatabase {
     );
   }
 
+  /// Gives the tipper the administrator role, as it already is on a database that
+  /// has administrators: in the private record, which is what the functions and
+  /// the R2 rules both read (the public copy is written too, as 1.4.x clients do).
+  Future<void> makeAdministrator(String tipperId) => adminPatch('/', {
+    '${paths.tipperPrivatePath}/$tipperId/tipperRole': 'admin',
+    '${paths.tippersPath}/$tipperId/tipperRole': 'admin',
+  });
+
   /// This database as [account] sees it, under the rules in force.
   ClientDatabase as(Account account) => ClientDatabase._(this, account);
 }
@@ -295,16 +303,4 @@ class HttpIdentityCallableInvoker implements IdentityCallableInvoker {
       details: error['details'],
     );
   }
-}
-
-/// The first uid in the server's compiled-in administrator list, which is the
-/// only kind of account the admin callables accept.
-String serverAdminUid() {
-  final text = File('functions_dart/bin/admin_allowlist.g.dart')
-      .readAsStringSync();
-  final match = RegExp(r"'([A-Za-z0-9]{20,})'").firstMatch(text);
-  if (match == null) {
-    throw StateError('no administrator uid in admin_allowlist.g.dart');
-  }
-  return match.group(1)!;
 }

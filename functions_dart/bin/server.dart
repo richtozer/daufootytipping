@@ -9,6 +9,7 @@ import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dart_functions/auth_bypass_guard.dart';
 import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/identity/admin_gate.dart';
 import 'package:dart_functions/identity/backend_tippers.dart';
 import 'package:dart_functions/identity/callables.dart';
 import 'package:dart_functions/live_scores/live_score_aggregation.dart';
@@ -18,7 +19,6 @@ import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
-import 'admin_allowlist.g.dart';
 
 void logFunction(String message) {
   stdout.writeln('[adminFixtureDownload] $message');
@@ -161,6 +161,10 @@ void main(List<String> args) async {
           throw UnauthenticatedError('User must be authenticated');
         }
 
+        // The caller's administrator role is read from the database.
+        final dbHandle = await _openBackendScoringDatabase(
+          runtimeAdminApp: runtimeAdminApp,
+        );
         try {
           final url = extractAdminCheckFixtureUrlUrl(request.data);
           if (url == null || url.isEmpty) {
@@ -170,6 +174,7 @@ void main(List<String> args) async {
           final active = await checkFixtureUrlActive(
             authUid: auth.uid,
             url: url,
+            db: dbHandle.database,
           );
 
           return CallableResult({'active': active});
@@ -181,6 +186,8 @@ void main(List<String> args) async {
             'adminCheckFixtureUrl: unexpected failure: $e\n$stackTrace',
           );
           rethrow;
+        } finally {
+          await dbHandle.close();
         }
       },
     );
@@ -192,7 +199,6 @@ void main(List<String> args) async {
     registerIdentityCallables(
       firebase,
       openDatabase: () => _openIdentityDatabase(runtimeAdminApp),
-      adminUids: adminAuthUids,
     );
 
     firebase.https.onRequest(
@@ -1419,10 +1425,10 @@ Future<String> executeFixtureDownload({
   required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
   required DateTime now,
   Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
-  Set<String> adminAuthUidAllowlist = adminAuthUids,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  logFunction('executeFixtureDownload: checking admin allowlist for authUid=$authUid');
-  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
+  logFunction('executeFixtureDownload: checking the caller is an administrator');
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final comp = await _loadFixtureDownloadComp(db, compKey);
   final result = await _executeFixtureDownloadCore(
@@ -1449,9 +1455,9 @@ Future<BackendScoringCommandResult> executeAdminScoringRescore({
   required dynamic db,
   required DateTime now,
   BackendScoringCommandExecutor executeCommand = executeBackendScoringCommand,
-  Set<String> adminAuthUidAllowlist = adminAuthUids,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final sourceEventId = 'admin_rescore_${compKey}_${now.microsecondsSinceEpoch}';
   return executeCommand(
@@ -1486,9 +1492,10 @@ Future<bool> checkFixtureUrlActive({
   required String url,
   FixtureUrlChecker? checkUrl,
   FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
-  Set<String> adminAuthUidAllowlist = adminAuthUids,
+  required dynamic db,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  requireAdminAuthUid(authUid, allowlist: adminAuthUidAllowlist);
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final uri = Uri.tryParse(url);
   if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
@@ -1623,24 +1630,19 @@ Future<FixtureUrlHopResult> _requestFixtureUrlHop(Uri uri) async {
   }
 }
 
-/// Temporary R1 admin check (DESIGN-database-rules.md D12).
-///
-/// Admin status comes from the deployed, independently verified allowlist in
-/// `config/admin-auth-uids.json`, never from data in the database: the old
-/// role scan trusted `authuid` and `tipperRole` in publicly writable records.
-/// Replaced by the bidirectional AuthIndex check in R2.
-bool isAdminAuthUid(String authUid, {Set<String> allowlist = adminAuthUids}) =>
-    allowlist.contains(authUid);
+/// Refuses a caller who is not an administrator. A test supplies its own.
+typedef AdministratorCheck = Future<void> Function(String authUid);
 
-/// Throws [PermissionDeniedError] unless [authUid] is on the admin allowlist.
-void requireAdminAuthUid(
-  String authUid, {
-  Set<String> allowlist = adminAuthUids,
-}) {
-  if (!isAdminAuthUid(authUid, allowlist: allowlist)) {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
-}
+/// The administrator check against [db], by the same test as the identity
+/// callables and the R2 database rules (DESIGN-database-rules-phase4.md,
+/// section 8): the caller's `/AuthIndex` entry and private record must name each
+/// other and say `admin`. Nothing in public data counts, and a failed read
+/// refuses the call. (Before the cutover this was the compile-time allowlist.)
+AdministratorCheck _requireAdministratorIn(dynamic db) =>
+    (authUid) => requireAdministratorUid(
+      (path) async => (await db.ref(path).once()).value as Object?,
+      authUid,
+    );
 
 Future<FixtureDownloadResult> _executeFixtureDownloadCore({
   required DAUComp comp,

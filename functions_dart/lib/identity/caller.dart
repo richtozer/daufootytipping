@@ -49,19 +49,32 @@ final class UnresolvedCaller extends CallerResolution {
 Future<CallerResolution> resolveCallerTipper(
   RestDatabase database,
   String uid,
+) => resolveCallerTipperFrom(
+  (path) async => (await database.ref(path).once()).value,
+  uid,
+);
+
+/// Reads the value at a database path: null when there is none.
+typedef ReadValue = Future<Object?> Function(String path);
+
+/// [resolveCallerTipper] over any way of reading a value, so that the older
+/// admin endpoints, which hold other kinds of database handle, apply exactly the
+/// same test as the callables and the R2 rules.
+Future<CallerResolution> resolveCallerTipperFrom(
+  ReadValue read,
+  String uid,
 ) async {
   if (!isValidRtdbKey(uid)) {
     return const UnresolvedCaller(CallerFailure.invalidUid);
   }
-  final indexed = (await database.ref('$authIndexPath/$uid').once()).value;
+  final indexed = await read('$authIndexPath/$uid');
   if (indexed == null) {
     return const UnresolvedCaller(CallerFailure.noMapping);
   }
   if (indexed is! String || !isValidRtdbKey(indexed)) {
     return const UnresolvedCaller(CallerFailure.invalidMapping);
   }
-  final record =
-      (await database.ref('$tipperPrivatePath/$indexed').once()).value;
+  final record = await read('$tipperPrivatePath/$indexed');
   if (record is! Map) {
     return const UnresolvedCaller(CallerFailure.recordMissing);
   }

@@ -18,13 +18,10 @@ import {
   VARIANTS,
   allowlistRevision,
   buildRules,
-  dartLiteral,
   isAdminExpr,
   loadConfig,
-  renderDartAllowlist,
   renderRulesFile,
   ruleLiteral,
-  unescapeDartLiteral,
   unescapeRuleLiteral,
   validateUids,
 } from '../scripts/build_admin_allowlist.mjs';
@@ -61,10 +58,9 @@ describe('validateUids', () => {
 });
 
 describe('literal escaping', () => {
-  it('round-trips every awkward UID through the rules and Dart literals', () => {
+  it('round-trips every awkward UID through the rules literal', () => {
     for (const uid of AWKWARD) {
       assert.equal(unescapeRuleLiteral(ruleLiteral(uid)), uid, `rules: ${uid}`);
-      assert.equal(unescapeDartLiteral(dartLiteral(uid)), uid, `dart: ${uid}`);
     }
   });
   it('a quote or backslash cannot break out of the rules expression', () => {
@@ -72,10 +68,6 @@ describe('literal escaping', () => {
     // the whole UID must remain a single literal: no bare `|| true` outside quotes
     const expr = JSON.parse(text).rules.AppConfig['.write'];
     assert.equal(expr, `(auth != null && (auth.uid === 'x\\' || true || \\'y'))`);
-  });
-  it('a dollar sign cannot start an interpolation in the Dart constant', () => {
-    const dart = renderDartAllowlist(['a${evil}b']);
-    assert.ok(dart.includes("'a\\${evil}b'"));
   });
   it('the generated rules JSON stays valid with awkward UIDs', () => {
     const parsed = JSON.parse(renderRulesFile(template, AWKWARD));
@@ -148,19 +140,6 @@ describe('recovery variant (what to deploy instead of reopening the database)', 
   });
 });
 
-describe('Dart constant', () => {
-  it('lists every UID as a compile-time set with the revision', () => {
-    const dart = renderDartAllowlist([UID_A, UID_B]);
-    assert.ok(dart.includes(`'${UID_A}',`));
-    assert.ok(dart.includes('const Set<String> adminAuthUids'));
-    assert.ok(dart.includes(`const String adminAllowlistRevision = '${allowlistRevision([UID_A, UID_B])}';`));
-    assert.ok(dart.startsWith('// GENERATED'));
-  });
-  it('an empty list renders an empty set', () => {
-    assert.ok(renderDartAllowlist([]).includes('const Set<String> adminAuthUids = <String>{};'));
-  });
-});
-
 describe('compat variant (R1 plus the two reads the R2 client needs)', () => {
   const r1 = buildRules(template, [UID_A]).rules;
   const compat = buildRules(template, [UID_A], { variant: 'r1-compat' }).rules;
@@ -222,7 +201,7 @@ describe('freeze and r2 variants', () => {
 describe('committed outputs match config/admin-auth-uids.json', () => {
   const uids = validateUids(loadConfig(), { allowEmpty: true });
 
-  it('the committed R1 rules, recovery rules, compat rules and Dart constant are current', () => {
+  it('the committed R1 rules, recovery rules, compat rules, freeze rules and R2 rules are current', () => {
     assert.equal(readFileSync(PATHS.rulesOut, 'utf8'), renderRulesFile(template, uids));
     assert.equal(readFileSync(PATHS.recoveryOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-recovery' }));
     assert.equal(readFileSync(PATHS.compatOut, 'utf8'), renderRulesFile(template, uids, { variant: 'r1-compat' }));
@@ -231,19 +210,15 @@ describe('committed outputs match config/admin-auth-uids.json', () => {
       readFileSync(PATHS.r2Out, 'utf8'),
       renderRulesFile(readFileSync(PATHS.r2Template, 'utf8'), uids, { variant: 'r2' }),
     );
-    assert.equal(readFileSync(PATHS.dartOut, 'utf8'), renderDartAllowlist(uids));
   });
-  it('rules, recovery rules and Dart name exactly the same UIDs', () => {
+  it('the R1 family of rules names exactly the configured UIDs, and R2 names none', () => {
     const fromRules = (path) =>
       [...readFileSync(path, 'utf8').matchAll(/auth\.uid === ('(?:[^'\\]|\\.)*')/g)].map((m) => unescapeRuleLiteral(m[1]));
-    const inDart = [...readFileSync(PATHS.dartOut, 'utf8').matchAll(/^ {2}('(?:[^'\\]|\\.)*'),$/gm)].map((m) => unescapeDartLiteral(m[1]));
     const norm = (list) => [...new Set(list)].sort();
-    assert.deepEqual(norm(fromRules(PATHS.rulesOut)), norm(inDart));
-    assert.deepEqual(norm(fromRules(PATHS.recoveryOut)), norm(inDart));
-    assert.deepEqual(norm(fromRules(PATHS.compatOut)), norm(inDart));
-    assert.deepEqual(norm(fromRules(PATHS.freezeOut)), norm(inDart));
+    for (const path of [PATHS.rulesOut, PATHS.recoveryOut, PATHS.compatOut, PATHS.freezeOut]) {
+      assert.deepEqual(norm(fromRules(path)), norm(uids), path);
+    }
     assert.deepEqual(fromRules(PATHS.r2Out), [], 'R2 names no allowlisted uid at all');
-    assert.deepEqual(norm(inDart), norm(uids));
   });
 });
 
@@ -292,12 +267,8 @@ describe('the generator CLI and the deployment guard', () => {
     });
   });
 
-  it('--check detects a hand-edited Dart constant and a hand-edited recovery ruleset', () => {
+  it('--check detects a hand-edited recovery ruleset', () => {
     withSandbox([UID_A], (dir) => {
-      run(dir);
-      const dartPath = join(dir, 'functions_dart', 'bin', 'admin_allowlist.g.dart');
-      writeFileSync(dartPath, readFileSync(dartPath, 'utf8').replace(UID_A, UID_B));
-      assert.equal(run(dir, '--check').status, 1);
       run(dir);
       const recoveryPath = join(dir, 'config', 'generated', 'database.rules.r1-recovery.json');
       writeFileSync(recoveryPath, readFileSync(recoveryPath, 'utf8').replace(UID_A, UID_B));
@@ -411,22 +382,21 @@ describe('the generator CLI and the deployment guard', () => {
     });
   });
 
-  it('--record appends one JSON line per deployment with the allowlist revision', () => {
+  it('--record appends one JSON line per rules deployment with the allowlist revision, and refuses anything else', () => {
     withSandbox([UID_A, UID_B], (dir) => {
       run(dir);
       assert.equal(run(dir, '--record', 'rules').status, 0);
-      assert.equal(run(dir, '--record', 'functions').status, 0);
+      const refused = run(dir, '--record', 'functions');
+      assert.notEqual(refused.status, 0, 'the functions no longer use the allowlist');
+      assert.match(refused.stderr, /--record must be 'rules'/);
       const lines = readFileSync(join(dir, 'config', 'deployments', 'allowlist-deployments.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-      assert.equal(lines.length, 2);
-      assert.deepEqual(lines.map((l) => l.kind), ['rules', 'functions']);
-      for (const l of lines) {
-        assert.equal(l.allowlistRevision, allowlistRevision([UID_A, UID_B]));
-        assert.equal(l.adminUidCount, 2);
-        assert.equal(l.project, SANDBOX_PROJECT_ID);
-        assert.match(l.at, /^\d{4}-\d{2}-\d{2}T/);
-      }
+      assert.equal(lines.length, 1);
+      assert.equal(lines[0].kind, 'rules');
+      assert.equal(lines[0].allowlistRevision, allowlistRevision([UID_A, UID_B]));
+      assert.equal(lines[0].adminUidCount, 2);
+      assert.equal(lines[0].project, SANDBOX_PROJECT_ID);
+      assert.match(lines[0].at, /^\d{4}-\d{2}-\d{2}T/);
       assert.match(lines[0].rulesSha256, /^[0-9a-f]{64}$/);
-      assert.equal(lines[1].rulesSha256, null);
     });
   });
 

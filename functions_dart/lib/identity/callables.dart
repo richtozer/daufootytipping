@@ -42,7 +42,7 @@ typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 /// Registers `link-or-create-tipper`, `update-tipper-alias`,
 /// `register-device-token`, `unregister-device-token`, `unlink-my-account`,
 /// `admin-update-tipper` and `admin-merge-tippers` (DESIGN-database-rules-phase4.md, sections 6f and 6h).
-/// [adminUids] are the accounts the admin callables accept.
+/// The admin callables accept the validated administrators ([requireAdmin]).
 ///
 /// Every one of them:
 ///
@@ -64,7 +64,6 @@ typedef IdentityDatabaseOpener = Future<RestDatabase> Function();
 void registerIdentityCallables(
   Firebase firebase, {
   required IdentityDatabaseOpener openDatabase,
-  required Set<String> adminUids,
   Duration handlerDeadline = handlerSoftDeadline,
 }) {
   firebase.https.onCall(
@@ -176,7 +175,6 @@ void registerIdentityCallables(
         caller: call.caller,
         request: call.request,
         admission: call.admission,
-        adminUids: adminUids,
         checkpoint: call.checkpoint,
       )).toJson(),
     ),
@@ -196,7 +194,6 @@ void registerIdentityCallables(
         caller: call.caller,
         request: call.request,
         admission: call.admission,
-        adminUids: adminUids,
         checkpoint: call.checkpoint,
       )).toJson(),
     ),

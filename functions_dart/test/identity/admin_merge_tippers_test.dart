@@ -18,7 +18,6 @@ const String _uidAdmin = 'uidAdmin000000000000000000001';
 const String _uidOld = 'uidOld0000000000000000000002';
 const String _uidNew = 'uidNew0000000000000000000003';
 const String _uidSam = 'uidSam0000000000000000000004';
-const Set<String> _admins = <String>{_uidAdmin};
 
 /// The ordinary request: merge everything.
 const AdminMergeTippersRequest _everything = AdminMergeTippersRequest(
@@ -136,7 +135,6 @@ void main() {
       caller: callerToken(uid, 'x@example.com'),
       request: request,
       admission: admissionFor(mode: mode),
-      adminUids: _admins,
       nowMs: () => at,
       checkpoint: checkpoint,
     );

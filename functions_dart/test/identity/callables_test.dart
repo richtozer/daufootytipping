@@ -88,7 +88,6 @@ void main() {
       adminApp: app,
       (firebase) => registerIdentityCallables(
         firebase,
-        adminUids: const <String>{_adminUid},
         openDatabase: () async {
           if (openerFails) {
             throw StateError('the database cannot be opened in this test');
@@ -410,6 +409,27 @@ void main() {
         .ref(identityModePath)
         .update(<String, Object?>{'mode': mode, 'pilotUids': ?pilotUids});
 
+    /// Alex, an administrator: linked both ways, with the role in the private record.
+    Future<void> seedAdministrator() async {
+      final alex = IdentitySeed()
+        ..tipper(
+          'tAdm',
+          name: 'Alex',
+          authuid: _adminUid,
+          logon: 'admin@example.com',
+          indexAccount: true,
+        );
+      for (final entry in alex.data.entries) {
+        await db
+            .ref('/${entry.key}')
+            .update(Map<String, Object?>.from(entry.value as Map));
+      }
+      await db.ref('/').update(<String, Object?>{
+        'TipperPrivate/tAdm/tipperRole': 'admin',
+        'AllTippers/tAdm/tipperRole': 'admin',
+      });
+    }
+
     Future<_Reply> asPat(String endpoint, [Object? data]) => call(
       endpoint,
       data: data ?? _validBodies[endpoint],
@@ -623,6 +643,7 @@ void main() {
       test(
         'admin-update-tipper lets an administrator rename another tipper',
         () async {
+          await seedAdministrator();
           final reply = await call(
             adminUpdateTipperEndpoint,
             data: <String, Object?>{'tipperId': 't2', 'name': 'Samuel'},
@@ -641,6 +662,51 @@ void main() {
       );
 
       test(
+        'a tipper made an administrator can use the admin callables at once, and loses them when demoted',
+        () async {
+          await seedAdministrator();
+          Future<_Reply> patRenames(String name) => call(
+            adminUpdateTipperEndpoint,
+            data: <String, Object?>{'tipperId': 't2', 'name': name},
+            idToken: idTokenFor(_uidA, email: 'pat@example.com'),
+          );
+          Future<_Reply> alexSets(String role) => call(
+            adminUpdateTipperEndpoint,
+            data: <String, Object?>{'tipperId': 't1', 'role': role},
+            idToken: idTokenFor(_adminUid, email: 'admin@example.com'),
+          );
+
+          expect((await patRenames('Samuel')).reason, 'not_admin');
+
+          expect((await alexSets('admin')).status, 200);
+          final asAdmin = await patRenames('Samuel');
+          expect(asAdmin.status, 200, reason: '${asAdmin.body}');
+
+          expect((await alexSets('tipper')).status, 200);
+          expect((await patRenames('Sammy')).reason, 'not_admin');
+        },
+      );
+
+      test(
+        'an administrator whose account is no longer linked is refused',
+        () async {
+          await seedAdministrator();
+          await db.ref('/').update(<String, Object?>{
+            'AuthIndex/$_adminUid': null,
+          });
+
+          final reply = await call(
+            adminUpdateTipperEndpoint,
+            data: <String, Object?>{'tipperId': 't2', 'name': 'Samuel'},
+            idToken: idTokenFor(_adminUid, email: 'admin@example.com'),
+          );
+
+          expect(reply.status, 403);
+          expect(reply.reason, 'not_admin');
+        },
+      );
+
+      test(
         'admin-merge-tippers is refused to a signed-in tipper who is not an administrator',
         () async {
           final before = canonical(await readRoot(db));
@@ -654,6 +720,7 @@ void main() {
       test(
         'admin-merge-tippers lets an administrator merge one tipper into another',
         () async {
+          await seedAdministrator();
           final reply = await call(
             adminMergeTippersEndpoint,
             data: <String, Object?>{'originalId': 't1', 'targetId': 't2'},

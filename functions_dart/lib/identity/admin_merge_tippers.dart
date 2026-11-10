@@ -47,11 +47,10 @@ Future<AdminMergeTippersResult> adminMergeTippers({
   required CallerToken caller,
   required AdminMergeTippersRequest request,
   required Admission admission,
-  required Set<String> adminUids,
   int Function()? nowMs,
   Checkpoint? checkpoint,
 }) async {
-  requireAdmin(caller, adminUids);
+  await requireAdmin(database, caller);
 
   final clock = nowMs ?? () => DateTime.now().millisecondsSinceEpoch;
   final originalId = request.originalId;

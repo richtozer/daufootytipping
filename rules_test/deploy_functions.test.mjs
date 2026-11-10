@@ -101,13 +101,14 @@ describe('deploy-functions.sh --dry-run runs the checks and stops', () => {
     });
   });
 
-  it('the Dart codebase is refused while the allowlist is empty; the TypeScript codebase is not affected', () => {
+  it('neither codebase depends on the admin allowlist: an empty list does not stop a deployment', () => {
+    // The functions decide who is an administrator from the validated private role
+    // (functions_dart/lib/identity/admin_gate.dart); only the R1 rulesets use the list.
     withSandbox([], (sb) => {
-      const dart = run(sb, ['--dry-run', '--only', 'dart', ...DEMO]);
-      assert.equal(dart.status, 1);
-      assert.match(`${dart.stdout}${dart.stderr}`, /empty/);
-      const ts = run(sb, ['--dry-run', '--only', 'default', ...DEMO]);
-      assert.equal(ts.status, 0, ts.stdout + ts.stderr);
+      for (const only of ['dart', 'default', 'all']) {
+        const r = run(sb, ['--dry-run', '--only', only, ...DEMO]);
+        assert.equal(r.status, 0, `--only ${only}: ${r.stdout}${r.stderr}`);
+      }
     });
   });
 

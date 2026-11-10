@@ -162,11 +162,6 @@ if [ "$bypass_found" -eq 1 ]; then
   exit 1
 fi
 
-if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
-  echo "Checking the admin allowlist (refuses an empty or stale list)..."
-  node "$repo_root/scripts/build_admin_allowlist.mjs" --check
-fi
-
 if [ "$dry_run" -eq 1 ]; then
   echo "Dry run: the argument, project and allowlist checks passed. Nothing was built or deployed."
   exit 0
@@ -208,13 +203,6 @@ echo "Step 1: Checking backend scoring deploy prerequisites..."
 bash "$repo_root/scripts/check_backend_scoring_deploy_prereqs.sh" "$only"
 
 if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
-  # The admin endpoints authorize against a compile-time allowlist generated from
-  # config/admin-auth-uids.json (DESIGN-database-rules.md D12). Refuse to deploy
-  # if the list is empty (it would lock every admin out) or if the committed
-  # generated file no longer matches the config.
-  echo "Step 1b: Checking the admin allowlist..."
-  node "$repo_root/scripts/build_admin_allowlist.mjs" --check
-
   # Generate the manifest BEFORE testing. deployment_manifest_test.dart asserts
   # against the tracked functions.yaml, so testing first would validate the old
   # manifest and then deploy a freshly generated, untested one.
@@ -254,11 +242,6 @@ fi
 echo "Step 5: Deploying ${targets}..."
 "$firebase_bin" deploy --only "$targets" --project "$project"
 
-# Record which admin allowlist revision the Dart codebase was deployed with.
-if [ "$only" = "dart" ] || [ "$only" = "all" ]; then
-  node "$repo_root/scripts/build_admin_allowlist.mjs" --record functions
-  echo "Commit config/deployments/allowlist-deployments.jsonl to keep the record."
-fi
 
 echo
 echo "Done. Deployed ${targets} from ${short_commit} (${branch}) to ${project}."

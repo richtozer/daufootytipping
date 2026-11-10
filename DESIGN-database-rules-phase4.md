@@ -1705,6 +1705,31 @@ process, restart offline, restart online.
   browser pane would not register a real service worker, so that part is shown with stand-ins, not a real worker.
   9 widget tests, six breakages caught.
 
+### 6l. M8 built locally (10 November 2026): admin authorization, the purge, the cutover rehearsal
+
+Local only. Nothing is deployed, and the production cutover is a separate decision.
+
+**Server admin authorization is the validated private role.** An administrator, for the identity callables
+(`admin-update-tipper`, `admin-merge-tippers`) and for the older admin endpoints (`admin-fixture-download`,
+`admin-scoring-rescore`, `admin-check-fixture-url`), is the tipper whose `/AuthIndex` entry names them and whose
+private record names them back and says `admin`: the same test the R2 rules apply, so what the rules let an
+administrator do and what the functions let them do cannot come apart. A role changed by `admin-update-tipper`
+takes effect at once in both. One implementation (`resolveCallerTipperFrom` in `caller.dart`, used through
+`admin_gate.dart`) serves the REST handle of the callables and the other handles of the older endpoints. A failed
+read refuses the call; an anonymous caller is refused without a read. The compile-time list is gone from the
+functions: `functions_dart/bin/admin_allowlist.g.dart` is deleted, the generator no longer emits it, and
+`deploy-functions.sh` no longer checks or records an allowlist (`--record` now takes only `rules`). The list in
+`config/admin-auth-uids.json` stays for the R1 family of rulesets (the rollback target) and the offline backfill.
+- *Ordering matters at deploy time.* The R1-compat rules still use the list, the functions no longer do, so before
+  the functions carrying this change are deployed every allowlisted administrator must already be a validated
+  administrator in the data (indexed, record naming them back, role `admin`), or they lose the admin endpoints. That
+  is a pre-flight read-only check for the owner's go (cutover pre-flight, section 8).
+- Tested: 14 gate unit tests (six deliberate breakages caught), the rewritten server tests (a forged public record
+  grants nothing; an ordinary tipper, a record naming someone else, an index entry without a record are refused;
+  authorization reads exactly the two identity records; a failed read refuses), a promoted tipper using the admin
+  callables at once and losing them when demoted, an administrator whose account is no longer linked refused, and the
+  52 integration tests with the administrator now a seeded role.
+
 ## 7. Timeline, back-planned from the season
 
 **K, the earliest actual match, estimated from the extract (20 October 2026).** The season opens with the
@@ -1839,8 +1864,12 @@ a device or a signed-in session, and these are the owner's manual checks. None n
 - *Account deletion refused under mode `off`:* the message appears and nothing is deleted (covered by the harness; worth
   one look on a device for the wording).
 - *Production settings to confirm before an R2 client ships:* `AppConfig/createLinkedTipper` is `true` (without it a
-  new sign-up is answered `creation_disabled`), the identity mode is `coexist`, and the live-score aggregator is
-  `active` (section 6i).
+  new sign-up is answered `creation_disabled`) and the identity mode is `coexist`. The live-score aggregator is **not**
+  a prerequisite: it stays in `shadow` until cutover step A sets `active` (section 8), as the schedule has it. While
+  mixed clients are in the field that leaves interim scores from R2-client users unpublished, which is harmless
+  while no game is on (the client ships in late January and K is early March, section 7). If a game could be on
+  before the cutover, or Gate B fails, the owner enables `compat` instead (section 3). That is an explicit owner
+  decision, taken then; it is not something to switch on in advance.
 
 ## 9. Rollback
 

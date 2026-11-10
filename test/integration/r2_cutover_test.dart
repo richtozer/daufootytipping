@@ -90,7 +90,10 @@ void main() {
     await database.seedRunningApp();
     admin = Person(
       database,
-      Account(serverAdminUid(), email: 'admin@example.test'),
+      const Account(
+        'uidAdmin000000000000000000001',
+        email: 'admin@example.test',
+      ),
     );
     ann = Person(
       database,
@@ -103,10 +106,7 @@ void main() {
     adminTipper = await admin.signUp('Admin');
     annTipper = await ann.signUp('Ann');
     bobTipper = await bob.signUp('Bob');
-    await admin.identity.adminUpdateTipper(
-      tipperId: adminTipper.dbkey!,
-      role: TipperRole.admin,
-    );
+    await database.makeAdministrator(adminTipper.dbkey!);
 
     final now = DateTime.now().toUtc().millisecondsSinceEpoch;
     await database.adminPatch('/', {

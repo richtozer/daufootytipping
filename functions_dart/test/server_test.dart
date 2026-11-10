@@ -58,6 +58,17 @@ class DuckTypedSnapshot {
   final Object? value;
 }
 
+class _RecordingDatabase {
+  _RecordingDatabase(this.paths);
+
+  final List<String> paths;
+
+  DuckTypedReference ref(String path) {
+    paths.add(path);
+    return DuckTypedReference(null);
+  }
+}
+
 class _ThrowingDatabase {
   _ThrowingDatabase(this.onRead);
 
@@ -65,9 +76,22 @@ class _ThrowingDatabase {
 
   Never ref(String path) {
     onRead();
-    throw StateError('The database must not be read for authorization');
+    throw StateError('The database could not be read');
   }
 }
+
+/// A database in which [uid] is linked to a tipper whose private record has [role].
+DuckTypedDatabase administratorsDb({
+  String uid = 'admin-uid',
+  String role = 'admin',
+  String recordedUid = 'admin-uid',
+}) => DuckTypedDatabase({
+  '/AuthIndex/$uid': 'tipper-admin',
+  '/TipperPrivate/tipper-admin': {'authuid': recordedUid, 'tipperRole': role},
+});
+
+/// An administrator check for tests of what happens after authorization.
+Future<void> _allowAnyone(String authUid) async {}
 
 DAUComp _badgeTestComp(
   DateTime now, {
@@ -516,29 +540,12 @@ void main() {
   });
 
   group('executeFixtureDownload tests', () {
-    test('admin status comes only from the deployed allowlist', () {
-      const allowlist = {'admin-uid-1', 'admin-uid-2'};
-
-      expect(isAdminAuthUid('admin-uid-1', allowlist: allowlist), isTrue);
-      expect(isAdminAuthUid('admin-uid-2', allowlist: allowlist), isTrue);
-      expect(isAdminAuthUid('someone-else', allowlist: allowlist), isFalse);
-      expect(isAdminAuthUid('', allowlist: allowlist), isFalse);
-      // Case and whitespace variants are different uids.
-      expect(isAdminAuthUid('ADMIN-UID-1', allowlist: allowlist), isFalse);
-      expect(isAdminAuthUid(' admin-uid-1', allowlist: allowlist), isFalse);
-    });
-
-    test('an empty allowlist denies everyone (fail closed)', () {
-      expect(isAdminAuthUid('admin-uid-1', allowlist: const <String>{}), isFalse);
-      expect(
-        () => requireAdminAuthUid('admin-uid-1', allowlist: const <String>{}),
-        throwsA(isA<PermissionDeniedError>()),
-      );
-    });
-
+    // The administrator check is the validated private role, by the same test as
+    // the identity callables and the R2 rules (admin_gate_test.dart covers the
+    // gate itself); these prove each older endpoint goes through it.
     test('a database record saying admin does not make a caller admin', () async {
       // The old authorization trusted authuid + tipperRole in publicly
-      // writable data. A forged record must grant nothing.
+      // writable data. A forged public record must grant nothing.
       final db = DuckTypedDatabase({
         '/AllTippers': {
           'forged': {'authuid': 'attacker-uid', 'tipperRole': 'admin'},
@@ -552,7 +559,6 @@ void main() {
           db: db,
           fetchFixtureJson: (_) async => [],
           now: DateTime.now().toUtc(),
-          adminAuthUidAllowlist: const {'real-admin-uid'},
         ),
         throwsA(isA<PermissionDeniedError>()),
       );
@@ -562,7 +568,6 @@ void main() {
           compKey: 'comp2026',
           db: db,
           now: DateTime.parse('2026-07-19T12:00:00Z'),
-          adminAuthUidAllowlist: const {'real-admin-uid'},
         ),
         throwsA(isA<PermissionDeniedError>()),
       );
@@ -570,16 +575,68 @@ void main() {
         checkFixtureUrlActive(
           authUid: 'attacker-uid',
           url: 'https://example.com/fixture.json',
+          db: db,
           checkUrl: (_) async => true,
-          adminAuthUidAllowlist: const {'real-admin-uid'},
         ),
         throwsA(isA<PermissionDeniedError>()),
       );
     });
 
-    test('authorization does not read the database', () async {
-      var reads = 0;
-      final db = _ThrowingDatabase(() => reads++);
+    test('an ordinary tipper, or a record naming someone else, is refused', () async {
+      for (final db in [
+        administratorsDb(role: 'tipper'),
+        administratorsDb(recordedUid: 'someone-else'),
+        DuckTypedDatabase({'/AuthIndex/admin-uid': 'tipper-admin'}),
+      ]) {
+        await expectLater(
+          executeAdminScoringRescore(
+            authUid: 'admin-uid',
+            compKey: 'comp2026',
+            db: db,
+            now: DateTime.parse('2026-07-19T12:00:00Z'),
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
+      }
+    });
+
+    test('each endpoint lets a validated administrator through', () async {
+      final db = administratorsDb();
+      var commands = 0;
+
+      await executeAdminScoringRescore(
+        authUid: 'admin-uid',
+        compKey: 'comp2026',
+        db: db,
+        now: DateTime.parse('2026-07-19T12:00:00Z'),
+        executeCommand: ({required db, required command, required now}) async {
+          commands++;
+          return BackendScoringCommandResult(
+            status: 'completed',
+            skipped: false,
+            commandId: command.commandId,
+            commandType: command.commandType.apiValue,
+            scopeKey: command.scopeKey,
+            compKey: command.compKey,
+            message: 'done',
+          );
+        },
+      );
+      final active = await checkFixtureUrlActive(
+        authUid: 'admin-uid',
+        url: 'https://example.com/fixture.json',
+        db: db,
+        checkUrl: (_) async => true,
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
+      );
+
+      expect(commands, 1);
+      expect(active, isTrue);
+    });
+
+    test('authorization reads only the two identity records', () async {
+      final read = <String>[];
+      final db = _RecordingDatabase(read);
 
       await expectLater(
         executeAdminScoringRescore(
@@ -587,13 +644,23 @@ void main() {
           compKey: 'comp2026',
           db: db,
           now: DateTime.parse('2026-07-19T12:00:00Z'),
-          adminAuthUidAllowlist: const {'real-admin-uid'},
         ),
         throwsA(isA<PermissionDeniedError>()),
       );
-      expect(reads, 0);
+      expect(read, ['/AuthIndex/not-an-admin']);
     });
 
+    test('a failed read refuses the call: nobody is admin by accident', () async {
+      await expectLater(
+        executeAdminScoringRescore(
+          authUid: 'admin-uid',
+          compKey: 'comp2026',
+          db: _ThrowingDatabase(() {}),
+          now: DateTime.parse('2026-07-19T12:00:00Z'),
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
 
     test('REST timeouts identify the operation and path', () async {
       await expectLater(
@@ -691,7 +758,7 @@ void main() {
         executeFixtureDownload(
           authUid: 'user123',
           compKey: 'comp2026',
-          db: mockDb,
+          db: administratorsDb(uid: 'user123', role: 'tipper', recordedUid: 'user123'),
           fetchFixtureJson: (_) async => [],
           now: DateTime.now().toUtc(),
         ),
@@ -710,7 +777,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
-          adminAuthUidAllowlist: {'user123'},
+          requireAdministrator: _allowAnyone,
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -754,7 +821,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
-          adminAuthUidAllowlist: {'user123'},
+          requireAdministrator: _allowAnyone,
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -811,7 +878,7 @@ void main() {
 
       final result = await executeFixtureDownload(
         authUid: 'user123',
-        adminAuthUidAllowlist: {'user123'},
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (_) async => [],
@@ -904,7 +971,7 @@ void main() {
 
       final resultMsg = await executeFixtureDownload(
         authUid: 'user123',
-        adminAuthUidAllowlist: {'user123'},
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -1184,7 +1251,7 @@ void main() {
 
       await executeFixtureDownload(
         authUid: 'user123',
-        adminAuthUidAllowlist: {'user123'},
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -1230,7 +1297,7 @@ void main() {
 
       final result = await executeAdminScoringRescore(
         authUid: 'admin123',
-        adminAuthUidAllowlist: {'admin123'},
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: db,
         now: now,
@@ -1265,6 +1332,7 @@ void main() {
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'user123',
+          db: DuckTypedDatabase(const {}),
           url: 'https://example.com/fixture.json',
           checkUrl: (_) async => true,
         ),
@@ -1276,7 +1344,8 @@ void main() {
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
-          adminAuthUidAllowlist: {'admin123'},
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'not a url',
           checkUrl: (_) async => true,
         ),
@@ -1291,7 +1360,8 @@ void main() {
 
         final active = await checkFixtureUrlActive(
           authUid: 'admin123',
-          adminAuthUidAllowlist: {'admin123'},
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'https://example.com/fixture.json',
           checkUrl: (uri) async {
             checkedUri = uri;
@@ -1309,7 +1379,8 @@ void main() {
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
-          adminAuthUidAllowlist: {'admin123'},
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'file:///etc/passwd',
           checkUrl: (_) async => true,
         ),
@@ -1323,7 +1394,8 @@ void main() {
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
-            adminAuthUidAllowlist: {'admin123'},
+            db: null,
+            requireAdministrator: _allowAnyone,
             url: 'http://169.254.169.254/latest/meta-data/',
             checkUrl: (_) async => true,
           ),
@@ -1338,7 +1410,8 @@ void main() {
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
-            adminAuthUidAllowlist: {'admin123'},
+            db: null,
+            requireAdministrator: _allowAnyone,
             url: 'https://internal.example.com/fixture.json',
             checkUrl: (_) async => true,
             resolveHost: (_) async => [InternetAddress('10.1.2.3')],

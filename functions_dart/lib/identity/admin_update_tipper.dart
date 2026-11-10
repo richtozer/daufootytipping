@@ -42,11 +42,10 @@ Future<AdminUpdateTipperResult> adminUpdateTipper({
   required CallerToken caller,
   required AdminUpdateTipperRequest request,
   required Admission admission,
-  required Set<String> adminUids,
   int Function()? nowMs,
   Checkpoint? checkpoint,
 }) async {
-  requireAdmin(caller, adminUids);
+  await requireAdmin(database, caller);
 
   final clock = nowMs ?? () => DateTime.now().millisecondsSinceEpoch;
   final tipperId = request.tipperId;

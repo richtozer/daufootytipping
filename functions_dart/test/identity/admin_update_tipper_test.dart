@@ -16,7 +16,6 @@ const int _t0 = 1700000000000;
 const String _uidAdmin = 'uidAdmin000000000000000000001';
 const String _uidPat = 'uidPat0000000000000000000002';
 const String _uidSam = 'uidSam0000000000000000000003';
-const Set<String> _admins = <String>{_uidAdmin};
 
 void main() {
   final skip = emulatorSkipReason;
@@ -75,7 +74,6 @@ void main() {
       caller: callerToken(uid, 'x@example.com'),
       request: request,
       admission: admissionFor(mode: mode),
-      adminUids: _admins,
       nowMs: () => at,
       checkpoint: checkpoint,
     );
