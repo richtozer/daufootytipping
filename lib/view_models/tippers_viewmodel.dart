@@ -5,13 +5,15 @@ import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/account_deletion.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
+import 'package:daufootytipping/services/firebase_deletable_account.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
+import 'package:daufootytipping/services/identity_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
@@ -557,103 +559,28 @@ class TippersViewModel extends ChangeNotifier {
     FirebaseMessagingService firebaseService = di<FirebaseMessagingService>();
     await firebaseService.initialLoadComplete;
 
-    await firebaseService.registerTokenForTipper(_authenticatedTipper!);
+    await firebaseService.registerCurrentToken();
 
     log(
       'TippersViewModel().registerLinkedTipperForMessaging() Tipper ${_authenticatedTipper!.name} registered for messaging with token ending in: ${firebaseService.fbmToken?.substring(firebaseService.fbmToken!.length - 5)}',
     );
   }
 
-  // method to delete account
-  Future<String?> deleteAccount() async {
-    try {
-      await FirebaseAuth.instance.currentUser!.delete();
-      await _unregisterDeletedAccountToken();
-      return null; // Success
-    } catch (e) {
-      if (e is FirebaseAuthException && e.code == 'requires-recent-login') {
-        // reauthenticate the user
-        log('TippersViewModel().deleteAccount() - re-authenticating user');
-        final String providerId =
-            FirebaseAuth.instance.currentUser!.providerData[0].providerId;
-
-        try {
-          if (providerId == 'apple.com') {
-            await _reauthenticateWithApple();
-          } else if (providerId == 'google.com') {
-            await _reauthenticateWithGoogle();
-          }
-
-          // Retry account deletion after successful re-authentication
-          await FirebaseAuth.instance.currentUser!.delete();
-          await _unregisterDeletedAccountToken();
-          return null; // Success
-        } catch (reauthError) {
-          log(
-            'TippersViewModel().deleteAccount() - re-authentication failed: $reauthError',
-          );
-          return 'Re-authentication failed. Please try again.';
-        }
-      } else {
-        log('TippersViewModel().deleteAccount() - error: $e');
-        return 'Account deletion failed. Please try again.';
-      }
-    }
-  }
+  /// Deletes the signed-in person's account: signs in again if the sign-in is
+  /// old, removes this device's push token, unlinks the tipper record from the
+  /// account, then deletes the sign-in account. Null on success, otherwise what to
+  /// tell the person. Safe to run again after a failure.
+  Future<String?> deleteAccount() => AccountDeletion(
+    identity: di<IdentityService>(),
+    account: FirebaseDeletableAccount(),
+    unregisterPushToken: _unregisterDeletedAccountToken,
+  ).run();
 
   Future<void> _unregisterDeletedAccountToken() async {
     if (!di.isRegistered<FirebaseMessagingService>()) {
       return;
     }
-    await di<FirebaseMessagingService>().unregisterCurrentToken(
-      tipperId: _authenticatedTipper?.dbkey,
-    );
-  }
-
-  Future<void> _reauthenticateWithApple() async {
-    // If user is not authenticated
-    if (FirebaseAuth.instance.currentUser == null) {
-      throw 'Cannot reauthenticate with Apple the user is not authenticated';
-    }
-
-    final AppleAuthProvider appleProvider = AppleAuthProvider();
-
-    // Try to reauthenticate
-    try {
-      await FirebaseAuth.instance.currentUser!.reauthenticateWithProvider(
-        appleProvider,
-      );
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-mismatch' ||
-          e.code == 'user-not-found' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-verification-code' ||
-          e.code == 'invalid-verification-id') {
-        // Log the error
-        log('TippersViewModel()_reauthenticateWithApple() - error: ${e.code}');
-      } else {
-        rethrow;
-      }
-    }
-  }
-
-  Future<void> _reauthenticateWithGoogle() async {
-    // If user is not authenticated
-    if (FirebaseAuth.instance.currentUser == null) {
-      throw 'Cannot reauthenticate with Google the user is not authenticated';
-    }
-
-    final GoogleAuthProvider googleProvider = GoogleAuthProvider();
-
-    // Tries to reauthenticate
-    try {
-      await FirebaseAuth.instance.currentUser!.reauthenticateWithProvider(
-        googleProvider,
-      );
-    } on FirebaseAuthException catch (e) {
-      log('TippersViewModel()_reauthenticateWithGoogle() - error: ${e.code}');
-      rethrow;
-    }
+    await di<FirebaseMessagingService>().unregisterCurrentToken();
   }
 
   Future<Tipper?> isEmailOrLogonAlreadyAssigned(

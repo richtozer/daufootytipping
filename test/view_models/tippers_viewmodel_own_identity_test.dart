@@ -54,8 +54,7 @@ void main() {
     final messaging = _MockMessaging();
     when(() => messaging.initialLoadComplete).thenAnswer((_) async {});
     when(() => messaging.fbmToken).thenReturn('token12345');
-    when(() => messaging.registerTokenForTipper(any()))
-        .thenAnswer((_) async {});
+    when(() => messaging.registerCurrentToken()).thenAnswer((_) async {});
     if (di.isRegistered<FirebaseMessagingService>()) {
       di.unregister<FirebaseMessagingService>();
     }

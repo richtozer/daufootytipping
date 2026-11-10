@@ -1601,8 +1601,35 @@ process, restart offline, restart online.
 - *Needs mode `coexist`.* Admin edits and merges are identity callables, so under mode `off` they say "Changing
   tippers is switched off at the moment." Until the mode moves, the R2 client cannot edit a tipper's name, email or
   role from the admin screens; paid ticks work.
-- *Still direct writes, for slices 4 and 5:* push tokens and the account deletion flow (slice 5), live scores
-  (slice 4). (The signed-in user's own alias was the third; slice 7 below moved it.)
+- *Still direct writes, for slice 4:* live scores. (Push tokens and the account deletion flow were the others; slice 5
+  below moved them, and the own alias went with slice 7.)
+
+**Slice 5 built (10 November 2026): push tokens and account deletion.**
+- *Tokens.* `FirebaseMessagingService` no longer touches `/AllTippersTokens`: it registers through
+  `register-device-token` (the server moves the token from whoever held it, so the client's read of every tipper's
+  tokens and `_removeTokenFromOtherTippers` are gone) and removes through `unregister-device-token`. The logic is in
+  `DeviceTokenRegistrar`: every call goes through one queue (the server expects a client's register and unregister
+  for a token in order), a server that cannot be reached is tried again after 5 s and 30 s (the waits are outside the
+  queue, so a removal is not held up behind them), a refusal is final for now, and a registration failure is logged,
+  never thrown. A token refresh removes the old token only if it had been registered. Signing out removes the token
+  best-effort for 10 s and then signs out regardless (`unregisterCurrentTokenIfPossible`): an offline sign-out must not
+  hang; the server moves the token to the next tipper who registers on the device, or drops it as stale.
+- *Account deletion* is `AccountDeletion` (`lib/services/account_deletion.dart`), no longer in `TippersViewModel`:
+  sign in again if the last sign-in is more than 4 minutes old (or unknown), **before** anything is changed, so backing
+  out loses nothing; then remove the push token, `unlink-my-account`, and delete the sign-in account last. A failure at
+  the token or the unlink stops the deletion with nothing deleted and says why (switched off, busy, unreachable). If the
+  provider still wants a fresher sign-in at the last step, the person signs in again and the delete is retried. A
+  deletion that fails after the unlink is simply run again: the token step finds `not_linked` and carries on, the
+  unlink says `unlinked: false`, the account is deleted (tested as the design asked). `FirebaseDeletableAccount` is the
+  thin Firebase Auth adapter; the Apple reauthentication keeps the old code's tolerance of five error codes.
+- *Shared queue.* `SerialQueue` (`lib/services/serial_queue.dart`) is the one-at-a-time runner both this and
+  `UnconfirmedTipsService` use.
+- *Needs mode `coexist`.* Under mode `off` the callables refuse, so no push token is registered and **deleting an
+  account is refused** ("Deleting accounts is switched off at the moment"). That is the design's order (unlinking is
+  what lets the person sign up again later), but it means the R2 client cannot ship to users while the mode is `off`.
+- *What is not covered by tests.* The Firebase Auth and Messaging adapters (the real reauthentication with Apple and
+  Google, the real token) cannot run in the VM. 63 tests cover the logic; 16 deliberate breakages caught. The real
+  flow needs a signed-in session: see the pre-release checks in section 8.
 
 **Slice 7 built (10 November 2026): small items.**
 - *Own alias.* The Profile alias dialog now calls `update-tipper-alias` (`IdentityService.updateTipperAlias`) instead of
@@ -1742,6 +1769,11 @@ should enable `coexist` in production just to test the screens.
   by hand: tip with the connection down, kill the app, let the game start, restart (offline first, then online). The
   tip must stay unreported while offline and be reported once online. The SDK's behaviour is already established
   (section 6k, "Review fixes to slice 3"); this checks the app's wiring of it.
+- *Account deletion and push-token registration, end to end* with the local callables, using a throwaway Apple or
+  Google account signed in by hand: delete with a fresh sign-in, with an old one (the sign-in-again prompt, and
+  cancelling it), and with the connection cut after the unlink then retried; confirm the tipper record is unlinked,
+  the token gone, and signing up again links back to the same record. Also confirm a token moves when a second tipper
+  signs in on the same device.
 - *Admin edit and merge against the real local callables* (emulator functions, mode `coexist`): edit name, email and
   role; merge two tippers with a preview; the refusals (taken alias, last administrator).
 

@@ -98,9 +98,7 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   Future<void> signOut() async {
     if (!kIsWeb && di.isRegistered<FirebaseMessagingService>()) {
-      await di<FirebaseMessagingService>().unregisterCurrentToken(
-        tipperId: di<TippersViewModel>().authenticatedTipper?.dbkey,
-      );
+      await di<FirebaseMessagingService>().unregisterCurrentTokenIfPossible();
       await AppBadgeService().setCount(0);
     }
     await _forgetKeptTipper();

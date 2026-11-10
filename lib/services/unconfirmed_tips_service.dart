@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:daufootytipping/services/serial_queue.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -138,7 +139,7 @@ class UnconfirmedTipsService extends ChangeNotifier {
   /// connection states (tests only) the connection is taken to be up.
   bool _connected;
 
-  Future<void> _queue = Future<void>.value();
+  final SerialQueue _queue = SerialQueue();
   _Look? _look;
   Timer? _settleTimer;
 
@@ -146,11 +147,11 @@ class UnconfirmedTipsService extends ChangeNotifier {
   List<String> get notices => List<String>.unmodifiable(_notices);
 
   /// The tips now waiting for the server.
-  Future<List<UnconfirmedTip>> pending() => _serialized(_load);
+  Future<List<UnconfirmedTip>> pending() => _queue.run(_load);
 
   /// [tip] has been handed to the database but not confirmed. A newer tip for the
   /// same game replaces an older one.
-  Future<void> queued(UnconfirmedTip tip) => _serialized(() async {
+  Future<void> queued(UnconfirmedTip tip) => _queue.run(() async {
     final List<UnconfirmedTip> all = await _load();
     all
       ..removeWhere(tip.isForSameGameAs)
@@ -159,12 +160,12 @@ class UnconfirmedTipsService extends ChangeNotifier {
   });
 
   /// The server confirmed [tip] after all.
-  Future<void> accepted(UnconfirmedTip tip) => _serialized(() => _forget(tip));
+  Future<void> accepted(UnconfirmedTip tip) => _queue.run(() => _forget(tip));
 
   /// The server refused [tip] after the screen had stopped waiting. A tip that a
   /// newer one for the same game has replaced says nothing: the newer one will
   /// report for itself.
-  Future<void> rejected(UnconfirmedTip tip) => _serialized(() async {
+  Future<void> rejected(UnconfirmedTip tip) => _queue.run(() async {
     if (!await _forget(tip)) {
       return;
     }
@@ -187,7 +188,7 @@ class UnconfirmedTipsService extends ChangeNotifier {
     required ShownTip? Function(String gameKey) shown,
   }) {
     _look = _Look(compKey: compKey, tipperKey: tipperKey, shown: shown);
-    return _serialized(() => _review(announce: false));
+    return _queue.run(() => _review(announce: false));
   }
 
   /// Stops looking at the listener: the screen it belongs to has gone.
@@ -215,23 +216,8 @@ class UnconfirmedTipsService extends ChangeNotifier {
   void _connectionChanged(bool? connected) {
     _connected = connected == true;
     if (_connected) {
-      unawaited(_serialized(() => _review(announce: false)));
+      unawaited(_queue.run(() => _review(announce: false)));
     }
-  }
-
-  /// Runs [action] after every operation requested before it has finished, so
-  /// that two overlapping operations cannot each read the stored list and then
-  /// overwrite each other's changes.
-  Future<T> _serialized<T>(Future<T> Function() action) {
-    final Completer<T> result = Completer<T>();
-    _queue = _queue.then((_) async {
-      try {
-        result.complete(await action());
-      } on Object catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
   }
 
   /// With [announce] false, forgets tips that newer ones have replaced and starts
@@ -271,7 +257,7 @@ class UnconfirmedTipsService extends ChangeNotifier {
     }
     if (anyMissing && !(_settleTimer?.isActive ?? false)) {
       _settleTimer = Timer(settleFor, () {
-        unawaited(_serialized(() => _review(announce: true)));
+        unawaited(_queue.run(() => _review(announce: true)));
       });
     } else if (!anyMissing) {
       _settleTimer?.cancel();

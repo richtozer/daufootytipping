@@ -23,9 +23,8 @@ void main() {
     messagingService = MockFirebaseMessagingService();
     when(() => messagingService.initialLoadComplete).thenAnswer((_) async {});
     when(() => messagingService.fbmToken).thenReturn('token12345');
-    when(
-      () => messagingService.registerTokenForTipper(any()),
-    ).thenAnswer((_) async {});
+    when(() => messagingService.registerCurrentToken())
+        .thenAnswer((_) async {});
 
     if (di.isRegistered<FirebaseMessagingService>()) {
       di.unregister<FirebaseMessagingService>();
@@ -39,55 +38,52 @@ void main() {
     }
   });
 
-  test(
-    'regression: background user link waits for tipper snapshot before unblocking paid status',
-    () async {
-      final DAUComp comp = DAUComp(
-        dbkey: 'comp-2026',
-        name: '2026 DAU',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
-        daurounds: const [],
-      );
+  test('regression: background user link waits for tipper snapshot before unblocking paid status', () async {
+    final DAUComp comp = DAUComp(
+      dbkey: 'comp-2026',
+      name: '2026 DAU',
+      aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+      nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+      daurounds: const [],
+    );
 
-      final Tipper cachedTipper = Tipper(
-        dbkey: 'tipper-1',
-        authuid: 'auth-1',
-        email: 'tipper@example.com',
-        logon: 'tipper@example.com',
-        name: 'Tipper One',
-        tipperRole: TipperRole.tipper,
-        compsPaidFor: const [],
-      );
+    final Tipper cachedTipper = Tipper(
+      dbkey: 'tipper-1',
+      authuid: 'auth-1',
+      email: 'tipper@example.com',
+      logon: 'tipper@example.com',
+      name: 'Tipper One',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const [],
+    );
 
-      final Tipper freshTipper = Tipper(
-        dbkey: 'tipper-1',
-        authuid: 'auth-1',
-        email: 'tipper@example.com',
-        logon: 'tipper@example.com',
-        name: 'Tipper One',
-        tipperRole: TipperRole.tipper,
-        compsPaidFor: [comp],
-      );
+    final Tipper freshTipper = Tipper(
+      dbkey: 'tipper-1',
+      authuid: 'auth-1',
+      email: 'tipper@example.com',
+      logon: 'tipper@example.com',
+      name: 'Tipper One',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: [comp],
+    );
 
-      final TippersViewModel vm = TippersViewModel(true, skipInit: true);
-      vm.setLinkedTippersForTest(cachedTipper);
+    final TippersViewModel vm = TippersViewModel(true, skipInit: true);
+    vm.setLinkedTippersForTest(cachedTipper);
 
-      await vm.completeIsUserLinkedWhenReadyForTest(
-        awaitMessagingRegistration: true,
-      );
+    await vm.completeIsUserLinkedWhenReadyForTest(
+      awaitMessagingRegistration: true,
+    );
 
-      await Future<void>.delayed(Duration.zero);
-      expect(vm.isUserLinkedCompletedForTest, isFalse);
-      expect(vm.selectedTipper.paidForComp(comp), isFalse);
+    await Future<void>.delayed(Duration.zero);
+    expect(vm.isUserLinkedCompletedForTest, isFalse);
+    expect(vm.selectedTipper.paidForComp(comp), isFalse);
 
-      vm.applyTippersSnapshotForTest([freshTipper]);
+    vm.applyTippersSnapshotForTest([freshTipper]);
 
-      await vm.isUserLinked.timeout(const Duration(seconds: 1));
+    await vm.isUserLinked.timeout(const Duration(seconds: 1));
 
-      expect(vm.isUserLinkedCompletedForTest, isTrue);
-      expect(vm.selectedTipper.paidForComp(comp), isTrue);
-      expect(vm.authenticatedTipper!.paidForComp(comp), isTrue);
-    },
-  );
+    expect(vm.isUserLinkedCompletedForTest, isTrue);
+    expect(vm.selectedTipper.paidForComp(comp), isTrue);
+    expect(vm.authenticatedTipper!.paidForComp(comp), isTrue);
+  });
 }
