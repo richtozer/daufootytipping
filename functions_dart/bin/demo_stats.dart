@@ -13,8 +13,9 @@ void main(List<String> args) {
   final data = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final now = DateTime.parse(args[1]).toUtc();
   final compKey = data['AppConfig']['currentDAUComp'] as String;
-  if (compKey != 'demo-celebrity-2026')
+  if (compKey != 'demo-celebrity-2026') {
     throw ArgumentError('Not a demo dataset');
+  }
   final rawComp = Map<String, dynamic>.from(data['AllDAUComps'][compKey]);
   final rounds = <DAURound>[
     for (final (index, raw) in (rawComp['combinedRounds2'] as List).indexed)
@@ -46,8 +47,9 @@ void main(List<String> args) {
     );
     games[key] = game;
     final matching = rounds.where(game.isGameInRound).toList();
-    if (matching.length != 1)
+    if (matching.length != 1) {
       throw StateError('Game $key must belong to exactly one round');
+    }
     // DAURound's default games list is const; populate with a new list.
     matching.single.games = [...matching.single.games, game];
   }
