@@ -454,6 +454,7 @@ describe('r2 against the rules engine', () => {
       ['absent default', null, 120], ['configured', 300, 300],
       ['invalid string', '300', 120], ['negative', -1, 120],
       ['fractional', 0.5, 120],
+      ['too large', 901, 120], ['at the limit', 900, 900],
     ]) {
       it(`grace ${label}: owner writes while competitors cannot read, then the reverse`, async () => {
         await env.withSecurityRulesDisabled(async (ctx) => {

@@ -226,6 +226,8 @@ const R2_VALID_CALLER =
   `root.child('TipperPrivate').child(${R2_CALLER}).child('authuid').val() === auth.uid)`;
 const R2_KICKOFF = "root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').val()";
 const R2_GRACE = "root.child('AppConfig').child('tipGracePeriodSeconds')";
+// Keep in step with maxTipGracePeriodSeconds in packages/dau_shared/lib/services/tipping_policy.dart.
+const R2_MAX_GRACE_SECONDS = 900;
 const R2_MACROS = {
   SIGNED_IN: SIGNED_IN_EXPR,
   CALLER: R2_CALLER,
@@ -236,7 +238,7 @@ const R2_MACROS = {
   // Kickoff as a number of milliseconds; a missing or non-numeric one makes every comparison fail closed.
   KICKOFF: R2_KICKOFF,
   VALID_KICKOFF: "root.child('DAUCompsGames').child($comp).child($game).child('DateUtcEpochMs').isNumber()",
-  TIP_DEADLINE: `(${R2_KICKOFF} + ((${R2_GRACE}.isNumber() && ${R2_GRACE}.val() >= 0 && ${R2_GRACE}.val() % 1 === 0) ? ${R2_GRACE}.val() : 120) * 1000)`,
+  TIP_DEADLINE: `(${R2_KICKOFF} + ((${R2_GRACE}.isNumber() && ${R2_GRACE}.val() >= 0 && ${R2_GRACE}.val() <= ${R2_MAX_GRACE_SECONDS} && ${R2_GRACE}.val() % 1 === 0) ? ${R2_GRACE}.val() : 120) * 1000)`,
   OFFICIAL_SCORE:
     "root.child('DAUCompsGames').child($comp).child($game).child('HomeTeamScore').exists() && " +
     "root.child('DAUCompsGames').child($comp).child($game).child('AwayTeamScore').exists()",

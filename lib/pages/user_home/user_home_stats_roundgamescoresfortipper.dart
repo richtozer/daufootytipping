@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
@@ -200,12 +201,19 @@ class _StatRoundGameScoresForTipperState
 
     // Revisit the screen at the next tipping deadline even if no score changes.
     _tipDeadlineRefresh?.cancel();
-    final now = DateTime.now();
-    final deadlines = filteredGames.values.expand((games) => games)
-        .map((game) => tippingDeadline(game.startTimeUTC))
-        .where((deadline) => deadline.isAfter(now)).toList()..sort();
+    final now = tippingNow();
+    final deadlines =
+        filteredGames.values
+            .expand((games) => games)
+            .map((game) => tippingDeadline(game.startTimeUTC))
+            .where((deadline) => deadline.isAfter(now))
+            .toList()
+          ..sort();
     if (deadlines.isNotEmpty) {
-      _tipDeadlineRefresh = Timer(deadlines.first.difference(now), _refreshTableData);
+      _tipDeadlineRefresh = Timer(
+        deadlines.first.difference(now),
+        _refreshTableData,
+      );
     }
     filteredGames.forEach((league, gameList) {
       gameList.retainWhere(

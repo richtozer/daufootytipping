@@ -3002,4 +3002,100 @@ void main() {
       },
     );
   });
+
+  group('game stats are published only once tipping has closed', () {
+    final kickoff = DateTime.utc(2026, 8, 4, 10);
+
+    /// The updates published for a game that kicked off at [kickoff], when the
+    /// time is [now] and the grace period setting reads [setting] (or cannot be
+    /// read at all when [readFails]).
+    Future<Map<String, dynamic>> publishedAt(
+      DateTime now, {
+      Object? setting,
+      bool readFails = false,
+    }) async {
+      final configRef = MockDatabaseReference();
+      final configSnapshot = MockDataSnapshot();
+      if (!readFails) {
+        when(() => mockDb.ref('/AppConfig/tipGracePeriodSeconds'))
+            .thenReturn(configRef);
+        when(() => configRef.once()).thenAnswer((_) async => configSnapshot);
+        when(() => configSnapshot.value).thenReturn(setting);
+      }
+      final comp = _badgeTestComp(now);
+      final game = _badgeTestGame('nrl-01-001', kickoff)
+        ..scoring = Scoring(homeTeamScore: null, awayTeamScore: null);
+      final tipper = _badgeTestTipper('paid', comp: comp);
+      final updates = <String, dynamic>{};
+      await rebuildBackendGameStatsForRound(
+        db: mockDb,
+        comp: comp,
+        roundGames: [game],
+        allTippers: [tipper],
+        tipsByTipper: {
+          'paid': {
+            game.dbkey: Tip(
+              game: game,
+              tipper: tipper,
+              tip: GameResult.a,
+              submittedTimeUTC: kickoff.subtract(const Duration(hours: 1)),
+            ),
+          },
+        },
+        now: now,
+        updatesSink: updates,
+      );
+      return updates;
+    }
+
+    test('withheld during the default grace period, published when it ends', () async {
+      expect(await publishedAt(kickoff), isEmpty);
+      expect(await publishedAt(kickoff.add(const Duration(seconds: 119))), isEmpty);
+      expect(
+        await publishedAt(kickoff.add(const Duration(seconds: 120))),
+        contains('paid/nrl-01-001'),
+      );
+    });
+
+    test('follows the configured grace period', () async {
+      expect(
+        await publishedAt(kickoff.add(const Duration(seconds: 200)), setting: 300),
+        isEmpty,
+      );
+      expect(
+        await publishedAt(kickoff.add(const Duration(seconds: 300)), setting: 300),
+        contains('paid/nrl-01-001'),
+      );
+    });
+
+    test('with no grace period it is published at kickoff', () async {
+      expect(await publishedAt(kickoff, setting: 0), contains('paid/nrl-01-001'));
+    });
+
+    test('an invalid or excessive setting is read as the default', () async {
+      for (final Object? setting in <Object?>['300', -1, 0.5, 901]) {
+        expect(
+          await publishedAt(kickoff.add(const Duration(seconds: 119)), setting: setting),
+          isEmpty,
+          reason: '$setting',
+        );
+        expect(
+          await publishedAt(kickoff.add(const Duration(seconds: 120)), setting: setting),
+          contains('paid/nrl-01-001'),
+          reason: '$setting',
+        );
+      }
+    });
+
+    test('a setting that cannot be read holds the stats back for the longest grace period', () async {
+      expect(
+        await publishedAt(kickoff.add(const Duration(seconds: 899)), readFails: true),
+        isEmpty,
+      );
+      expect(
+        await publishedAt(kickoff.add(const Duration(seconds: 900)), readFails: true),
+        contains('paid/nrl-01-001'),
+      );
+    });
+  });
 }

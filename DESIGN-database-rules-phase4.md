@@ -21,18 +21,47 @@ closing rather than kickoff. Existing offline persistence and outcome handling r
 
 Games, whole-tipper tips, per-game tips and all three Stats listeners now use `authAwareStream`,
 closing on sign-out and reopening on sign-in. Games-listener refusals remain logged with diagnostics
-but are no longer deliberately rethrown as uncaught errors. Per-game bounded retries remain in place.
+but are no longer rethrown as uncaught errors (a refusal while signed in is reported as a non-fatal Crashlytics
+error instead; see follow-up 5 below). Per-game bounded retries remain in place.
 Regression tests cover the listener lifecycle, configured/default/zero grace, the close boundary,
 competitor reads, and scoring a stored late tip instead of default Away. These are local changes:
 no production setting or deployed ruleset has been changed. Deploy the regenerated R2 rules with
 the client as part of the existing cutover, not as an independent early rules release.
 
-Validation so far: 72 R2 rules-engine tests passed before the live-scoring follow-up; two backend
-scoring regressions passed; focused client tests for grace submissions, config and Stats reattachment
-passed. The broad app run had only the two known support-site failures plus two old wording assertions,
-which were corrected and passed in focused reruns. Final analysis/full-suite validation and the new
-live-scoring deadline tests are still pending: automatic approval review hit a usage limit before
-the final toolchain run. Nothing is committed or deployed from this change set.
+**Review follow-ups (10 November 2026, after review of the change set above).**
+1. *The crowd's split is withheld during grace.* The backend used to publish `game_stats_backend_v1` for a game from
+   kickoff, and the percent view shows whatever is published; during grace that would have let a tipper see how the field
+   tipped and change their own tip, which is the leak the hidden tips avoid. The backend now publishes it only once
+   tipping has closed (kickoff plus the grace read from `AppConfig`; if the read fails, the longest grace, so a failure
+   holds it back rather than releasing it early), and the card hides the percentages and average until then. It appears at
+   the next scoring event after the deadline (live-score entries open at the deadline, so one is not far off).
+2. *The deadline is judged by the server's clock.* `ServerClock` follows `.info/serverTimeOffset`; every client decision
+   (the tip button's refusal, the live-score gate, the timers that refresh a card at the deadline, the other-tipper
+   screen) uses it. Without this a phone 90 s fast was refused locally 90 s early, though the server would have accepted.
+3. *On a started game that is still open, the card opens on the tips panel* and says when tipping closes ("Tips close at
+   7:32 pm, 2 minutes after kickoff"; "at kickoff" with no grace). When tipping closes, the result panel comes first again.
+4. *A queued tip's record stores when tipping closes* (kickoff plus the grace in force when it was made), and the
+   "could not confirm" wording follows it, so it no longer says "before tipping closed" while tipping is still open.
+5. *A games-listener refusal while signed in is reported to Crashlytics as a non-fatal error* in release builds. Sign-out
+   stays quiet (the listener is closed first), and a dropped connection is not reported. It used to be re-thrown to the
+   zone on purpose, which reported every sign-out as fatal.
+6. *The setting is valid only from 0 to 900 seconds* (`maxTipGracePeriodSeconds` in `dau_shared`, mirrored in the rules
+   generator). The console bypasses the rules, so the bound is applied in the rules, the app and the backend alike;
+   anything else reads as 120.
+
+The setting is parsed in one place (`packages/dau_shared/lib/services/tipping_policy.dart`) for the app and the backend,
+and in the rules macro for the rules; both are tested for the same cases.
+
+Validation: `flutter analyze` clean; Flutter suite 1199 passed, 5 skipped, 2 failed (the live support-site test, which
+the home network blocks); backend (`dart test` for `functions_dart`) and `dau_shared` suites pass; the R2 rules-engine
+suite passes 74 of 74 on spare ports (including the grace cases: absent, configured, invalid, too large, at the limit,
+zero); the new backend tests show game stats withheld inside the grace period and published at its end, and a mutation
+that publishes at kickoff fails them. *Not checked on a device:* the grace flow on a phone, and a sign-out from a fully
+signed-in session. On the simulator the new build started with no unhandled errors in the cached-session state that had
+logged one before, but that session belonged to a deleted account, so the sign-out itself could not be reached; the
+listener lifecycle is covered by tests only. Nothing is deployed. The regenerated R2 rules go with the client as part of
+the cutover, not as an early rules release. The backend change does not depend on the client or the rules (with no
+setting it uses 120 s); whether and when to deploy functions is the owner's call.
 
 Status: **revised plan, accepted by the owner on 2026-10-20 after an external review. M1 and M2 are
 built and tested locally (section 6a); nothing is deployed and nothing else is implemented.** Written after R1 (rules 2026-10-06, Dart

@@ -24,6 +24,7 @@ import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/services/retired_view_models.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/server_clock.dart';
 import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
@@ -321,6 +322,7 @@ Future<void> main() async {
 
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
+  di.registerSingleton<ServerClock>(ServerClock(serverTimeOffsets()));
   di.registerLazySingleton<UnconfirmedTipsService>(
     () => UnconfirmedTipsService(
       connectionStates: realtimeDatabaseConnectionStates(),

@@ -479,14 +479,14 @@ void main() {
     final int tippedAtUtcSeconds =
         DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 600;
 
-    UnconfirmedTip queuedTip({required int kickoffUtcMs}) => UnconfirmedTip(
+    UnconfirmedTip queuedTip({required int deadlineUtcMs}) => UnconfirmedTip(
       compKey: 'comp-1',
       tipperKey: 'tipper-1',
       gameKey: 'nrl-0',
       choice: 'a',
       submittedUtcSeconds: tippedAtUtcSeconds,
       gameLabel: 'NRL Home v NRL Away',
-      kickoffUtcMs: kickoffUtcMs,
+      deadlineUtcMs: deadlineUtcMs,
       queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
     );
 
@@ -499,7 +499,7 @@ void main() {
         await pumpHome(tester);
 
         final tip = queuedTip(
-          kickoffUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+          deadlineUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
         );
         await tester.runAsync(() async {
           await service.queued(tip);
@@ -574,7 +574,7 @@ void main() {
       (tester) async {
         serviceWithTipsShown(
           queuedTip(
-            kickoffUtcMs: DateTime.now()
+            deadlineUtcMs: DateTime.now()
                 .toUtc()
                 .subtract(const Duration(hours: 2))
                 .millisecondsSinceEpoch,
@@ -595,7 +595,7 @@ void main() {
     ) async {
       serviceWithTipsShown(
         queuedTip(
-          kickoffUtcMs: DateTime.now()
+          deadlineUtcMs: DateTime.now()
               .toUtc()
               .add(const Duration(hours: 2))
               .millisecondsSinceEpoch,
@@ -613,7 +613,7 @@ void main() {
       'is not reported while the tips the device shows still include it',
       (tester) async {
         final queued = queuedTip(
-          kickoffUtcMs: DateTime.now()
+          deadlineUtcMs: DateTime.now()
               .toUtc()
               .subtract(const Duration(hours: 2))
               .millisecondsSinceEpoch,

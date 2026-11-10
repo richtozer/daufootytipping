@@ -265,4 +265,88 @@ void main() {
       expect(display.average, '? / ?');
     });
   });
+
+  group('while tipping is still open after kickoff (the grace period)', () {
+    final complete = GameStatsEntry(
+      percentageTippedHomeMargin: 0.018,
+      percentageTippedHome: 0.421,
+      percentageTippedDraw: 0.0,
+      percentageTippedAway: 0.544,
+      percentageTippedAwayMargin: 0.017,
+    );
+    DateTime startedSecondsAgo(int seconds) =>
+        DateTime.now().toUtc().subtract(Duration(seconds: seconds));
+
+    test('how the field tipped is not shown, then is once tipping closes', () {
+      expect(
+        _display(
+          _game(startTimeUTC: startedSecondsAgo(30)),
+          gameStatsEntry: complete,
+        ).percentages,
+        isNull,
+      );
+      expect(
+        _display(
+          _game(startTimeUTC: startedSecondsAgo(130)),
+          gameStatsEntry: complete,
+        ).percentages,
+        isNotNull,
+      );
+    });
+
+    test('says when tipping closes, and how long after kickoff', () {
+      final kickoff = DateTime.utc(2027, 3, 1, 10);
+      final before = kickoff.subtract(const Duration(hours: 1));
+
+      expect(
+        tippingClosesText(kickoff, graceSeconds: 120, now: before),
+        endsWith(', 2 minutes after kickoff.'),
+      );
+      expect(
+        tippingClosesText(kickoff, graceSeconds: 60, now: before),
+        endsWith(', 1 minute after kickoff.'),
+      );
+      expect(
+        tippingClosesText(kickoff, graceSeconds: 90, now: before),
+        endsWith(', 90 seconds after kickoff.'),
+      );
+      expect(
+        tippingClosesText(kickoff, graceSeconds: 0, now: before),
+        'Tips close at kickoff.',
+      );
+      expect(
+        tippingClosesText(
+          kickoff,
+          graceSeconds: 120,
+          now: kickoff.add(const Duration(seconds: 120)),
+        ),
+        isNull,
+        reason: 'nothing to say once it has closed',
+      );
+    });
+
+    test(
+      'the choices come first, and the result first again once it closes',
+      () {
+        final open = _display(_game(startTimeUTC: startedSecondsAgo(30)));
+        final closed = _display(_game(startTimeUTC: startedSecondsAgo(130)));
+        final upcoming = _display(_game(startTimeUTC: future));
+
+        expect(tipsPanelsFor(open, tippingOpen: true), [
+          TipsPanel.tips,
+          TipsPanel.result,
+          TipsPanel.info,
+        ]);
+        expect(tipsPanelsFor(closed, tippingOpen: false), [
+          TipsPanel.result,
+          TipsPanel.tips,
+          TipsPanel.info,
+        ]);
+        expect(tipsPanelsFor(upcoming, tippingOpen: true), [
+          TipsPanel.tips,
+          TipsPanel.info,
+        ]);
+      },
+    );
+  });
 }

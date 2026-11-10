@@ -53,6 +53,19 @@ class MockTipsViewModel extends Mock implements TipsViewModel {}
 
 class MockStatsViewModel extends Mock implements StatsViewModel {}
 
+/// A copy of [game] that kicked off a day ago, so tipping on it has closed.
+Game _closedGameLike(Game game) => Game(
+  dbkey: game.dbkey,
+  league: game.league,
+  homeTeam: game.homeTeam,
+  awayTeam: game.awayTeam,
+  location: game.location,
+  startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 1)),
+  fixtureRoundNumber: game.fixtureRoundNumber,
+  fixtureMatchNumber: game.fixtureMatchNumber,
+  scoring: game.scoring,
+);
+
 void main() {
   late MockDAUCompsViewModel mockDauCompsViewModel;
   late MockGameTipViewModel mockGameTipViewModel;
@@ -307,6 +320,9 @@ void main() {
     tester,
   ) async {
     final statsViewModel = MockStatsViewModel();
+    // How the field tipped exists only once tipping has closed.
+    final closedGame = _closedGameLike(game);
+    when(() => mockGameTipViewModel.game).thenReturn(closedGame);
     GameStatsEntry? gameStatsEntry;
     var loadState = GameStatsLoadState.notRequested;
     late VoidCallback statsListener;
@@ -314,13 +330,14 @@ void main() {
       statsListener = invocation.positionalArguments[0] as VoidCallback;
     });
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
-    when(() => statsViewModel.gameStatsEntryFor(game))
+    when(() => statsViewModel.gameStatsEntryFor(closedGame))
         .thenAnswer((_) => gameStatsEntry);
-    when(() => statsViewModel.gameStatsLoadStateFor(game))
+    when(() => statsViewModel.gameStatsLoadStateFor(closedGame))
         .thenAnswer((_) => loadState);
-    when(() => statsViewModel.getGamesStatsEntry(game, false)).thenAnswer((_) {
-      loadState = GameStatsLoadState.loading;
-    });
+    when(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+        .thenAnswer((_) {
+          loadState = GameStatsLoadState.loading;
+        });
 
     await tester.pumpWidget(
       MaterialApp(
@@ -329,7 +346,7 @@ void main() {
           child: Scaffold(
             body: GameListItem(
               layout: testTipsCardLayout(percentStats: true),
-              game: game,
+              game: closedGame,
               currentTipper: currentTipper,
               currentDAUComp: currentComp,
               allTipsViewModel: mockTipsViewModel,
@@ -344,7 +361,8 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
     expect(find.text('?'), findsNothing);
-    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+    verify(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+        .called(1);
 
     gameStatsEntry = GameStatsEntry(
       percentageTippedHomeMargin: 0.035,
@@ -370,6 +388,9 @@ void main() {
     'repairs an incomplete first percentage card with a direct stats read',
     (tester) async {
       final statsViewModel = MockStatsViewModel();
+      // How the field tipped exists only once tipping has closed.
+      final closedGame = _closedGameLike(game);
+      when(() => mockGameTipViewModel.game).thenReturn(closedGame);
       GameStatsEntry? gameStatsEntry = GameStatsEntry();
       var loadState = GameStatsLoadState.notRequested;
       late VoidCallback statsListener;
@@ -386,11 +407,11 @@ void main() {
         statsListener = invocation.positionalArguments[0] as VoidCallback;
       });
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
-      when(() => statsViewModel.gameStatsEntryFor(game))
+      when(() => statsViewModel.gameStatsEntryFor(closedGame))
           .thenAnswer((_) => gameStatsEntry);
-      when(() => statsViewModel.gameStatsLoadStateFor(game))
+      when(() => statsViewModel.gameStatsLoadStateFor(closedGame))
           .thenAnswer((_) => loadState);
-      when(() => statsViewModel.getGamesStatsEntry(game, false))
+      when(() => statsViewModel.getGamesStatsEntry(closedGame, false))
           .thenAnswer((_) {
             loadState = GameStatsLoadState.loading;
           });
@@ -402,7 +423,7 @@ void main() {
             child: Scaffold(
               body: GameListItem(
                 layout: testTipsCardLayout(percentStats: true),
-                game: game,
+                game: closedGame,
                 currentTipper: currentTipper,
                 currentDAUComp: currentComp,
                 allTipsViewModel: mockTipsViewModel,
@@ -417,7 +438,8 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
       expect(find.text('?'), findsNothing);
-      verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+      verify(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+          .called(1);
 
       gameStatsEntry = directEntry;
       loadState = GameStatsLoadState.resolved;

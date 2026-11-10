@@ -12,11 +12,15 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
@@ -72,49 +76,78 @@ class GamesViewModel extends ChangeNotifier {
     _listenToGames();
   }
 
+  /// A refusal of the games listener while a user is signed in is a real fault (the
+  /// rules or the data), so a release build reports it to Crashlytics, without
+  /// ending the session. Signing out closes the listener before the server can
+  /// refuse it (see [authAwareStream]), and a dropped connection is not a fault,
+  /// so neither is reported.
+  void _reportSignedInListenerFailure(Object error, StackTrace stackTrace) {
+    if (kDebugMode ||
+        FirebaseAuth.instance.currentUser == null ||
+        CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+          error,
+        )) {
+      return;
+    }
+    unawaited(
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        fatal: false,
+        reason: 'Games listener failed while signed in',
+      ),
+    );
+  }
+
   // Database listeners
   void _listenToGames() {
     final int listenerGeneration = ++_gamesListenerGeneration;
     final DatabaseReference gamesReference = _db.child(_gamesPath);
-    _gamesStream = authAwareStream<DatabaseEvent>(
-      signedIn: _signedIn,
-      open: () => gamesReference.onValue,
-      onSourceError: (Object error, StackTrace stackTrace) {
-        if (AppResumeDiagnostics.enabled) {
-          AppResumeDiagnostics.record(
-            'games_listener_error',
-            details: <String, Object?>{
-              'compDbKey': selectedDAUComp.dbkey,
-              'gamesPath': _gamesPath,
-              'listenerGeneration': listenerGeneration,
-              'error': error.toString(),
-            },
-            anomalous: true,
-          );
-        }
-        log('GamesViewModel: games listener failed', error: error, stackTrace: stackTrace);
-      },
-    ).listen(
-      (event) {
-        _queueGamesSnapshotProcessing(
-          event.snapshot,
-          listenerGeneration: listenerGeneration,
+    _gamesStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => gamesReference.onValue,
+          onSourceError: (Object error, StackTrace stackTrace) {
+            if (AppResumeDiagnostics.enabled) {
+              AppResumeDiagnostics.record(
+                'games_listener_error',
+                details: <String, Object?>{
+                  'compDbKey': selectedDAUComp.dbkey,
+                  'gamesPath': _gamesPath,
+                  'listenerGeneration': listenerGeneration,
+                  'error': error.toString(),
+                },
+                anomalous: true,
+              );
+            }
+            log(
+              'GamesViewModel: games listener failed',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            _reportSignedInListenerFailure(error, stackTrace);
+          },
+        ).listen(
+          (event) {
+            _queueGamesSnapshotProcessing(
+              event.snapshot,
+              listenerGeneration: listenerGeneration,
+            );
+          },
+          onDone: () {
+            if (AppResumeDiagnostics.enabled) {
+              AppResumeDiagnostics.record(
+                'games_listener_done',
+                details: <String, Object?>{
+                  'compDbKey': selectedDAUComp.dbkey,
+                  'gamesPath': _gamesPath,
+                  'listenerGeneration': listenerGeneration,
+                },
+                anomalous: true,
+              );
+            }
+          },
         );
-      },
-      onDone: () {
-        if (AppResumeDiagnostics.enabled) {
-          AppResumeDiagnostics.record(
-            'games_listener_done',
-            details: <String, Object?>{
-              'compDbKey': selectedDAUComp.dbkey,
-              'gamesPath': _gamesPath,
-              'listenerGeneration': listenerGeneration,
-            },
-            anomalous: true,
-          );
-        }
-      },
-    );
     if (AppResumeDiagnostics.enabled) {
       AppResumeDiagnostics.record(
         'games_listener_attached',

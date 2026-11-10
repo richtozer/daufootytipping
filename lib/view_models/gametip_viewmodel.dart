@@ -87,12 +87,14 @@ class GameTipViewModel extends ChangeNotifier {
 
   void _scheduleTipDeadline() {
     _tipDeadlineTimer?.cancel();
-    final remaining = tippingDeadline(game.startTimeUTC).difference(DateTime.now());
+    final remaining = tippingDeadline(game.startTimeUTC)
+        .difference(tippingNow());
     if (remaining > Duration.zero) {
       _tipDeadlineTimer = Timer(remaining, _notifyListenersIfAlive);
     }
     _notifyListenersIfAlive();
   }
+
   late final bool _listensToGamesViewModel;
 
   bool _savingTip = false;
@@ -493,7 +495,9 @@ class GameTipViewModel extends ChangeNotifier {
     choice: tip.tip.name,
     submittedUtcSeconds: tip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
     gameLabel: '${tip.game.homeTeam.name} v ${tip.game.awayTeam.name}',
-    kickoffUtcMs: tip.game.startTimeUTC.toUtc().millisecondsSinceEpoch,
+    deadlineUtcMs: tippingDeadline(tip.game.startTimeUTC)
+        .toUtc()
+        .millisecondsSinceEpoch,
     queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
   );
 

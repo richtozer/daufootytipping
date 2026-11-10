@@ -2720,7 +2720,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     defaultTipGamePredicate: _hasKnownBackendGameResult,
     requireStartedGameForDefaultTips: false,
   );
-  await _rebuildBackendGameStatsForRound(
+  await rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
     roundGames: roundGames,
@@ -2867,7 +2867,10 @@ bool _hasKnownBackendGameResult(Game game) {
   return scoring.getGameResultCalculated(game.league) != GameResult.z;
 }
 
-Future<void> _rebuildBackendGameStatsForRound({
+/// Publishes how each started game was tipped, for the paid and the free cohort,
+/// once tipping has closed for the game (see [tippingHasClosed]). Public so that
+/// the timing can be tested directly.
+Future<void> rebuildBackendGameStatsForRound({
   required dynamic db,
   required DAUComp comp,
   required List<Game> roundGames,
@@ -2892,17 +2895,20 @@ Future<void> _rebuildBackendGameStatsForRound({
     MapEntry('paid', paidCohortTippers),
     MapEntry('free', freeCohortTippers),
   ];
+  final tipGraceSeconds = await _loadTipGracePeriodSeconds(db);
   for (final game in roundGames) {
     final hasKnownResult = _hasKnownBackendGameResult(game);
-    final gameState = game.getGameState(now);
-    final hasStarted = gameState == GameState.startedResultKnown ||
-        gameState == GameState.startedResultNotKnown;
+    // How the field tipped is published only once tipping has closed (kickoff
+    // plus the grace period), not at kickoff: until then a tipper could still
+    // see the crowd's choice and change their own.
+    final hasTippingClosed =
+        tippingHasClosed(game.startTimeUTC, now, tipGraceSeconds);
     for (final cohort in cohorts) {
       final tipsForCohort = cohort.value
           .map((tipper) => tipsByTipper[tipper.dbkey]?[game.dbkey])
           .toList();
       final hasSubmittedTips = tipsForCohort.any((tip) => tip != null);
-      if (!hasKnownResult && (!hasStarted || !hasSubmittedTips)) {
+      if (!hasKnownResult && (!hasTippingClosed || !hasSubmittedTips)) {
         continue;
       }
 
@@ -2927,6 +2933,21 @@ Future<void> _rebuildBackendGameStatsForRound({
           '${paths.gameStatsBackendRoot}',
         )
         .update(updates);
+  }
+}
+
+/// The tip grace period set under `/AppConfig`: the default when the setting is
+/// absent or not valid (as the database rules read it), and the longest allowed
+/// when it cannot be read at all, so that a failed read holds the crowd's tips back
+/// longer instead of publishing them early.
+Future<int> _loadTipGracePeriodSeconds(dynamic db) async {
+  try {
+    final snapshot = await db
+        .ref('${paths.configPathRoot}/$tipGracePeriodSecondsKey')
+        .once();
+    return parseTipGracePeriodSeconds(snapshot.value);
+  } on Object {
+    return maxTipGracePeriodSeconds;
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -579,6 +580,14 @@ void main() {
         expect(pending, hasLength(1));
         expect(pending.single.gameKey, currentGame.dbkey);
         expect(pending.single.choice, GameResult.b.name);
+        expect(
+          pending.single.deadlineUtcMs,
+          currentGame.startTimeUTC
+              .add(const Duration(seconds: defaultTipGracePeriodSeconds))
+              .toUtc()
+              .millisecondsSinceEpoch,
+          reason: 'the record holds when tipping closes, not the kickoff',
+        );
         expect(unconfirmed.notices, isEmpty);
       });
 

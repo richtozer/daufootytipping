@@ -22,7 +22,7 @@ void main() {
     String choice = 'a',
     String gameLabel = 'Home v Away',
     int? submittedUtcSeconds,
-    int? kickoffUtcMs,
+    int? deadlineUtcMs,
     int? queuedAtUtcMs,
   }) => UnconfirmedTip(
     compKey: compKey,
@@ -31,7 +31,7 @@ void main() {
     choice: choice,
     submittedUtcSeconds: submittedUtcSeconds ?? tippedAt,
     gameLabel: gameLabel,
-    kickoffUtcMs: kickoffUtcMs ?? future,
+    deadlineUtcMs: deadlineUtcMs ?? future,
     queuedAtUtcMs:
         queuedAtUtcMs ??
         now.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch,
@@ -267,7 +267,7 @@ void main() {
       'a tip the device shows is not taken as counted, nor as lost',
       () async {
         await connect(true);
-        await service.queued(tip(kickoffUtcMs: past));
+        await service.queued(tip(deadlineUtcMs: past));
         shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
 
         await look();
@@ -282,7 +282,7 @@ void main() {
       'a tip the device shows is left alone while the connection is down',
       () async {
         await connect(false);
-        await service.queued(tip(kickoffUtcMs: past));
+        await service.queued(tip(deadlineUtcMs: past));
         shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
 
         await look();
@@ -295,7 +295,7 @@ void main() {
 
     test('a missing tip is reported once it has stayed missing', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       var notified = 0;
       service.addListener(() => notified++);
 
@@ -313,7 +313,7 @@ void main() {
 
     test('a missing tip for a game still to start asks to tip again', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: future));
+      await service.queued(tip(deadlineUtcMs: future));
 
       await look();
       await Future<void>.delayed(longerThanSettle);
@@ -325,7 +325,7 @@ void main() {
 
     test('a missing tip is reported as unconfirmed, not as refused', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
       await Future<void>.delayed(longerThanSettle);
 
@@ -336,12 +336,12 @@ void main() {
       'one refusal and one inference together are not all confirmed',
       () async {
         await connect(true);
-        await service.queued(tip(gameKey: 'game-1', kickoffUtcMs: past));
-        await service.queued(tip(gameKey: 'game-2', kickoffUtcMs: past));
+        await service.queued(tip(gameKey: 'game-1', deadlineUtcMs: past));
+        await service.queued(tip(gameKey: 'game-2', deadlineUtcMs: past));
         await look();
         await Future<void>.delayed(longerThanSettle);
-        await service.queued(tip(gameKey: 'game-3', kickoffUtcMs: past));
-        await service.rejected(tip(gameKey: 'game-3', kickoffUtcMs: past));
+        await service.queued(tip(gameKey: 'game-3', deadlineUtcMs: past));
+        await service.rejected(tip(gameKey: 'game-3', deadlineUtcMs: past));
 
         final taken = service.takeNotices();
 
@@ -358,7 +358,7 @@ void main() {
       );
       addTearDown(slow.dispose);
       await connect(true);
-      await slow.queued(tip(kickoffUtcMs: past));
+      await slow.queued(tip(deadlineUtcMs: past));
       await slow.observe(
         compKey: 'comp-1',
         tipperKey: 'tipper-1',
@@ -378,7 +378,7 @@ void main() {
 
     test('a tip that comes back within the wait is not reported', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
 
       shown['game-1'] = (choice: 'a', submittedUtcSeconds: tippedAt);
@@ -391,7 +391,7 @@ void main() {
 
     test('nothing is decided while the connection is down', () async {
       await connect(false);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
 
       await look();
       await Future<void>.delayed(longerThanSettle);
@@ -402,7 +402,7 @@ void main() {
 
     test('a missing tip is reported once the connection returns', () async {
       await connect(false);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
       await Future<void>.delayed(longerThanSettle);
       expect(service.notices, isEmpty);
@@ -415,7 +415,7 @@ void main() {
 
     test('the connection dropping during the wait stops the report', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
 
       await connect(false);
@@ -429,7 +429,7 @@ void main() {
       'a newer tip for the game replaces the queued one, silently',
       () async {
         await connect(true);
-        await service.queued(tip(choice: 'a', kickoffUtcMs: past));
+        await service.queued(tip(choice: 'a', deadlineUtcMs: past));
         shown['game-1'] = (choice: 'e', submittedUtcSeconds: tippedAt + 60);
 
         await look();
@@ -444,7 +444,7 @@ void main() {
       'an older tip showing instead means the queued one was refused',
       () async {
         await connect(true);
-        await service.queued(tip(choice: 'a', kickoffUtcMs: past));
+        await service.queued(tip(choice: 'a', deadlineUtcMs: past));
         shown['game-1'] = (choice: 'e', submittedUtcSeconds: tippedAt - 3600);
 
         await look();
@@ -457,8 +457,8 @@ void main() {
 
     test('another competition or another tipper is left alone', () async {
       await connect(true);
-      await service.queued(tip(compKey: 'comp-2', kickoffUtcMs: past));
-      await service.queued(tip(tipperKey: 'tipper-2', kickoffUtcMs: past));
+      await service.queued(tip(compKey: 'comp-2', deadlineUtcMs: past));
+      await service.queued(tip(tipperKey: 'tipper-2', deadlineUtcMs: past));
 
       await look();
       await Future<void>.delayed(longerThanSettle);
@@ -469,10 +469,10 @@ void main() {
 
     test('a tip refused in this run is not reported a second time', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
 
-      await service.rejected(tip(kickoffUtcMs: past));
+      await service.rejected(tip(deadlineUtcMs: past));
       await Future<void>.delayed(longerThanSettle);
 
       expect(service.notices, hasLength(1));
@@ -480,7 +480,7 @@ void main() {
 
     test('a screen that has gone stops the wait', () async {
       await connect(true);
-      await service.queued(tip(kickoffUtcMs: past));
+      await service.queued(tip(deadlineUtcMs: past));
       await look();
 
       service.stopObserving();

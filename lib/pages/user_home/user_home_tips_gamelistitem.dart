@@ -302,11 +302,12 @@ class _GameListItemState extends State<GameListItem> {
 
     final panels = widget.isPercentStatsPage
         ? const [TipsPanel.percentages]
-        : [
-            if (data.hasResult) TipsPanel.result,
-            TipsPanel.tips,
-            TipsPanel.info,
-          ];
+        : tipsPanelsFor(
+            data,
+            tippingOpen: tippingIsOpen(
+              gameTipsViewModelConsumer.game.startTimeUTC,
+            ),
+          );
     final active = _activePanel != null && panels.contains(_activePanel)
         ? _activePanel!
         : panels.first;
@@ -333,9 +334,13 @@ class _GameListItemState extends State<GameListItem> {
     if (game.gameState == GameState.startedResultNotKnown &&
         gameTipsViewModelConsumer.tip != null) {
       if (tippingIsOpen(game.startTimeUTC)) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Live scoring opens after tipping closes. Please wait until the grace period ends.'),
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Live scoring opens after tipping closes. Please wait until the grace period ends.',
+            ),
+          ),
+        );
         return;
       }
       showMaterialModalBottomSheet(

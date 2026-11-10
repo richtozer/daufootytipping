@@ -17,7 +17,7 @@ class UnconfirmedTip {
     required this.choice,
     required this.submittedUtcSeconds,
     required this.gameLabel,
-    required this.kickoffUtcMs,
+    required this.deadlineUtcMs,
     required this.queuedAtUtcMs,
   });
 
@@ -28,7 +28,7 @@ class UnconfirmedTip {
     choice: json['choice'] as String,
     submittedUtcSeconds: json['submittedUtcSeconds'] as int,
     gameLabel: json['gameLabel'] as String,
-    kickoffUtcMs: json['kickoffUtcMs'] as int,
+    deadlineUtcMs: json['deadlineUtcMs'] as int,
     queuedAtUtcMs: json['queuedAtUtcMs'] as int,
   );
 
@@ -45,7 +45,10 @@ class UnconfirmedTip {
 
   /// Words for the user: "Home v Away".
   final String gameLabel;
-  final int kickoffUtcMs;
+
+  /// When tipping closes for the game: kickoff plus the grace period in force when
+  /// the tip was made. A tip that reaches the server later is refused.
+  final int deadlineUtcMs;
   final int queuedAtUtcMs;
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -55,7 +58,7 @@ class UnconfirmedTip {
     'choice': choice,
     'submittedUtcSeconds': submittedUtcSeconds,
     'gameLabel': gameLabel,
-    'kickoffUtcMs': kickoffUtcMs,
+    'deadlineUtcMs': deadlineUtcMs,
     'queuedAtUtcMs': queuedAtUtcMs,
   };
 
@@ -312,7 +315,7 @@ class UnconfirmedTipsService extends ChangeNotifier {
   /// For a tip the device no longer shows, which is an inference: the database
   /// may simply not have caught up, so it is not said to have been refused.
   String _couldNotConfirmNotice(UnconfirmedTip tip) =>
-      tip.kickoffUtcMs <= _clock().toUtc().millisecondsSinceEpoch
+      tip.deadlineUtcMs <= _clock().toUtc().millisecondsSinceEpoch
       ? 'We could not confirm your tip for ${tip.gameLabel}. It may not have '
             'reached the server before tipping closed. Please check it on the '
             'Tips page.'

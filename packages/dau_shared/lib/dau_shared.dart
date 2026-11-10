@@ -37,3 +37,4 @@ export 'services/outstanding_tips_calculator.dart';
 export 'services/rounds_linking_service.dart';
 export 'services/rtdb_keys.dart';
 export 'services/scoring_calculator.dart';
+export 'services/tipping_policy.dart';
