@@ -1846,10 +1846,7 @@ the git tag of the pre-cutover functions recorded; rollback scripts present and 
 `test/integration/cutover_rehearsal_test.dart`, section 6l). **Administrators, read-only:** every uid in
 `config/admin-auth-uids.json` must already be a validated administrator in the data (indexed, record naming them
 back, role `admin`) before the functions carrying the role-based gate are deployed, because those functions no longer
-consult the list. **Compare in both directions**, by hand or with a one-off read, naming counts and opaque ids only:
-(a) allowlisted accounts that lack a valid private link or role, who would lose the admin endpoints, and (b) validated
-private administrators who are not on the list, who **gain** endpoint access with this deployment, whether or not that
-was intended. The comparison needs doing before deployment, not before the app-level smoke test.
+consult the list. **Compare in both directions**, by hand, naming counts and opaque ids only: (a) allowlisted accounts that lack a valid private link or role, who would lose the admin endpoints, and (b) validated private administrators who are not on the list, who **gain** endpoint access with this deployment. *Owner decision, 10 November 2026: no comparison tool.* The list is short and has not changed in years, so this is a two-minute look at the four accounts in the Emulator UI or the console at pre-flight. List stability is not what it checks: it checks that each administrator's index entry and private role are intact, and the step A audit already reports any record with a real uid and no index entry. A lockout is recoverable by correcting the role in the database console. It needs doing before deployment, not before the app-level smoke test.
 
 **Step A: stop and drain, reconcile, R2 rules.** Target 30 minutes, **04:00 to 05:00 Australian Eastern
 time (AEDT, UTC+11) on a weekday**, which is about 17:00 to 18:00 UTC the previous day and a quiet hour
