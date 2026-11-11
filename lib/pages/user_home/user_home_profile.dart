@@ -1,6 +1,5 @@
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_faq.dart';
@@ -13,6 +12,7 @@ import 'package:daufootytipping/pages/user_auth/user_auth.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_adminfunctions.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile_alias_dialog.dart';
+import 'package:daufootytipping/pages/user_home/user_home_profile_delete_dialog.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_bottom_aligned_scroll.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
@@ -294,59 +294,8 @@ class Profile extends StatelessWidget with WatchItMixin {
                                         ),
                                       ],
                                     ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Text(
-                                              'Confirm Account Deletion',
-                                              style: TextStyle(
-                                                color: League.afl.colour,
-                                              ),
-                                            ),
-                                            content: const Text(
-                                              'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediately.',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                child: const Text('Cancel'),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              ),
-                                              TextButton(
-                                                child: Text(
-                                                  'Delete',
-                                                  style: TextStyle(
-                                                    color: League.afl.colour,
-                                                  ),
-                                                ),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                  Navigator.of(
-                                                    context,
-                                                  ).pushReplacement(
-                                                    appPageRoute(
-                                                      (
-                                                        context,
-                                                      ) => const UserAuthPage(
-                                                        null,
-                                                        isUserDeletingAccount:
-                                                            true,
-                                                        createLinkedTipper:
-                                                            false,
-                                                        googleClientId: '',
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
+                                    onPressed: () =>
+                                        showDeleteAccountDialog(context),
                                   ),
                                 ],
                               ),

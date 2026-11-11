@@ -27,7 +27,6 @@ import 'package:watch_it/watch_it.dart';
 class UserAuthPage extends StatefulWidget {
   final String? configMinAppVersion;
   final bool isUserLoggingOut;
-  final bool isUserDeletingAccount;
   final bool createLinkedTipper;
   final String googleClientId;
 
@@ -35,7 +34,6 @@ class UserAuthPage extends StatefulWidget {
     this.configMinAppVersion, {
     super.key,
     this.isUserLoggingOut = false,
-    this.isUserDeletingAccount = false,
     required this.createLinkedTipper,
     required this.googleClientId,
   });
@@ -196,19 +194,6 @@ class UserAuthPageState extends State<UserAuthPage> {
       }
       return;
     }
-
-    if (widget.isUserDeletingAccount) {
-      final result = await di<TippersViewModel>().deleteAccount();
-      if (result == null) {
-        log('UserAuthPage - user deleted account');
-        await _forgetKeptTipper();
-        _navigateToAppRoot();
-      } else if (mounted) {
-        setState(() {
-          _exitActionError = result;
-        });
-      }
-    }
   }
 
   void _initializeFirebaseMessagingService() {
@@ -322,7 +307,7 @@ class UserAuthPageState extends State<UserAuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isUserLoggingOut || widget.isUserDeletingAccount) {
+    if (widget.isUserLoggingOut) {
       _startExitActionIfNeeded();
 
       if (_exitActionError != null) {

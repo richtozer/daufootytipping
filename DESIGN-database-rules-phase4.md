@@ -932,7 +932,11 @@ production writes and no new information.
 and an alias edit was answered with "Changing your name is switched off at the moment. Please try again later." The
 dialog stayed open with the typed name kept, and nothing was renamed. So production was in mode `off` at that moment, the
 real ID token and App Check token reached the wrapper, and the client's wording for a refusal is as designed. The owner
-reported the other first-launch checks (sign-in kept, tips load, tipping) as working. Still to do on a device: Apple and
+reported the other first-launch checks (sign-in kept, tips load, tipping) as working. *Account deletion under `off`*
+was tried on the owner's test tipper and answered "Deleting accounts is switched off at the moment. Nothing was deleted.
+Please try again later." That message was shown on a separate page with only a Get help button, a dead end; the
+confirmation dialog now does the deleting itself and shows the reason inside the dialog (as the alias dialog does), which
+stays open to try again or cancel, and the separate deletion page is gone. Still to do on a device: Apple and
 Google re-authentication with account deletion (throwaway account, mode `pilot`), the push token, and sign-out from a
 signed-in session.
 

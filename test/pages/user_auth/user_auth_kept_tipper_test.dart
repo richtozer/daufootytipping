@@ -43,8 +43,13 @@ void main() {
   });
 
   test('deleting the account forgets it', () {
-    final exit = body('Future<void> _startExitActionIfNeeded()');
-    expect(exit, contains('_forgetKeptTipper()'));
+    // The deletion is done by the confirmation dialog on the profile page.
+    final dialog = File(
+      'lib/pages/user_home/user_home_profile_delete_dialog.dart',
+    ).readAsStringSync();
+    final start = dialog.indexOf('Future<void> _forgetAndReturnToSignIn()');
+    expect(start, greaterThanOrEqualTo(0));
+    expect(dialog.substring(start), contains('.forget()'));
   });
 
   test('the one place it is forgotten asks the service', () {
