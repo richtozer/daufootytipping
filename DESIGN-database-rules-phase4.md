@@ -936,7 +936,11 @@ reported the other first-launch checks (sign-in kept, tips load, tipping) as wor
 was tried on the owner's test tipper and answered "Deleting accounts is switched off at the moment. Nothing was deleted.
 Please try again later." That message was shown on a separate page with only a Get help button, a dead end; the
 confirmation dialog now does the deleting itself and shows the reason inside the dialog (as the alias dialog does), which
-stays open to try again or cancel, and the separate deletion page is gone. Still to do on a device: Apple and
+stays open to try again or cancel, and the separate deletion page is gone. A deletion with an old sign-in first asks for
+Apple or Google to be signed in again; that step's failure was reported as "Re-authentication failed", which did not say
+why or that nothing was deleted, and now has three messages (cancelled, did not work, cannot be done from here), each
+saying nothing was deleted. The owner checked the dialog and these messages on the phone and found them fine. Still to do
+on a device: Apple and
 Google re-authentication with account deletion (throwaway account, mode `pilot`), the push token, and sign-out from a
 signed-in session.
 
