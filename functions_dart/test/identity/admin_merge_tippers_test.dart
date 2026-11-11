@@ -5,6 +5,7 @@ import 'package:dart_functions/identity/keys.dart';
 import 'package:dart_functions/identity/leases.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dart_functions/identity/tipper_lease.dart';
+import 'package:dart_functions/identity/unlink_account.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/dau_shared.dart';
 import 'package:test/test.dart';
@@ -636,5 +637,94 @@ void main() {
       skip: skip,
       timeout: const Timeout(Duration(minutes: 3)),
     );
+
+    group('a person who deleted their account and then signed up again', () {
+      /// Pat deletes the account on `tOld` (which has the history) through the
+      /// real deletion, after the app has removed the push token, and then
+      /// signs up again as `tNew`.
+      Future<void> patDeletesTheOldAccount() async {
+        await db.ref('/').update(<String, Object?>{
+          'AllTippersTokens/tOld': null,
+          'TokenOwners/tokOld': null,
+        });
+        await unlinkMyAccount(
+          database: db,
+          caller: callerToken(_uidOld, 'pat.old@example.com'),
+          admission: admissionFor(mode: IdentityMode.coexist),
+          nowMs: () => _t0,
+        );
+      }
+
+      test(
+        'merging the deleted record into the new one gives the new one the history and nothing else',
+        () async {
+          await patDeletesTheOldAccount();
+          const request = AdminMergeTippersRequest(
+            originalId: 'tOld',
+            targetId: 'tNew',
+            mergeTips: true,
+            mergeLogon: true,
+          );
+
+          final plan = await merge(
+            const AdminMergeTippersRequest(
+              originalId: 'tOld',
+              targetId: 'tNew',
+              mergeTips: true,
+              mergeLogon: true,
+              dryRun: true,
+            ),
+          );
+          expect(plan.tipsMoved, 2);
+          expect(plan.tipsReplaced, 1, reason: 'both tipped g2 in c1');
+          expect(plan.loginMoved, false, reason: 'the deleted record has none');
+          expect(plan.accountMoved, false, reason: 'nor an account');
+
+          final result = await merge(request);
+          expect(result.tipsMoved, 2);
+          expect(result.loginMoved, false);
+          expect(result.accountMoved, false);
+
+          final root = await readRoot(db);
+          expect(rowAt(root, 'AllTippers', 'tOld'), isEmpty);
+          expect(rowAt(root, 'TipperPrivate', 'tOld'), isEmpty);
+
+          final c1 = (root['AllTips'] as Map)['c1'] as Map;
+          expect((c1['tNew'] as Map).keys.toSet(), {'g1', 'g2', 'g3'});
+          expect(
+            ((c1['tNew'] as Map)['g2'] as Map)['r'],
+            'b',
+            reason: 'the deleted record\'s tip wins a shared game, as before',
+          );
+          expect(c1.containsKey('tOld'), false);
+          final c2 = (root['AllTips'] as Map)['c2'] as Map;
+          expect((c2['tNew'] as Map).keys, ['h1'], reason: 'kept');
+
+          // The new record keeps its own name, login and account.
+          expect(rowAt(root, 'AllTippers', 'tNew')['name'], 'Patricia');
+          expect(
+            rowAt(root, 'TipperPrivate', 'tNew')['logon'],
+            'pat.new@example.com',
+          );
+          expect(rowAt(root, 'TipperPrivate', 'tNew')['authuid'], _uidNew);
+          expect((root['AuthIndex'] as Map)[_uidNew], 'tNew');
+          expect(
+            rowAt(root, 'TipperPrivate', 'tNew').containsKey(
+              tipperAccountDeletedField,
+            ),
+            false,
+            reason: 'the person is not a deleted tipper',
+          );
+          expect(
+            (root['AliasIndex'] as Map)[aliasIndexKey('Patricia')],
+            'tNew',
+          );
+          expect(root['IdentityLocks'], isNull);
+          expectIdentityConsistent(root);
+          expectTokensConsistent(root);
+        },
+        skip: skip,
+      );
+    });
   });
 }
