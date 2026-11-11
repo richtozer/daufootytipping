@@ -61,14 +61,16 @@ void main() {
     when(() => gameTipViewModel.tip).thenReturn(null);
   });
 
-  Future<void> submit(WidgetTester tester, {GameResult option = GameResult.b}) async {
+  Future<void> submit(
+    WidgetTester tester, {
+    GameResult option = GameResult.b,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: Builder(
             builder: (BuildContext context) => TextButton(
-              onPressed: () =>
-                  submitTip(context, gameTipViewModel, option),
+              onPressed: () => submitTip(context, gameTipViewModel, option),
               child: const Text('tip'),
             ),
           ),
@@ -82,34 +84,45 @@ void main() {
   Game startedSecondsAgo(int seconds) {
     final original = gameTipViewModel.game;
     final game = Game(
-      dbkey: original.dbkey, league: original.league,
-      homeTeam: original.homeTeam, awayTeam: original.awayTeam,
-      location: original.location, fixtureRoundNumber: 1, fixtureMatchNumber: 1,
+      dbkey: original.dbkey,
+      league: original.league,
+      homeTeam: original.homeTeam,
+      awayTeam: original.awayTeam,
+      location: original.location,
+      fixtureRoundNumber: 1,
+      fixtureMatchNumber: 1,
       startTimeUTC: DateTime.now().toUtc().subtract(Duration(seconds: seconds)),
     );
     when(() => gameTipViewModel.game).thenReturn(game);
     return game;
   }
 
-  testWidgets('accepts a new choice during grace but refuses after the deadline', (tester) async {
-    startedSecondsAgo(60);
-    when(() => gameTipViewModel.addTip(any())).thenAnswer((_) async {});
-    await submit(tester);
-    verify(() => gameTipViewModel.addTip(any())).called(1);
-    startedSecondsAgo(121);
-    await submit(tester);
-    verifyNever(() => gameTipViewModel.addTip(any()));
-    expect(find.text('Tipping for this game has closed.'), findsOneWidget);
-  });
+  testWidgets(
+    'accepts a new choice during grace but refuses after the deadline',
+    (tester) async {
+      startedSecondsAgo(60);
+      when(() => gameTipViewModel.addTip(any())).thenAnswer((_) async {});
+      await submit(tester);
+      verify(() => gameTipViewModel.addTip(any())).called(1);
+      startedSecondsAgo(121);
+      await submit(tester);
+      verifyNever(() => gameTipViewModel.addTip(any()));
+      expect(find.text('Tipping for this game has closed.'), findsOneWidget);
+    },
+  );
 
-  testWidgets('default Away can be explicitly submitted during grace', (tester) async {
+  testWidgets('default Away can be explicitly submitted during grace', (
+    tester,
+  ) async {
     final game = startedSecondsAgo(60);
-    when(() => gameTipViewModel.tip).thenReturn(Tip(
-      game: game,
-      tipper: gameTipViewModel.currentTipper,
-      tip: GameResult.d,
-      submittedTimeUTC: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-    ));
+    when(() => gameTipViewModel.tip).thenReturn(
+      Tip(
+        game: game,
+        tipper: gameTipViewModel.currentTipper,
+        tip: GameResult.d,
+        submittedTimeUTC: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      ),
+    );
     when(() => gameTipViewModel.addTip(any())).thenAnswer((_) async {});
     await submit(tester, option: GameResult.d);
     verify(() => gameTipViewModel.addTip(any())).called(1);
@@ -142,7 +155,7 @@ void main() {
       await submit(tester);
 
       expect(
-        find.textContaining('only counts if it arrives before tipping closes'),
+        find.textContaining('only counts if it arrives in time'),
         findsOneWidget,
       );
       expect(

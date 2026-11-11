@@ -37,7 +37,9 @@ Future<void> submitTip(
     }
 
     final existing = gameTipViewModel.tip;
-    if (existing != null && !existing.isDefaultTip() && existing.tip == option) {
+    if (existing != null &&
+        !existing.isDefaultTip() &&
+        existing.tip == option) {
       final label = gameTipViewModel.game.league == League.afl
           ? existing.tip.aflTooltip
           : existing.tip.nrlTooltip;
@@ -60,8 +62,7 @@ Future<void> submitTip(
       Colors.orange,
       'Your tip has not reached the server yet. It is saved on this phone and '
       'will be sent when the connection recovers, but it only counts if it '
-      'arrives before tipping closes ($configuredTipGracePeriodSeconds seconds '
-      'after kickoff). We will tell you if we cannot confirm it.',
+      'arrives in time. We will tell you if we cannot confirm it.',
     );
   } catch (e) {
     final message = 'Error submitting tip: $e';

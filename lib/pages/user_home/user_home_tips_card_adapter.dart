@@ -31,30 +31,6 @@ String tipsCardHeroTag({
 /// ladder's rows and the team history page it opens.
 String teamHeroTag(String teamDbKey) => '$_heroTagPrefix$teamDbKey';
 
-/// When tipping closes for a game that kicks off at [kickoff], in words, or null
-/// once it has closed: "at kickoff" when there is no grace period, otherwise the
-/// time it closes and how long after kickoff that is. [graceSeconds] and [now]
-/// default to the configured grace period and the server's clock.
-String? tippingClosesText(
-  DateTime kickoff, {
-  int? graceSeconds,
-  DateTime? now,
-}) {
-  final int grace = graceSeconds ?? configuredTipGracePeriodSeconds;
-  if (!tippingIsOpen(kickoff, now: now, graceSeconds: grace)) {
-    return null;
-  }
-  if (grace == 0) {
-    return 'Tips close at kickoff.';
-  }
-  final String time = DateFormat('h:mm a')
-      .format(tippingDeadline(kickoff, graceSeconds: grace).toLocal());
-  final String after = grace % 60 == 0
-      ? '${grace ~/ 60} minute${grace == 60 ? '' : 's'}'
-      : '$grace seconds';
-  return 'Tips close at $time, $after after kickoff.';
-}
-
 /// The panels a card offers, in the order they are swiped through. On a game that
 /// has started but is still open for tipping (the grace period) the choices come
 /// first, so a tipper opening the card finds them, not a result panel with
@@ -90,7 +66,6 @@ TipsCardDisplay tipsCardDisplayFor({
   final GameStatsEntry? fieldStats = tippingIsOpen(game.startTimeUTC)
       ? null
       : gameStatsEntry;
-  final String? closesText = tippingClosesText(game.startTimeUTC);
 
   return TipsCardDisplay(
     id: game.dbkey,
@@ -109,9 +84,7 @@ TipsCardDisplay tipsCardDisplayFor({
       winner: _hasFinalScore(scoring) && (scoring?.didAwayTeamWin() ?? false),
     ),
     league: game.league,
-    info: closesText == null
-        ? _infoParagraph(gameTipViewModel)
-        : '${_infoParagraph(gameTipViewModel)}$_infoSeparator$closesText',
+    info: _infoParagraph(gameTipViewModel),
     status: status,
     selected: gameTipViewModel.tip?.tip,
     result: _hasGameResult(game)

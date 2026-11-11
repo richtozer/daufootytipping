@@ -294,37 +294,6 @@ void main() {
       );
     });
 
-    test('says when tipping closes, and how long after kickoff', () {
-      final kickoff = DateTime.utc(2027, 3, 1, 10);
-      final before = kickoff.subtract(const Duration(hours: 1));
-
-      expect(
-        tippingClosesText(kickoff, graceSeconds: 120, now: before),
-        endsWith(', 2 minutes after kickoff.'),
-      );
-      expect(
-        tippingClosesText(kickoff, graceSeconds: 60, now: before),
-        endsWith(', 1 minute after kickoff.'),
-      );
-      expect(
-        tippingClosesText(kickoff, graceSeconds: 90, now: before),
-        endsWith(', 90 seconds after kickoff.'),
-      );
-      expect(
-        tippingClosesText(kickoff, graceSeconds: 0, now: before),
-        'Tips close at kickoff.',
-      );
-      expect(
-        tippingClosesText(
-          kickoff,
-          graceSeconds: 120,
-          now: kickoff.add(const Duration(seconds: 120)),
-        ),
-        isNull,
-        reason: 'nothing to say once it has closed',
-      );
-    });
-
     test(
       'the choices come first, and the result first again once it closes',
       () {

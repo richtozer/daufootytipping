@@ -337,7 +337,7 @@ class _GameListItemState extends State<GameListItem> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Live scoring opens after tipping closes. Please wait until the grace period ends.',
+              'Live scoring is not open yet. Please try again in a moment.',
             ),
           ),
         );

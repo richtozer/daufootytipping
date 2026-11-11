@@ -222,9 +222,14 @@ class GameTipViewModel extends ChangeNotifier {
     final previousAwayScore = _awayTeamScore;
     final previousGameState = _gameState;
 
+    final previousKickoff = game.startTimeUTC;
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     if (_disposed) {
       return;
+    }
+    if (game.startTimeUTC != previousKickoff) {
+      // The fixture was moved: tipping now closes at a different time.
+      _scheduleTipDeadline();
     }
     _tip?.game.scoring = game.scoring; //update the tip scoring
 

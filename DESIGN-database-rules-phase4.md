@@ -9,8 +9,9 @@ invalid values use 120, and zero restores strict kickoff. R2 accepts own-tip cre
 deletion only while server `now < kickoff + grace`; competitors can read a game's tips only at or
 after that deadline. Owner/admin rule overrides are unchanged. Game state still starts at kickoff,
 but ordinary live-score submissions open only when tipping closes, using that same grace deadline
-(owner's follow-up decision). The client reads the setting, permits tipping during grace, updates its deadline wording,
-and delays the other-tipper drill-down until the same deadline. R1-family compatibility rules keep
+(owner's follow-up decision). The client reads the setting, permits tipping during grace,
+and delays the other-tipper drill-down until the same deadline. **By the owner's instruction nothing a tipper sees
+mentions a grace period** (see review follow-up 3). R1-family compatibility rules keep
 their legacy permissions; the tighter read/write deadline takes effect with the R2 deployment.
 
 Default Away tips are inferred by the scoring worker, not written to `/AllTips`. Every accepted
@@ -38,8 +39,11 @@ the client as part of the existing cutover, not as an independent early rules re
 2. *The deadline is judged by the server's clock.* `ServerClock` follows `.info/serverTimeOffset`; every client decision
    (the tip button's refusal, the live-score gate, the timers that refresh a card at the deadline, the other-tipper
    screen) uses it. Without this a phone 90 s fast was refused locally 90 s early, though the server would have accepted.
-3. *On a started game that is still open, the card opens on the tips panel* and says when tipping closes ("Tips close at
-   7:32 pm, 2 minutes after kickoff"; "at kickoff" with no grace). When tipping closes, the result panel comes first again.
+3. *On a started game that is still open, the card opens on the tips panel.* A line saying when tipping closes was
+   added and then removed on the owner's instruction: the app does not tell tippers there is a grace period. For the same
+   reason the offline "saved on this phone" message says a tip only counts "if it arrives in time" (no seconds), the
+   live-scoring messages say live scoring "is not open yet", and the live-score failure text is the original wording.
+   When tipping closes the panels revert to result-first, but a card already showing the choices stays on them.
 4. *A queued tip's record stores when tipping closes* (kickoff plus the grace in force when it was made), and the
    "could not confirm" wording follows it, so it no longer says "before tipping closed" while tipping is still open.
 5. *A games-listener refusal while signed in is reported to Crashlytics as a non-fatal error* in release builds. Sign-out
@@ -49,6 +53,11 @@ the client as part of the existing cutover, not as an independent early rules re
    generator). The console bypasses the rules, so the bound is applied in the rules, the app and the backend alike;
    anything else reads as 120.
 
+7. *Found on the simulator (11 November): the card did not refresh when tipping closed after the fixture had moved.*
+   The card's deadline timer was set once, when it was built, so a game whose kickoff changed afterwards went on saying
+   tipping was open. The view model now sets the timer again when the kickoff changes (regression test, checked by
+   mutation, and confirmed on the simulator).
+
 The setting is parsed in one place (`packages/dau_shared/lib/services/tipping_policy.dart`) for the app and the backend,
 and in the rules macro for the rules; both are tested for the same cases.
 
@@ -56,7 +65,7 @@ Validation: `flutter analyze` clean; Flutter suite 1199 passed, 5 skipped, 2 fai
 the home network blocks); backend (`dart test` for `functions_dart`) and `dau_shared` suites pass; the R2 rules-engine
 suite passes 74 of 74 on spare ports (including the grace cases: absent, configured, invalid, too large, at the limit,
 zero); the new backend tests show game stats withheld inside the grace period and published at its end, and a mutation
-that publishes at kickoff fails them. *Not checked on a device:* the grace flow on a phone, and a sign-out from a fully
+that publishes at kickoff fails them. *Not checked on a phone:* the grace flow (it was checked on the simulator, item 7), and a sign-out from a fully
 signed-in session. On the simulator the new build started with no unhandled errors in the cached-session state that had
 logged one before, but that session belonged to a deleted account, so the sign-out itself could not be reached; the
 listener lifecycle is covered by tests only. Nothing is deployed. The regenerated R2 rules go with the client as part of

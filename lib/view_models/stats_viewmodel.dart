@@ -1117,7 +1117,7 @@ class StatsViewModel extends ChangeNotifier {
   }) async {
     await _submitLock.synchronized(() async {
       if (tippingIsOpen(tip.game.startTimeUTC)) {
-        throw StateError('Live scoring opens after tipping closes. Please wait until the grace period ends.');
+        throw StateError('Live scoring is not open yet. Please try again in a moment.');
       }
       final currentHomeScore = tip.game.scoring?.currentScore(ScoringTeam.home);
       final currentAwayScore = tip.game.scoring?.currentScore(ScoringTeam.away);

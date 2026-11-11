@@ -9,12 +9,12 @@ import 'package:watch_it/watch_it.dart';
 enum _ActiveScoreField { home, away }
 
 /// What to tell a tipper whose live score was not saved. The rules refuse a score
-/// before tipping closes by the server's clock, or for a game that already has
+/// that comes too early by the server's clock, or for a game that already has
 /// its official score, and both are common at the edges of a game, so say so
 /// rather than showing the raw error.
 String liveScoreSaveFailureMessage(Object error) {
   if (error is FirebaseException && error.code == 'permission-denied') {
-    return 'The score was not saved. Tipping may not have closed yet, or the game '
+    return 'The score was not saved. The game may not have started yet, or it '
         'may already have its official score.';
   }
   return 'Unable to save live scores: $error';

@@ -186,6 +186,49 @@ void main() {
       },
     );
 
+    test('refreshes the card when tipping closes, even if the kickoff moved', () async {
+      // Built with a kickoff hours away, so the deadline timer is first set for
+      // then; the fixture is then moved to a moment that leaves 100 ms of grace.
+      final currentGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().add(const Duration(hours: 4)),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      final movedGame = buildGame(
+        startTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(seconds: defaultTipGracePeriodSeconds) -
+              const Duration(milliseconds: 100),
+        ),
+        homeScore: 0,
+        awayScore: 0,
+      );
+      when(() => mockGamesViewModel.findGame(currentGame.dbkey))
+          .thenAnswer((_) async => movedGame);
+      final vm = GameTipViewModel(
+        tipper,
+        currentComp,
+        currentGame,
+        mockTipsViewModel,
+        database: mockDb,
+      );
+      var notifications = 0;
+      vm.addListener(() => notifications++);
+      await settleAsyncWork();
+
+      gamesListener();
+      await settleAsyncWork();
+      notifications = 0;
+
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      expect(
+        notifications,
+        greaterThan(0),
+        reason: 'the card must be rebuilt when the new deadline passes',
+      );
+      vm.dispose();
+    });
+
     test('notifies when the updated game score changes', () async {
       final currentGame = buildGame(
         startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 4)),
