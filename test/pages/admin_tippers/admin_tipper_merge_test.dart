@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:dau_shared/constants/identity_reasons.dart' as reasons;
-import 'package:dau_shared/dau_shared.dart' show AdminMergeTippersResult;
+import 'package:dau_shared/dau_shared.dart'
+    show AdminMergeTippersResult, deletedTipperName;
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
@@ -146,6 +147,49 @@ void main() {
       expect(mergeAction(tester), isNotNull);
     },
   );
+
+  testWidgets(
+    'a tipper who deleted their account cannot be chosen as the target',
+    (tester) async {
+      when(() => tippers.tippers).thenReturn([
+        source,
+        tipperNamed('target', 'Target'),
+        Tipper(
+          dbkey: 'gone',
+          compsPaidFor: const [],
+          authuid: '',
+          email: null,
+          name: deletedTipperName,
+          tipperRole: TipperRole.tipper,
+          accountDeletedUTC: DateTime.utc(2026, 11, 11),
+        ),
+        tipperNamed('other', 'Other'),
+      ]);
+      await pumpMergePage(tester);
+
+      await tester.tap(find.byType(DropdownButton<Tipper>));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Target'), findsWidgets);
+      expect(find.text('Other'), findsWidgets);
+      expect(
+        find.text(deletedTipperName),
+        findsNothing,
+        reason:
+            'the history is merged into the record they signed up with again',
+      );
+    },
+  );
+
+  testWidgets('says that paid competitions are not merged', (tester) async {
+    await pumpMergePage(tester);
+
+    expect(
+      find.textContaining('paid competitions will not be merged'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('tick the target as paid'), findsOneWidget);
+  });
 
   testWidgets('merging waits for the preview', (tester) async {
     final pending = Completer<AdminMergeTippersResult>();

@@ -224,9 +224,16 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
   Widget build(BuildContext context) {
     final Tipper? source = widget.sourceTipper;
     final Tipper? target = targetTipper;
+    // A tipper who deleted their account cannot be merged into: the person's
+    // new sign-in would end up on a record named "Deleted tipper". Their history
+    // is merged into the record they signed up with again instead.
     final List<Tipper> targetTippers =
         widget.tippersViewModel.tippers
-            .where((tipper) => tipper.dbkey != source?.dbkey)
+            .where(
+              (tipper) =>
+                  tipper.dbkey != source?.dbkey &&
+                  tipper.accountDeletedUTC == null,
+            )
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
@@ -238,7 +245,7 @@ class _AdminTipperMergeEditPageState extends State<AdminTipperMergeEditPage> {
           child: Column(
             children: [
               const Text(
-                'WARNING: This action will merge 2 accounts by migrating the 1) logon email and 2) tips from the source account to the target account. If this is successful the source account will be deleted. This cannot be undone.\n\nThe server does the merge in steps. If it is cut short, run the same merge again and it will finish.\n\nThe 1) Alias name, and 2) Comms email will not be merged.',
+                'WARNING: This action will merge 2 accounts by migrating the 1) logon email and 2) tips from the source account to the target account. If this is successful the source account will be deleted. This cannot be undone.\n\nThe server does the merge in steps. If it is cut short, run the same merge again and it will finish.\n\nThe 1) Alias name, 2) Comms email, and 3) paid competitions will not be merged. If the source was paid up, tick the target as paid afterwards.',
                 style: TextStyle(color: Colors.red),
               ),
               const SizedBox(height: 16),
