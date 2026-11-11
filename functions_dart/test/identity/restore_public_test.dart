@@ -40,6 +40,36 @@ void main() {
       expect(plan.fieldsToRestore, 7);
     });
 
+    test('restores a deleted tipper as the 1.4.x client can read it', () {
+      // No account, no email, no login: the public record gets the empty
+      // authuid that says so, and nothing else about who the person was. The
+      // private-only marker is never copied into the public record.
+      final plan = planPublicIdentityRestore(
+        tippers: <String, Object?>{
+          't1': <String, Object?>{'name': deletedTipperName},
+        },
+        tipperPrivate: <String, Object?>{
+          't1': <String, Object?>{
+            'tipperRole': 'tipper',
+            'isAnonymous': false,
+            'acctCreatedUTC': '2026-03-01 04:05:06.000Z',
+            tipperAccountDeletedField: '2026-11-11 09:00:00.000Z',
+          },
+        },
+      );
+      expect(plan.isBlocked, false, reason: '${plan.blocking}');
+      expect(plan.patch, <String, Object?>{
+        'AllTippers/t1/authuid': '',
+        'AllTippers/t1/tipperRole': 'tipper',
+        'AllTippers/t1/isAnonymous': false,
+        'AllTippers/t1/acctCreatedUTC': '2026-03-01 04:05:06.000Z',
+      });
+      expect(
+        plan.patch.keys.any((key) => key.contains(tipperAccountDeletedField)),
+        isFalse,
+      );
+    });
+
     test('never overwrites a field the public record already has', () {
       final plan = planPublicIdentityRestore(
         tippers: <String, Object?>{

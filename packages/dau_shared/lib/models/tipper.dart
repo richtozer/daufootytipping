@@ -1,4 +1,5 @@
 import 'daucomp.dart';
+import 'tipper_private.dart';
 import 'tipperrole.dart';
 
 class Tipper implements Comparable<Tipper> {
@@ -13,6 +14,11 @@ class Tipper implements Comparable<Tipper> {
   List<DAUComp> compsPaidFor = [];
   final DateTime? acctCreatedUTC;
   final DateTime? acctLoggedOnUTC;
+
+  /// When this tipper deleted their account, or null. Read from the private
+  /// record, so only an administrator ever sees it; the record is then anonymous
+  /// (see [deletedTipperName]) and kept for its tips.
+  final DateTime? accountDeletedUTC;
   final bool isAnonymous;
 
   //constructor
@@ -27,6 +33,7 @@ class Tipper implements Comparable<Tipper> {
     required this.tipperRole,
     this.acctCreatedUTC,
     this.acctLoggedOnUTC,
+    this.accountDeletedUTC,
     this.isAnonymous = false,
   });
 
@@ -53,6 +60,9 @@ class Tipper implements Comparable<Tipper> {
           : null,
       acctLoggedOnUTC: data['acctLoggedOnUTC'] != null
           ? DateTime.parse(data['acctLoggedOnUTC'])
+          : null,
+      accountDeletedUTC: data[tipperAccountDeletedField] is String
+          ? DateTime.tryParse(data[tipperAccountDeletedField] as String)
           : null,
       isAnonymous: data['isAnonymous'] ?? false,
     );
@@ -113,6 +123,7 @@ class Tipper implements Comparable<Tipper> {
       tipperRole: own.tipperRole,
       acctCreatedUTC: own.acctCreatedUTC,
       acctLoggedOnUTC: own.acctLoggedOnUTC,
+      accountDeletedUTC: own.accountDeletedUTC,
       isAnonymous: own.isAnonymous,
     );
   }

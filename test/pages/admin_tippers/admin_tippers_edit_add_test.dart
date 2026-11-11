@@ -113,6 +113,38 @@ void main() {
     await di.reset();
   });
 
+  testWidgets('says when the person deleted their account, and only then', (
+    tester,
+  ) async {
+    await pumpEditPage(tester);
+    expect(
+      find.byKey(const ValueKey('account-deleted-note')),
+      findsNothing,
+      reason: 'an ordinary tipper has no such note',
+    );
+
+    final deletedAt = DateTime.utc(2026, 11, 11, 12);
+    tipper = Tipper(
+      dbkey: 'tipper-2',
+      authuid: '',
+      email: null,
+      name: 'Deleted tipper',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const [],
+      acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
+      accountDeletedUTC: deletedAt,
+    );
+    await pumpEditPage(tester);
+
+    final note = find.byKey(const ValueKey('account-deleted-note'));
+    expect(note, findsOneWidget);
+    final date = DateFormat('dd MMM yy').format(deletedAt.toLocal());
+    expect(
+      tester.widget<Text>(note).data,
+      allOf(contains('deleted their account on $date'), contains('kept')),
+    );
+  });
+
   testWidgets('renders logon as read-only and shows last login time', (
     tester,
   ) async {

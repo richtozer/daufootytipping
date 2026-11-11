@@ -1,5 +1,7 @@
 import 'package:dau_shared/constants/identity_reasons.dart' as reasons;
 import 'package:dau_shared/constants/paths.dart' as paths;
+import 'package:dau_shared/dau_shared.dart'
+    show deletedTipperName, tipperAccountDeletedField;
 import 'package:daufootytipping/services/account_deletion.dart';
 import 'package:daufootytipping/services/device_token_registrar.dart';
 import 'package:daufootytipping/services/identity_service.dart';
@@ -147,24 +149,36 @@ void main() {
       },
     );
 
-    test('keeps the tipper and their name, so the tips are not lost', () async {
+    test('keeps the record for its tips, but anonymised, and says so for the administrators', () async {
       await deletion().run();
 
       final public = await database.adminGet('${paths.tippersPath}/$tipperId');
-      expect(public.map?['name'], 'Ann');
+      expect(public.map?['name'], deletedTipperName);
+      expect(public.map?.containsKey('email'), isFalse);
+      expect(public.map?.containsKey('logon'), isFalse);
+      expect(public.map?.containsKey('photoURL'), isFalse);
+
+      final private = await database.adminGet(
+        '${paths.tipperPrivatePath}/$tipperId',
+      );
+      expect(private.map?.containsKey('email'), isFalse);
+      expect(private.map?.containsKey('logon'), isFalse);
+      expect(private.map?[tipperAccountDeletedField], isA<String>());
     });
 
-    test('signing up again with the same verified address links back to the same record', () async {
+    test('signing up again with the same address makes a new tipper, and the name is free', () async {
       await deletion().run();
 
       final again = person(
         'uidAnn0000000000000000000099',
         email: 'ann@example.test',
       );
-      final tipper = await again.signIn();
+      final tipper = await again.signUp('Ann');
 
-      expect(tipper.dbkey, tipperId);
+      expect(tipper.dbkey, isNot(tipperId));
       expect(tipper.name, 'Ann');
+      final old = await database.adminGet('${paths.tippersPath}/$tipperId');
+      expect(old.map?['name'], deletedTipperName);
     });
 
     test(

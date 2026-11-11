@@ -466,6 +466,18 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
+              if (tipper.accountDeletedUTC != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'This person deleted their account on '
+                    '${DateFormat('dd MMM yy').format(tipper.accountDeletedUTC!.toLocal())}. '
+                    'Their name, email address and photo were removed; their '
+                    'tips and scores are kept.',
+                    key: const ValueKey('account-deleted-note'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               Form(
                 key: _formKey,
                 child: Column(

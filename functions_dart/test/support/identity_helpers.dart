@@ -32,10 +32,14 @@ class IdentitySeed {
     bool indexAccount = false,
     String? placeholder,
     bool legacyPublic = true,
+    String? photoUrl,
+    List<String>? comps,
   }) {
     if (hasPublic) {
       _root('AllTippers')[id] = <String, Object?>{
         'name': ?name,
+        'photoURL': ?photoUrl,
+        'compsParticipatedIn': ?comps,
         if (legacyPublic) ...<String, Object?>{
           'authuid': ?authuid,
           'logon': ?logon,

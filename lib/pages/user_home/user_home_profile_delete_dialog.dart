@@ -93,7 +93,11 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Are you sure you want to delete your account? Any tips you have made, will be deleted. This action cannot be undone. Prior to your account be deleted, you may confirm your identity, otherwise your account will be deleted immediately.',
+            'Are you sure you want to delete your account? Your sign-in, name, '
+            'email address and photo will be deleted, and this cannot be undone. '
+            'Your tips and scores stay in the competition, but no longer show '
+            'your name: they appear under "Deleted tipper". You may be asked to '
+            'confirm your identity first.',
           ),
           if (_errorMessage != null)
             Padding(

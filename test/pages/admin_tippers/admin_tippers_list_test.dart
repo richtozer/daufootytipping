@@ -1,3 +1,4 @@
+import 'package:dau_shared/dau_shared.dart' show deletedTipperName;
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
@@ -169,6 +170,40 @@ void main() {
     expect(
       tester.widget<Text>(find.text('Maree')).style?.fontWeight,
       isNot(FontWeight.bold),
+    );
+  });
+
+  testWidgets('says under the name when a tipper deleted their account', (
+    tester,
+  ) async {
+    final deletedAt = DateTime.utc(2026, 11, 11, 12);
+    when(() => tippersViewModel.tippers).thenReturn([
+      _tipper('t3', 'Alex', lastLogin: DateTime.utc(2026, 3, 1)),
+      Tipper(
+        dbkey: 't4',
+        authuid: '',
+        email: null,
+        name: deletedTipperName,
+        tipperRole: TipperRole.tipper,
+        compsPaidFor: const [],
+        acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
+        accountDeletedUTC: deletedAt,
+      ),
+    ]);
+    await openPage(tester);
+
+    final date = DateFormat('dd MMM yy').format(deletedAt.toLocal());
+    expect(find.text(deletedTipperName), findsOneWidget);
+    expect(find.text('account deleted $date'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('account deleted $date')).dy,
+      greaterThan(tester.getTopLeft(find.text(deletedTipperName)).dy),
+      reason: 'it sits under the name, as the admin marker does',
+    );
+    expect(
+      find.textContaining('account deleted'),
+      findsOneWidget,
+      reason: 'an ordinary tipper carries no such line',
     );
   });
 

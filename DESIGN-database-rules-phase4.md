@@ -1,5 +1,55 @@
 # Database rules, phase 4: server pieces, coexistence and cutover to R2
 
+### 11 November 2026: deleting an account now anonymises the tipper record
+
+**Decision (owner).** Deleting an account used to leave the tipper record exactly as it was (name, login email, photo,
+tips), and the dialog said "Any tips you have made, will be deleted", which was not true. Fully deleting the record and
+its tips was rejected because it rewrites history (ranks, past winners, head-to-head change for everyone else). The
+decision is to **anonymise**: what says who the person was goes, the tips, scores and standing stay.
+
+**Why now.** Apple (guideline 5.1.1(v)) requires the account and its associated personal data to be deletable in the app,
+retaining only what law requires and saying what is kept; Google Play's User Data policy asks the same, plus a web page
+for requesting deletion declared in the Data safety form. Keeping the email and name of someone who asked for deletion,
+and telling them otherwise, fitted neither.
+
+**What `unlink-my-account` now does** (its endpoint and result are unchanged, so no client or deploy ordering problem):
+for a record that **names the caller's account** (an index entry alone is not enough), under the tipper lease and in this
+order: release the `AuthIndex` entry; release the alias and login claims (while the record still holds the values they
+are made from); remove the private `email` and `logon` and set the private-only `accountDeletedUTC` (once: a retry keeps
+the first time); rename the public record to "Deleted tipper" and remove its `photoURL` and legacy `email` and `logon`;
+remove the private `authuid`; blank the public `authuid`. The account id goes **last**, so a call cut short at any step is
+found again by the retry. A record's missing half is never created. Kept: the tips, the paid competitions, the role, the
+creation and last sign-in times, the Firestore tip log (which holds the id and alias, by the owner's choice), and any
+live-score entries the tipper submitted (they hold only an opaque id).
+
+**Consequences.** Signing up again with the same email now makes a **new** tipper with no history (the old
+"links back to the same record" behaviour is gone; sections 6e and 6f describe it and are superseded here). The alias is
+free again. "Deleted tipper" cannot be chosen as a name (`isValidAlias` refuses it). The purge and restore tools needed no
+change: a missing public value is skipped by the purge, and the restore rebuilds only what the private record holds; both
+have a test for an anonymised record. The marker is deliberately in none of the private-field lists, so no tool moves it.
+1.4.x clients are unchanged (they only delete the Firebase user) until the floor is raised; the new behaviour is the R2
+client's and, like every callable, is refused under mode `off`.
+
+**For administrators.** The Admin Tippers list shows "account deleted <date>" under the name (with "admin" if it was one),
+and the edit page opens with a note that the person deleted their account, what was removed and that tips are kept.
+There is still no way to delete a tipper record outright (the R2 rules allow no client write of one, and no callable
+exists); a record from before this change keeps its details until it is cleaned up by hand.
+
+**Dialog.** It now says what goes (sign-in, name, email address, photo) and what stays (tips and scores, shown as
+"Deleted tipper"). The alias messages say "That name cannot be used" for the reserved name.
+
+**Not done (store follow-ups).** Revoking the Sign in with Apple token on deletion (Apple says apps "should", and none is
+implemented; it needs the authorization code from a fresh Apple sign-in and a real Apple account to test). The Play
+Console deletion URL and the Data safety answers should be checked by the owner; the privacy section says deletion can
+be requested, which may or may not satisfy that field. An administrator who deletes their own account leaves no way back
+into admin functions if they were the last one; nothing prevents it yet.
+
+**Validation.** `unlink-my-account` tests (17, including a crash after each of five steps and a mutation that skips the
+claim release, caught by seven tests); the whole identity suite (637) against the emulator; purge and restore tests for an
+anonymised record; shared model and alias tests; widget tests for the dialog wording and the admin flag and note; the
+client integration harness against the real server and rulesets (53). Nothing is deployed: the Dart functions need
+deploying (production, the owner's go) before an R2 client can use it, and the pilot account can then check it.
+
 ### 10 November 2026: owner-approved tipping grace and sign-out fix
 
 The owner approved a configurable **120-second default grace period**. This supersedes the
@@ -1130,7 +1180,7 @@ reaper). The existing admin endpoints keep the compile-time allowlist until cuto
 record keeps naming it, and linking never checks whether an old account still exists (design decision 1 in 6f: any
 other owner is treated as a claim to respect), so signing up again with the same email would be refused as
 `claimed`. `unlink-my-account` detaches the record, keeping its name, claims, tips and tokens, so a later sign-up
-links back to it. **The client's delete flow (M7) must be: unregister the push token, then `unlink-my-account`,
+links back to it. *(Superseded on 11 November 2026: it now also anonymises the record; see the block at the top.)* **The client's delete flow (M7) must be: unregister the push token, then `unlink-my-account`,
 then delete the sign-in account.** Unlinking needs a linked account, so the token goes first.
 
 How it works, and the points that are easy to get wrong:

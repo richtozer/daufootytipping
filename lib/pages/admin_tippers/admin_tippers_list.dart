@@ -276,16 +276,16 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             ),
             cells: [
               AppCell.text(
-                tipper.tipperRole == TipperRole.admin
-                    ? '${tipper.name}\nadmin'
-                    : tipper.name,
+                _status(tipper) == null
+                    ? tipper.name
+                    : '${tipper.name}\n${_status(tipper)}',
                 maxLines: 2,
                 laterLinesStyle: const TextStyle(fontWeight: FontWeight.bold),
                 leadingSize: const Size.square(_avatarSize),
                 leading: avatarPic(tipper),
-                semanticLabel: tipper.tipperRole == TipperRole.admin
-                    ? '${tipper.name}, admin'
-                    : tipper.name,
+                semanticLabel: _status(tipper) == null
+                    ? tipper.name
+                    : '${tipper.name}, ${_status(tipper)}',
               ),
               AppCell.text(formatDateTime(tipper.acctLoggedOnUTC)),
               AppCell.text(tipper.logon ?? ''),
@@ -294,6 +294,18 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
             ],
           ),
       ];
+
+  /// What is worth saying about a tipper under their name: that they are an
+  /// administrator, and that they deleted their account (and when). Null when
+  /// there is nothing to say.
+  String? _status(Tipper tipper) {
+    final parts = <String>[
+      if (tipper.tipperRole == TipperRole.admin) 'admin',
+      if (tipper.accountDeletedUTC != null)
+        'account deleted ${formatDateTime(tipper.accountDeletedUTC)}',
+    ];
+    return parts.isEmpty ? null : parts.join(', ');
+  }
 
   String formatDateTime(DateTime? dateTime) {
     if (dateTime == null) {

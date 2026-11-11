@@ -11,8 +11,8 @@ String aliasFailureMessage(IdentityFailure failure) {
       return 'That name is already used by another tipper, or is too similar to '
           'theirs. Please choose another.';
     case reasons.identityReasonInvalidAlias:
-      return 'Please choose a name with at least one letter or number, no more '
-          'than $maxAliasLength characters long.';
+      return 'That name cannot be used. Please choose a name with at least one '
+          'letter or number, no more than $maxAliasLength characters long.';
     case reasons.identityReasonBusy:
       return 'Another change to your profile is in progress. Wait a moment and '
           'try again.';

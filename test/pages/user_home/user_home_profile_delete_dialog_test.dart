@@ -45,6 +45,24 @@ void main() {
     return tester.widget<TextButton>(last ? buttons.last : buttons.first);
   }
 
+  testWidgets('says what is deleted and what stays, and does not overpromise', (
+    tester,
+  ) async {
+    await open(tester, deleteAccount: () async => null, onDeleted: () async {});
+
+    expect(
+      find.textContaining('sign-in, name, email address and photo'),
+      findsOne,
+    );
+    expect(find.textContaining('tips and scores stay'), findsOne);
+    expect(find.textContaining('"Deleted tipper"'), findsOne);
+    expect(
+      find.textContaining('tips you have made, will be deleted'),
+      findsNothing,
+      reason: 'the old promise was not true',
+    );
+  });
+
   testWidgets('a refusal is shown in the dialog, which stays open and usable', (
     tester,
   ) async {

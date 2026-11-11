@@ -407,6 +407,64 @@ void main() {
     });
   });
 
+  group('a tipper who deleted their account', () {
+    // What the account deletion leaves: the public record has the placeholder
+    // name and an empty authuid (never a missing one), the private record has no
+    // authuid, email or login and says when the account went.
+    Map<String, Object?> deletedPublic() => <String, Object?>{
+      'name': deletedTipperName,
+      'compsParticipatedIn': <String>['c1'],
+      'authuid': '',
+      'tipperRole': 'tipper',
+      'isAnonymous': false,
+      'acctCreatedUTC': '2025-01-01T00:00:00.000Z',
+      'acctLoggedOnUTC': '2026-10-01T02:03:04.000Z',
+    };
+    Map<String, Object?> deletedPrivate() => <String, Object?>{
+      'tipperRole': 'tipper',
+      'isAnonymous': false,
+      'acctCreatedUTC': '2025-01-01T00:00:00.000Z',
+      'acctLoggedOnUTC': '2026-10-01T02:03:04.000Z',
+      tipperAccountDeletedField: '2026-11-11 09:00:00.000Z',
+    };
+
+    test('is purged like any other and never blocks the plan', () {
+      final result = plan(
+        <String, Object?>{'t1': deletedPublic()},
+        <String, Object?>{'t1': deletedPrivate()},
+      );
+
+      expect(result.isBlocked, isFalse, reason: '${result.blocking}');
+      final applied = apply(
+        <String, Object?>{'t1': deletedPublic()},
+        <String, Object?>{'t1': deletedPrivate()},
+        result.patch,
+      );
+      expect(applied.tippers['t1'], <String, Object?>{
+        'name': deletedTipperName,
+        'compsParticipatedIn': <String>['c1'],
+      });
+      expect(
+        (applied.private['t1']! as Map)[tipperAccountDeletedField],
+        '2026-11-11 09:00:00.000Z',
+        reason: 'the marker is private and is never moved or lost',
+      );
+    });
+
+    test('the purge is a no-op once done', () {
+      final result = plan(
+        <String, Object?>{
+          't1': <String, Object?>{
+            'name': deletedTipperName,
+            'compsParticipatedIn': <String>['c1'],
+          },
+        },
+        <String, Object?>{'t1': deletedPrivate()},
+      );
+      expect(result.isEmpty, isTrue);
+    });
+  });
+
   test('nothing to purge in an empty or missing node', () {
     expect(plan(null, null).isEmpty, isTrue);
     expect(plan(<String, Object?>{}, <String, Object?>{}).isEmpty, isTrue);

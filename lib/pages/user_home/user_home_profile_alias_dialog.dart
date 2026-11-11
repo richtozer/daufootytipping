@@ -61,8 +61,8 @@ class _EditAliasDialogState extends State<EditAliasDialog> {
     if (!isValidAlias(newName)) {
       setState(
         () => _errorMessage =
-            'Alias needs at least one letter or number, and must not be '
-            'too long.',
+            'That name cannot be used. It needs at least one letter or '
+            'number, and must not be too long.',
       );
       return;
     }

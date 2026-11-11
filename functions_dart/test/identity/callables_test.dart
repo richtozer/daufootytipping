@@ -619,7 +619,17 @@ void main() {
           expect((root['AuthIndex'] as Map).containsKey(_uidA), false);
           expect((root['AuthIndex'] as Map)[_uidB], 't2');
           expect(rowAt(root, 'TipperPrivate', 't2')['authuid'], _uidB);
-          expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
+          expect(
+            rowAt(root, 'AllTippers', 't1')['name'],
+            deletedTipperName,
+            reason: 'the caller\'s own record is anonymised',
+          );
+          expect(
+            rowAt(root, 'AllTippers', 't2')['name'],
+            isNot(deletedTipperName),
+            reason: 'the record the request named is not touched',
+          );
+          expect(rowAt(root, 'TipperPrivate', 't2').containsKey('logon'), true);
 
           // Signed in as the same account again, there is nothing left to detach.
           final again = await asPat(unlinkMyAccountEndpoint);

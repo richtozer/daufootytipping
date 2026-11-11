@@ -48,6 +48,20 @@ void main() {
     );
   });
 
+  group('the name a deleted tipper is given', () {
+    test('cannot be chosen as an alias, in any case or spacing', () {
+      for (final alias in <String>[
+        deletedTipperName,
+        'deleted tipper',
+        'DELETED   TIPPER',
+        'Deleted-Tipper!',
+      ]) {
+        expect(isValidAlias(alias), isFalse, reason: alias);
+      }
+      expect(isValidAlias('Deleted Tipper 2'), isTrue);
+    });
+  });
+
   group('isValidAlias', () {
     test('accepts ordinary aliases', () {
       for (final alias in ['Reisy', 'Big Fan', '老虎', 'Team 9']) {

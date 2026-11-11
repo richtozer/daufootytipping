@@ -2,6 +2,7 @@ import 'package:dart_functions/identity/faults.dart';
 import 'package:dart_functions/identity/link_or_create.dart';
 import 'package:dart_functions/identity/server_mode.dart';
 import 'package:dart_functions/identity/tipper_lease.dart';
+import 'package:dart_functions/identity/tipper_shapes.dart';
 import 'package:dart_functions/identity/unlink_account.dart';
 import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/dau_shared.dart';
@@ -34,6 +35,8 @@ void main() {
           logon: 'pat@example.com',
           email: 'pat@example.com',
           indexAccount: true,
+          photoUrl: 'https://example.test/pat.png',
+          comps: <String>['c1'],
         )
         ..tipper(
           't2',
@@ -86,7 +89,7 @@ void main() {
         );
 
     test(
-      'detaches the account and keeps the record, its claims, tips and tokens',
+      'detaches the account and anonymises the record, keeping its tips, tokens and competitions',
       () async {
         final result = await unlink(_uidA);
         expect(result.unlinked, true);
@@ -106,39 +109,84 @@ void main() {
           reason:
               'removed, not blanked: only a missing authuid is free to link',
         );
+        expect(private.containsKey('email'), false);
+        expect(private.containsKey('logon'), false);
         expect(
-          rowAt(root, 'AllTippers', 't1')['authuid'],
+          private['accountDeletedUTC'],
+          stampOf(_t0),
+          reason: 'the administrators are told when',
+        );
+        expect(private['tipperRole'], 'tipper');
+        expect(private['acctCreatedUTC'], '2025-02-01 03:04:05.000Z');
+
+        final public = rowAt(root, 'AllTippers', 't1');
+        expect(
+          public['authuid'],
           '',
           reason:
               'blanked, never removed: the 1.4.x client reads it as a string',
         );
+        expect(public['name'], deletedTipperName);
+        expect(public.containsKey('photoURL'), false);
+        expect(public.containsKey('email'), false);
+        expect(public.containsKey('logon'), false);
+        expect(public['compsParticipatedIn'], ['c1'], reason: 'standing stays');
 
-        expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
-        expect(private['logon'], 'pat@example.com');
-        expect(root['AliasIndex'], containsPair('pat', 't1'));
-        expect((root['LogonIndex'] as Map).values, contains('t1'));
+        expect(
+          (root['AliasIndex'] as Map).containsKey('pat'),
+          false,
+          reason: 'the name is free again',
+        );
+        expect(
+          (root['LogonIndex'] as Map).values,
+          isNot(contains('t1')),
+          reason: 'the login is free again',
+        );
+        expect(
+          (root['LogonIndex'] as Map).values,
+          contains('t2'),
+          reason: 'Sam keeps his',
+        );
         expect(((root['AllTips'] as Map)['c1'] as Map)['t1'], isNotNull);
         expect((root['AllTippersTokens'] as Map)['t1'], isNotNull);
+
         expect(rowAt(root, 'TipperPrivate', 't2')['authuid'], _uidB);
+        expect(rowAt(root, 'TipperPrivate', 't2')['logon'], 'sam@example.com');
+        expect(rowAt(root, 'AllTippers', 't2')['name'], 'Sam');
         expectIdentityConsistent(root);
       },
       skip: skip,
     );
 
     test(
-      'the same person can sign up again with a new account and gets the same record back',
+      'signing up again with the same email makes a new tipper; the old record stays anonymous',
       () async {
         await unlink(_uidA);
 
-        final result = await signUp(_uidNew, 'pat@example.com');
-        expect(result.tipperId, 't1');
-        expect(result.outcome, LinkOutcome.linked);
+        final result = await linkOrCreateTipper(
+          database: db,
+          caller: callerToken(_uidNew, 'pat@example.com'),
+          request: const LinkOrCreateTipperRequest(alias: 'Pat'),
+          admission: admissionFor(),
+          nowMs: () => _t0,
+        );
+        expect(result.outcome, LinkOutcome.created);
+        expect(result.tipperId, isNot('t1'));
 
         final root = await readRoot(db);
-        expect((root['AuthIndex'] as Map)[_uidNew], 't1');
-        expect(rowAt(root, 'TipperPrivate', 't1')['authuid'], _uidNew);
-        expect(rowAt(root, 'AllTippers', 't1')['authuid'], _uidNew);
-        expect(rowAt(root, 'AllTippers', 't1')['name'], 'Pat');
+        expect((root['AuthIndex'] as Map)[_uidNew], result.tipperId);
+        expect(
+          rowAt(root, 'AllTippers', result.tipperId)['name'],
+          'Pat',
+          reason: 'the name could be taken again',
+        );
+        expect(rowAt(root, 'AllTippers', 't1')['name'], deletedTipperName);
+        expect(
+          rowAt(root, 'TipperPrivate', 't1').containsKey('authuid'),
+          false,
+          reason: 'the old record is not linked to the new account',
+        );
+        expect(((root['AllTips'] as Map)['c1'] as Map)['t1'], isNotNull);
         expectIdentityConsistent(root);
       },
       skip: skip,
@@ -204,6 +252,17 @@ void main() {
         expect((root['AuthIndex'] as Map).containsKey(_uidA), false);
         expect(rowAt(root, 'TipperPrivate', 't1')['authuid'], _uidOther);
         expect(rowAt(root, 'AllTippers', 't1')['authuid'], _uidOther);
+        expect(
+          rowAt(root, 'AllTippers', 't1')['name'],
+          'Pat',
+          reason: 'not anonymised: it is not this account\'s record',
+        );
+        expect(rowAt(root, 'TipperPrivate', 't1')['logon'], 'pat@example.com');
+        expect(
+          rowAt(root, 'TipperPrivate', 't1').containsKey('accountDeletedUTC'),
+          false,
+        );
+        expect(root['AliasIndex'], containsPair('pat', 't1'));
       },
       skip: skip,
     );
@@ -227,6 +286,17 @@ void main() {
         expect(
           rowAt(root, 'TipperPrivate', 't1').containsKey('authuid'),
           false,
+        );
+        expect(rowAt(root, 'AllTippers', 't1')['name'], deletedTipperName);
+        expect(
+          rowAt(root, 'AllTippers', 't1').keys.toSet(),
+          {'name'},
+          reason: 'the public record grows no legacy field',
+        );
+        expect(rowAt(root, 'TipperPrivate', 't1').containsKey('logon'), false);
+        expect(
+          rowAt(root, 'TipperPrivate', 't1')['accountDeletedUTC'],
+          stampOf(_t0),
         );
       },
       skip: skip,
@@ -268,7 +338,13 @@ void main() {
         expect(rowAt(await readRoot(db), 'AllTippers', 't1')['authuid'], '');
       }, skip: skip);
 
-      for (final step in <String>['unlink:index', 'unlink:private']) {
+      for (final step in <String>[
+        'unlink:index',
+        'unlink:claims',
+        'unlink:private-identity',
+        'unlink:public-identity',
+        'unlink:private',
+      ]) {
         test('crashed after $step: the retry completes it', () async {
           await expectLater(
             unlink(_uidA, checkpoint: crashAfter(step)),
@@ -286,6 +362,30 @@ void main() {
             false,
           );
           expect(rowAt(root, 'AllTippers', 't1')['authuid'], '');
+          expect(rowAt(root, 'AllTippers', 't1')['name'], deletedTipperName);
+          expect(
+            rowAt(root, 'TipperPrivate', 't1').containsKey('logon'),
+            false,
+          );
+          expect(
+            rowAt(root, 'AllTippers', 't1').containsKey('photoURL'),
+            false,
+          );
+          expect(
+            (root['LogonIndex'] as Map).values,
+            isNot(contains('t1')),
+            reason: 'the claims were released whichever step it stopped at',
+          );
+          expect(root['AliasIndex'], isNot(containsPair('pat', 't1')));
+          expect(
+            rowAt(root, 'TipperPrivate', 't1')['accountDeletedUTC'],
+            stampOf(
+              step == 'unlink:index' || step == 'unlink:claims'
+                  ? retryAt
+                  : _t0,
+            ),
+            reason: 'written once: the first time is kept across a retry',
+          );
           expect(root['IdentityLocks'], isNull);
           expectIdentityConsistent(root);
         }, skip: skip);
@@ -313,7 +413,50 @@ void main() {
             reason: id,
           );
           expect(rowAt(root, 'AllTippers', id)['authuid'], '', reason: id);
+          expect(
+            rowAt(root, 'AllTippers', id)['name'],
+            deletedTipperName,
+            reason: id,
+          );
         }
+      },
+      skip: skip,
+    );
+
+    test(
+      'a claim held by someone else is not released, even for the same name',
+      () async {
+        // Pat's alias claim has been taken over by Sam's record; it must stay Sam's.
+        await db.ref('AliasIndex/pat').set('t2');
+        await unlink(_uidA);
+        final root = await readRoot(db);
+        expect(root['AliasIndex'], containsPair('pat', 't2'));
+        expect(rowAt(root, 'AllTippers', 't1')['name'], deletedTipperName);
+      },
+      skip: skip,
+    );
+
+    test(
+      'a record that has no private half is not given one',
+      () async {
+        await seed(
+          IdentitySeed()..tipper(
+            't1',
+            name: 'Pat',
+            authuid: _uidA,
+            logon: 'pat@example.com',
+            hasPrivate: false,
+            indexAccount: false,
+          ),
+        );
+        await unlink(_uidA);
+        final root = await readRoot(db);
+        expect(
+          (root['TipperPrivate'] as Map?)?.containsKey('t1') ?? false,
+          false,
+          reason: 'nothing is created from nothing',
+        );
+        expect(rowAt(root, 'AllTippers', 't1')['name'], deletedTipperName);
       },
       skip: skip,
     );

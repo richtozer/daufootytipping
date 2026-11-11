@@ -1,3 +1,5 @@
+import '../models/tipper_private.dart' show deletedTipperName;
+
 /// The longest alias (display name) a tipper may have, in characters.
 const int maxAliasLength = 64;
 
@@ -29,7 +31,10 @@ bool isValidAlias(String alias) {
   if (trimmed.isEmpty || trimmed.runes.length > maxAliasLength) {
     return false;
   }
-  return normaliseAlias(trimmed).isNotEmpty;
+  final normalised = normaliseAlias(trimmed);
+  // The name a deleted tipper's record is given cannot be chosen by someone else.
+  return normalised.isNotEmpty &&
+      normalised != normaliseAlias(deletedTipperName);
 }
 
 /// Reduces a login email address to the form used to compare and index it.

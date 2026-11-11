@@ -40,6 +40,18 @@ String placeholderTipperName(String tipperId) {
   return 'Unnamed tipper $tail';
 }
 
+/// The public name of a tipper who has deleted their account. Their tips and
+/// scores stay in the competition, so their record stays, but nothing that says
+/// who they were does. It is never claimed in the alias index, and
+/// [isValidAlias] refuses it as a chosen name.
+const String deletedTipperName = 'Deleted tipper';
+
+/// The private-only field that says a tipper deleted their account, and when
+/// (a time in the form of the other account times). Written only by the account
+/// deletion and read only by administrators, so it is deliberately in none of
+/// the field lists above: the purge, the restore and the backfill never move it.
+const String tipperAccountDeletedField = 'accountDeletedUTC';
+
 /// The private part of a tipper record (DESIGN-database-rules.md, D6).
 ///
 /// [authuid] is null for a historical tipper who has not yet signed in with a

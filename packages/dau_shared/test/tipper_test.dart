@@ -109,6 +109,59 @@ void main() {
     );
   });
 
+  group('the time a tipper deleted their account', () {
+    test('is read from the private record, and absent otherwise', () {
+      final deleted = Tipper.fromRecords(
+        key: 't1',
+        authuid: '',
+        publicRecord: <String, dynamic>{'name': deletedTipperName},
+        privateRecord: <String, dynamic>{
+          tipperAccountDeletedField: '2026-11-11 09:00:00.000Z',
+        },
+      );
+      expect(deleted.accountDeletedUTC, DateTime.utc(2026, 11, 11, 9));
+
+      final ordinary = Tipper.fromRecords(
+        key: 't2',
+        authuid: 'uidB',
+        publicRecord: <String, dynamic>{'name': 'Bob'},
+        privateRecord: <String, dynamic>{'tipperRole': 'tipper'},
+      );
+      expect(ordinary.accountDeletedUTC, isNull);
+    });
+
+    test('an unreadable value is ignored, not a crash', () {
+      final tipper = Tipper.fromJson(<String, dynamic>{
+        'name': 'Bob',
+        tipperAccountDeletedField: 'not a time',
+      }, 't1');
+      expect(tipper.accountDeletedUTC, isNull);
+    });
+
+    test('an administrator\'s view of the record carries it', () {
+      final publicOnly = Tipper.fromJson(<String, dynamic>{
+        'name': deletedTipperName,
+      }, 't1');
+      final merged = publicOnly.withPrivateRecord(<String, dynamic>{
+        tipperAccountDeletedField: '2026-11-11 09:00:00.000Z',
+      });
+      expect(merged.accountDeletedUTC, DateTime.utc(2026, 11, 11, 9));
+      expect(merged.name, deletedTipperName);
+    });
+
+    test('is never written into the public record', () {
+      final tipper = Tipper.fromJson(<String, dynamic>{
+        'name': 'Bob',
+        tipperAccountDeletedField: '2026-11-11 09:00:00.000Z',
+      }, 't1');
+      expect(tipper.toJson().containsKey(tipperAccountDeletedField), isFalse);
+      expect(
+        tipper.toCacheJson().containsKey(tipperAccountDeletedField),
+        isFalse,
+      );
+    });
+  });
+
   group('withPrivateRecord', () {
     Tipper publicOnly() => Tipper(
       dbkey: 't1',
