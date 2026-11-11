@@ -952,6 +952,16 @@ Why: a brand-new sign-up on the R2 client was answered "We can't sign you in rig
 everyone outside the pilot while the mode is `off`), so the throwaway could not get past sign-in. Everyone else is
 refused exactly as before, and 1.4.x clients never call these functions. Undo: `set off --yes --project ...`.
 
+**Pilot results on production (11 November 2026, the owner's throwaway Google account).** The owner reported the sign-in,
+alias, tipping and sign-out checks working. *Push token:* after sign-in exactly one token was stored under
+`AllTippersTokens/<tipper>` (stamped by the callable) and `TokenOwners/<token>` named that tipper with its removal counter
+(`seq`), so registration went through the new path. *After the owner deleted the account:* the token is gone from
+`AllTippersTokens`; `TokenOwners/<token>` keeps only `{seq}` with no owner (the counter that voids stale registration
+retries, as designed); `AuthIndex/<uid>` is gone; `TipperPrivate/<tipper>` has no `authuid` and keeps its email, login and
+role; the public record is kept with an empty `authuid` and its name. That is an unlinked historical record, as the plan
+expects, and an administrator can remove it. Not checked here: that the Firebase Auth user itself no longer exists (it
+needs the console or a full export); the owner saw the app sign out after the deletion.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in
