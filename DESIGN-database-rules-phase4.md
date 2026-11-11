@@ -927,8 +927,14 @@ scoring worker used successfully on 6 November. The reconstruction can be replac
 seconds. **Recommendation: skip the production pilot** unless a later change makes it worthwhile; it adds
 production writes and no new information.
 
-*Not yet verified.* A real signed-in request refused by `off`. It is the only check that needs real tokens, it is
-optional, and nothing depends on it.
+*Verified on 11 November 2026, from the owner's phone.* A real signed-in request refused by `off`: a release build of
+`development` (1.4.1+713, installed directly, not through TestFlight) was run against production, signed in as the owner,
+and an alias edit was answered with "Changing your name is switched off at the moment. Please try again later." The
+dialog stayed open with the typed name kept, and nothing was renamed. So production was in mode `off` at that moment, the
+real ID token and App Check token reached the wrapper, and the client's wording for a refusal is as designed. The owner
+reported the other first-launch checks (sign-in kept, tips load, tipping) as working. Still to do on a device: Apple and
+Google re-authentication with account deletion (throwaway account, mode `pilot`), the push token, and sign-out from a
+signed-in session.
 
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
