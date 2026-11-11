@@ -1012,6 +1012,21 @@ role; the public record is kept with an empty `authuid` and its name. That is an
 expects, and an administrator can remove it. Not checked here: that the Firebase Auth user itself no longer exists (it
 needs the console or a full export); the owner saw the app sign out after the deletion.
 
+**Anonymising delete deployed and checked on production (11 November 2026).** The Dart functions were deployed at commit
+`eae33aa3` with `scripts/deploy-functions.sh --only dart` (10:05 to 10:10 UTC). The CLI reported "timed out after 30000ms"
+for 8 services, so per the runbook it was not re-run: `gcloud run services list` showed every Dart service with its newest
+revision ready and taking 100% of traffic. `unlink-my-account`, `link-or-create-tipper`, `register-device-token` and
+`update-tipper-alias` answer a stranger with 401; `status` still `pilot`, 1 pilot user, nothing in flight; no errors logged
+since the deploy. `--record functions` is no longer needed (the script says functions do not use the allowlist).
+*Pilot run, on the owner's Pixel (1.4.1+713).* Signing in again with the same Google account after the first throwaway's
+deletion re-linked the **old** record by email: that record had been left whole by the old delete, so this is the old
+behaviour, not the new one. Deleting it with the new function then left the public record as "Deleted tipper" with no
+email, logon or photo and an empty `authuid`; the private record with no email, logon or `authuid` and `accountDeletedUTC`
+set; no `AuthIndex` entry; no alias or login claim naming it; the owner's god-mode tip still in `AllTips`. Signing in with
+the same Google account again then gave a **new** tipper and the alias prompt, which the owner confirmed. The pilot user
+is now that newest sign-in of the throwaway Google account (uid not recorded here). Not checked: the push token on this run, the admin list
+row on the device, and the Firebase Auth user itself.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in
