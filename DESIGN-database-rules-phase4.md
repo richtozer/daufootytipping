@@ -944,6 +944,14 @@ on a device: Apple and
 Google re-authentication with account deletion (throwaway account, mode `pilot`), the push token, and sign-out from a
 signed-in session.
 
+**Production mode set to `pilot` (11 November 2026, 11:xx local, by the owner's instruction).** `status` before: mode `off`,
+nothing in flight; `AppConfig/createLinkedTipper` already `true`. Run from `functions_dart` with
+`dart run bin/identity_mode.dart set pilot --pilot-uids <uid> --yes --project dau-footy-tipping-f8a42`; `status` after:
+mode `pilot`, 1 pilot user (the owner's throwaway Google account, whose uid is not recorded here), nothing in flight.
+Why: a brand-new sign-up on the R2 client was answered "We can't sign you in right now" (the link callable refuses
+everyone outside the pilot while the mode is `off`), so the throwaway could not get past sign-in. Everyone else is
+refused exactly as before, and 1.4.x clients never call these functions. Undo: `set off --yes --project ...`.
+
 **Scope.** `linkOrCreateTipper`, `updateTipperAlias`, `registerDeviceToken` and `unregisterDeviceToken`
 (endpoint ids already in `dau_shared`), the server mode and admission wrapper of section 5, and the owner's
 mode tool. They are deployed in mode `off` (nothing calls them until the R2 client ships), then exercised in
