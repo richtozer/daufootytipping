@@ -28,17 +28,35 @@ class FirebaseDeletableAccount implements DeletableAccount {
   Future<void> reauthenticate() async {
     final User user = _user;
     if (user.providerData.isEmpty) {
-      throw StateError('The account has no sign-in provider to sign in again');
+      throw const SignInAgainUnsupported();
     }
-    switch (user.providerData.first.providerId) {
-      case 'apple.com':
-        await user.reauthenticateWithProvider(AppleAuthProvider());
-      case 'google.com':
-        await user.reauthenticateWithProvider(GoogleAuthProvider());
-      case final String other:
-        throw UnsupportedError('Cannot sign in again with $other');
+    try {
+      switch (user.providerData.first.providerId) {
+        case 'apple.com':
+          await user.reauthenticateWithProvider(AppleAuthProvider());
+        case 'google.com':
+          await user.reauthenticateWithProvider(GoogleAuthProvider());
+        default:
+          throw const SignInAgainUnsupported();
+      }
+    } on FirebaseAuthException catch (e) {
+      if (_cancelledCodes.contains(e.code)) {
+        throw const SignInAgainCancelled();
+      }
+      rethrow;
     }
   }
+
+  /// What Firebase Auth reports when the person closes the sign-in sheet.
+  static const Set<String> _cancelledCodes = <String>{
+    'web-context-canceled',
+    'web-context-cancelled',
+    'canceled',
+    'cancelled',
+    'user-cancelled',
+    'popup-closed-by-user',
+    'cancelled-popup-request',
+  };
 
   @override
   Future<void> delete() async {

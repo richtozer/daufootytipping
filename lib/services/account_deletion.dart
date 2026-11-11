@@ -16,6 +16,23 @@ abstract interface class DeletableAccount {
   Future<void> delete();
 }
 
+/// The person backed out of signing in again.
+class SignInAgainCancelled implements Exception {
+  const SignInAgainCancelled();
+
+  @override
+  String toString() => 'SignInAgainCancelled';
+}
+
+/// This account cannot be signed in again from here (it has no Apple or Google
+/// sign-in to repeat).
+class SignInAgainUnsupported implements Exception {
+  const SignInAgainUnsupported();
+
+  @override
+  String toString() => 'SignInAgainUnsupported';
+}
+
 /// The provider will not delete the account until the person signs in again.
 class RecentSignInRequired implements Exception {
   const RecentSignInRequired();
@@ -55,7 +72,13 @@ class AccountDeletion {
   static const Duration recentSignIn = Duration(minutes: 4);
 
   static const String reauthenticationFailedMessage =
-      'Re-authentication failed. Please try again.';
+      'Signing in again did not work, so nothing was deleted. Try again, or '
+      'sign out, sign in again and delete straight away.';
+  static const String reauthenticationCancelledMessage =
+      'You cancelled signing in again, so nothing was deleted.';
+  static const String reauthenticationUnsupportedMessage =
+      'Nothing was deleted. To delete this account, sign out, sign in again '
+      'and delete straight away.';
   static const String deletionFailedMessage =
       'Account deletion failed. Please try again.';
 
@@ -67,8 +90,11 @@ class AccountDeletion {
   /// Deletes the account. Null if it was deleted, otherwise what to tell the
   /// person.
   Future<String?> run() async {
-    if (_signInIsOld && !await _reauthenticate()) {
-      return reauthenticationFailedMessage;
+    if (_signInIsOld) {
+      final String? notSignedInAgain = await _reauthenticate();
+      if (notSignedInAgain != null) {
+        return notSignedInAgain;
+      }
     }
     try {
       await _removePushToken();
@@ -88,13 +114,18 @@ class AccountDeletion {
     return last == null || _clock().difference(last) > recentSignIn;
   }
 
-  Future<bool> _reauthenticate() async {
+  /// Has the person sign in again. Null if they did, otherwise what to tell them.
+  Future<String?> _reauthenticate() async {
     try {
       await _account.reauthenticate();
-      return true;
+      return null;
+    } on SignInAgainCancelled {
+      return reauthenticationCancelledMessage;
+    } on SignInAgainUnsupported {
+      return reauthenticationUnsupportedMessage;
     } on Object catch (error) {
       log('AccountDeletion: signing in again failed: $error');
-      return false;
+      return reauthenticationFailedMessage;
     }
   }
 
@@ -118,8 +149,9 @@ class AccountDeletion {
       // shorter. The person is unlinked now, so a refusal here leaves them
       // signed in but unlinked, which running this again repairs.
       log('AccountDeletion: the provider wants a fresher sign-in');
-      if (!await _reauthenticate()) {
-        return reauthenticationFailedMessage;
+      final String? notSignedInAgain = await _reauthenticate();
+      if (notSignedInAgain != null) {
+        return notSignedInAgain;
       }
       try {
         await _account.delete();

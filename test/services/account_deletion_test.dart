@@ -120,12 +120,48 @@ void main() {
 
   test('backing out of signing in again leaves everything as it was', () async {
     account.lastSignInTime = now.subtract(const Duration(hours: 2));
-    account.reauthenticateOutcomes.add(StateError('cancelled'));
+    account.reauthenticateOutcomes.add(const SignInAgainCancelled());
 
     final message = await deletion().run();
 
-    expect(message, AccountDeletion.reauthenticationFailedMessage);
+    expect(message, AccountDeletion.reauthenticationCancelledMessage);
     expect(events, ['sign in again']);
+  });
+
+  test(
+    'signing in again that does not work leaves everything as it was',
+    () async {
+      account.lastSignInTime = now.subtract(const Duration(hours: 2));
+      account.reauthenticateOutcomes.add(StateError('the sheet failed'));
+
+      final message = await deletion().run();
+
+      expect(message, AccountDeletion.reauthenticationFailedMessage);
+      expect(events, ['sign in again']);
+    },
+  );
+
+  test(
+    'an account that cannot sign in again is told how to delete it',
+    () async {
+      account.lastSignInTime = now.subtract(const Duration(hours: 2));
+      account.reauthenticateOutcomes.add(const SignInAgainUnsupported());
+
+      final message = await deletion().run();
+
+      expect(message, AccountDeletion.reauthenticationUnsupportedMessage);
+      expect(events, ['sign in again']);
+    },
+  );
+
+  test('every sign-in-again message says nothing was deleted', () {
+    for (final String message in <String>[
+      AccountDeletion.reauthenticationFailedMessage,
+      AccountDeletion.reauthenticationCancelledMessage,
+      AccountDeletion.reauthenticationUnsupportedMessage,
+    ]) {
+      expect(message, matches(RegExp('[Nn]othing was deleted')));
+    }
   });
 
   group('when the server cannot detach the account', () {
@@ -208,11 +244,11 @@ void main() {
 
     test('says so if signing in again is cancelled', () async {
       account.deleteOutcomes.add(const RecentSignInRequired());
-      account.reauthenticateOutcomes.add(StateError('cancelled'));
+      account.reauthenticateOutcomes.add(const SignInAgainCancelled());
 
       expect(
         await deletion().run(),
-        AccountDeletion.reauthenticationFailedMessage,
+        AccountDeletion.reauthenticationCancelledMessage,
       );
     });
 
