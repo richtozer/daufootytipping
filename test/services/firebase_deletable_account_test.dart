@@ -84,20 +84,48 @@ void main() {
     });
   });
 
+  group('backing out of the sign-in sheet', () {
+    for (final provider in ['apple.com', 'google.com']) {
+      for (final code in [
+        'web-context-canceled',
+        'canceled',
+        'popup-closed-by-user',
+      ]) {
+        test(
+          '$provider: closing it ($code) is told apart from a failure',
+          () async {
+            when(() => user.providerData).thenReturn([_FakeUserInfo(provider)]);
+            when(
+              () => user.reauthenticateWithProvider(any()),
+            ).thenAnswer((_) async => throw FirebaseAuthException(code: code));
+
+            await expectLater(
+              account().reauthenticate(),
+              throwsA(isA<SignInAgainCancelled>()),
+            );
+          },
+        );
+      }
+    }
+  });
+
   group('an account that cannot sign in again', () {
-    test('one with another provider throws', () async {
+    test('one with another provider is told so', () async {
       when(() => user.providerData).thenReturn([_FakeUserInfo('password')]);
 
       await expectLater(
         account().reauthenticate(),
-        throwsA(isA<UnsupportedError>()),
+        throwsA(isA<SignInAgainUnsupported>()),
       );
     });
 
-    test('one with no provider throws', () async {
+    test('one with no provider is told so', () async {
       when(() => user.providerData).thenReturn(const <UserInfo>[]);
 
-      await expectLater(account().reauthenticate(), throwsStateError);
+      await expectLater(
+        account().reauthenticate(),
+        throwsA(isA<SignInAgainUnsupported>()),
+      );
     });
 
     test('nobody signed in throws', () async {
