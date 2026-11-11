@@ -92,6 +92,17 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
   }
 
+  /// ", having joined on" and the date, or nothing when the join date is not
+  /// known.
+  String _joinedClause(Tipper tipper) {
+    final DateTime? joined = tipper.acctCreatedUTC;
+    if (joined == null) {
+      return '';
+    }
+    return ', having joined on '
+        '${DateFormat('dd MMM yy').format(joined.toLocal())}';
+  }
+
   bool _sameEmail(String? firstEmail, String? secondEmail) {
     final String normalizedFirstEmail = firstEmail?.trim().toLowerCase() ?? '';
     final String normalizedSecondEmail =
@@ -471,7 +482,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
                     'This person deleted their account on '
-                    '${DateFormat('dd MMM yy').format(tipper.accountDeletedUTC!.toLocal())}. '
+                    '${DateFormat('dd MMM yy').format(tipper.accountDeletedUTC!.toLocal())}'
+                    '${_joinedClause(tipper)}. '
                     'Their name, email address and photo were removed; their '
                     'tips and scores are kept.',
                     key: const ValueKey('account-deleted-note'),

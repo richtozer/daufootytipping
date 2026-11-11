@@ -296,13 +296,17 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
       ];
 
   /// What is worth saying about a tipper under their name: that they are an
-  /// administrator, and that they deleted their account (and when). Null when
+  /// administrator, and that they deleted their account (when, and when they
+  /// joined, so that one deleted tipper can be told from another). Null when
   /// there is nothing to say.
   String? _status(Tipper tipper) {
     final parts = <String>[
       if (tipper.tipperRole == TipperRole.admin) 'admin',
-      if (tipper.accountDeletedUTC != null)
+      if (tipper.accountDeletedUTC != null) ...[
         'account deleted ${formatDateTime(tipper.accountDeletedUTC)}',
+        if (tipper.acctCreatedUTC != null)
+          'joined ${formatDateTime(tipper.acctCreatedUTC)}',
+      ],
     ];
     return parts.isEmpty ? null : parts.join(', ');
   }

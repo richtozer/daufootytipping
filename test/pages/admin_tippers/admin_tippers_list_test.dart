@@ -173,30 +173,35 @@ void main() {
     );
   });
 
-  testWidgets('says under the name when a tipper deleted their account', (
-    tester,
-  ) async {
+  Tipper deletedTipper({DateTime? joinedAt}) => Tipper(
+    dbkey: 't4',
+    authuid: '',
+    email: null,
+    name: deletedTipperName,
+    tipperRole: TipperRole.tipper,
+    compsPaidFor: const [],
+    acctCreatedUTC: joinedAt,
+    acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
+    accountDeletedUTC: DateTime.utc(2026, 11, 11, 12),
+  );
+
+  testWidgets('says under the name when a tipper deleted their account, and '
+      'when they joined', (tester) async {
     final deletedAt = DateTime.utc(2026, 11, 11, 12);
     when(() => tippersViewModel.tippers).thenReturn([
       _tipper('t3', 'Alex', lastLogin: DateTime.utc(2026, 3, 1)),
-      Tipper(
-        dbkey: 't4',
-        authuid: '',
-        email: null,
-        name: deletedTipperName,
-        tipperRole: TipperRole.tipper,
-        compsPaidFor: const [],
-        acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
-        accountDeletedUTC: deletedAt,
-      ),
+      deletedTipper(joinedAt: DateTime.utc(2025, 3, 4, 12)),
     ]);
     await openPage(tester);
 
-    final date = DateFormat('dd MMM yy').format(deletedAt.toLocal());
+    final deleted = DateFormat('dd MMM yy').format(deletedAt.toLocal());
+    final joined = DateFormat('dd MMM yy')
+        .format(DateTime.utc(2025, 3, 4, 12).toLocal());
+    final status = find.text('account deleted $deleted, joined $joined');
     expect(find.text(deletedTipperName), findsOneWidget);
-    expect(find.text('account deleted $date'), findsOneWidget);
+    expect(status, findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('account deleted $date')).dy,
+      tester.getTopLeft(status).dy,
       greaterThan(tester.getTopLeft(find.text(deletedTipperName)).dy),
       reason: 'it sits under the name, as the admin marker does',
     );
@@ -205,6 +210,23 @@ void main() {
       findsOneWidget,
       reason: 'an ordinary tipper carries no such line',
     );
+    expect(
+      find.textContaining('joined'),
+      findsOneWidget,
+      reason: 'only a deleted tipper is described by when they joined',
+    );
+  });
+
+  testWidgets('leaves out the join date when the record has none', (
+    tester,
+  ) async {
+    when(() => tippersViewModel.tippers).thenReturn([deletedTipper()]);
+    await openPage(tester);
+
+    final deleted = DateFormat('dd MMM yy')
+        .format(DateTime.utc(2026, 11, 11, 12).toLocal());
+    expect(find.text('account deleted $deleted'), findsOneWidget);
+    expect(find.textContaining('joined'), findsNothing);
   });
 
   testWidgets('shows the last login date without the time', (tester) async {

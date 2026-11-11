@@ -131,6 +131,7 @@ void main() {
       name: 'Deleted tipper',
       tipperRole: TipperRole.tipper,
       compsPaidFor: const [],
+      acctCreatedUTC: DateTime.utc(2025, 3, 4, 12),
       acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
       accountDeletedUTC: deletedAt,
     );
@@ -139,9 +140,36 @@ void main() {
     final note = find.byKey(const ValueKey('account-deleted-note'));
     expect(note, findsOneWidget);
     final date = DateFormat('dd MMM yy').format(deletedAt.toLocal());
+    final joined = DateFormat('dd MMM yy')
+        .format(DateTime.utc(2025, 3, 4, 12).toLocal());
     expect(
       tester.widget<Text>(note).data,
-      allOf(contains('deleted their account on $date'), contains('kept')),
+      allOf(
+        contains('deleted their account on $date, having joined on $joined.'),
+        contains('kept'),
+      ),
+    );
+
+    tipper = Tipper(
+      dbkey: 'tipper-2',
+      authuid: '',
+      email: null,
+      name: 'Deleted tipper',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: const [],
+      acctLoggedOnUTC: DateTime.utc(2026, 2, 1),
+      accountDeletedUTC: deletedAt,
+    );
+    await pumpEditPage(tester);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('account-deleted-note')))
+          .data,
+      allOf(
+        contains('deleted their account on $date.'),
+        isNot(contains('joined')),
+      ),
+      reason: 'no join date on the record, so none is claimed',
     );
   });
 
