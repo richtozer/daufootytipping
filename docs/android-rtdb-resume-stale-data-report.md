@@ -4,6 +4,8 @@
 
 **Report updated:** 20 October 2026 (two iOS observations were added; every other section is as of 7 September 2026)
 
+**Instrumentation retired:** 12 November 2026. The in-app recorder, probes, native logging switch, admin diagnostics page, build flag and probe script described below have been removed. Their descriptions remain in this report as historical evidence; they are no longer testing instructions for the current client.
+
 **iOS root cause confirmed (20 October 2026).** The phone's own log shows the mechanism for the 20 October stall: an App Check token refresh failed at resume because the network was not ready, the database server then killed the connection with `Invalid appcheck token`, and the native client never reconnects after a server kill. See *iOS root cause: confirmed from the device log*. Android has the same outward signature and the same kill mechanism in its client, but no native Android log has been captured, so Android is not yet confirmed.
 
 **iOS (earlier notes, superseded by the above for 20 October):** two observations now share this report's central signature (a retained process stopped getting acknowledgements from the Realtime Database and only a new process recovered): one uninstrumented on 19 October 2026, and one on 20 October 2026 with the diagnostics running (*iOS observation 2*). The resume diagnostics run on iOS as well, observing only. The second trace is consistent with the Android signature but cannot confirm it, because the recorder does not log writes and stops watching the connection about half a second after each resume.

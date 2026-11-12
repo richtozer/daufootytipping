@@ -107,7 +107,6 @@ const seed = () => ({
       round_stats_backend_v1: { 1: { t1: { total: 1 } } },
     },
   },
-  Diagnostics: { androidResumeProbe: 'nonce' },
   AllTippersTokens: { t1: { tokA: 1 } },
   AliasIndex: { alice: 't1' },
   LogonIndex: { someKey: 't1' },
@@ -268,8 +267,8 @@ describe('r2 against the rules engine', () => {
       await no('alice', (d) => d.ref('AppConfig/currentDAUComp').set('c2'));
     });
 
-    for (const path of ['Teams', 'AllDAUComps', 'DAUCompsGames/c1', 'Diagnostics']) {
-      it(`${path} needs a session to read (an anonymous one will do), and no client writes Diagnostics`, async () => {
+    for (const path of ['Teams', 'AllDAUComps', 'DAUCompsGames/c1']) {
+      it(`${path} needs a session to read (an anonymous one will do)`, async () => {
         await no('unauth', (d) => d.ref(path).get());
         await ok('anon', (d) => d.ref(path).get());
         await ok('alice', (d) => d.ref(path).get());
@@ -285,7 +284,13 @@ describe('r2 against the rules engine', () => {
         await no(who, (d) => d.ref('AllDAUComps/c2').set({ name: '2028' }));
         await no(who, (d) => d.ref('DAUCompsGames/c1/started/DateUtcEpochMs').set(1));
       }
-      await no('admin', (d) => d.ref('Diagnostics/androidResumeProbe').set('p'));
+    });
+
+    it('the retired Diagnostics node is closed to reads and writes, admins included', async () => {
+      for (const who of ['unauth', 'anon', 'alice', 'admin']) {
+        await no(who, (d) => d.ref('Diagnostics').get());
+        await no(who, (d) => d.ref('Diagnostics/androidResumeProbe').set('p'));
+      }
     });
   });
 

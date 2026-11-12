@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/account_deletion.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/firebase_deletable_account.dart';
 import 'package:daufootytipping/services/firebase_messaging_service.dart';
@@ -357,11 +356,7 @@ class TippersViewModel extends ChangeNotifier {
         );
       }
       final Map<String, Object?> changes = Map<String, Object?>.of(updates);
-      final Future<void> write = AppResumeDiagnostics.trackWrite<void>(
-        'tipper_update',
-        () => _db.update(changes),
-        details: <String, Object?>{'pathCount': changes.length},
-      );
+      final Future<void> write = _db.update(changes);
       if (acknowledgementLimit == null) {
         await write;
         return;

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,25 +11,6 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 class MockDatabaseEvent extends Mock implements DatabaseEvent {}
 
 class MockDataSnapshot extends Mock implements DataSnapshot {}
-
-class MemoryConfigDiagnosticsStorage implements ResumeDiagnosticsStorage {
-  final List<String> values = <String>[];
-
-  @override
-  Future<void> appendLine(String encodedEvent) async {
-    values.add(encodedEvent);
-  }
-
-  @override
-  Future<List<String>> readLines() async => List<String>.from(values);
-
-  @override
-  Future<void> replaceLines(List<String> encodedEvents) async {
-    values
-      ..clear()
-      ..addAll(encodedEvents);
-  }
-}
 
 void main() {
   late MockDatabaseReference mockDb;
@@ -146,57 +126,6 @@ void main() {
         viewModel.adminCheckFixtureUrlURL,
         'https://check-fixture-url.example.com',
       );
-
-      viewModel.dispose();
-    },
-  );
-
-  test(
-    'records the resume probe value from the existing config listener',
-    () async {
-      final MemoryConfigDiagnosticsStorage storage =
-          MemoryConfigDiagnosticsStorage();
-      final ResumeDiagnosticsRecorder recorder = ResumeDiagnosticsRecorder(
-        storage: storage,
-        processId: 'config-diagnostics-test',
-      );
-      await recorder.initialize();
-      AppResumeDiagnostics.installRecorderForTest(recorder);
-      addTearDown(AppResumeDiagnostics.resetForTest);
-
-      final ConfigViewModel viewModel = ConfigViewModel(
-        db: mockDb,
-        initialLoadTimeout: const Duration(seconds: 1),
-      );
-      controller.add(
-        _databaseEvent(
-          _rootSnapshot(
-            exists: true,
-            value: <String, Object?>{
-              p.currentDAUCompKey: 'comp-2026',
-              p.createLinkedTipperKey: true,
-              AppResumeDiagnostics.configProbeKey: 'config-nonce-1',
-            },
-            children: <String, Object?>{
-              p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-              p.createLinkedTipperKey: _valueSnapshot(true),
-              p.minAppVersionKey: _valueSnapshot('1.4.0'),
-              p.googleClientIdKey: _valueSnapshot('client-id'),
-              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-            },
-          ),
-        ),
-      );
-
-      await viewModel.initialLoadComplete;
-      await recorder.flush();
-
-      final ResumeDiagnosticEvent event = (await recorder.readEvents())
-          .singleWhere(
-            (event) => event.stage == 'config_listener_snapshot_received',
-          );
-      expect(event.details['resumeProbePresent'], isTrue);
-      expect(event.details['resumeProbe'], 'config-nonce-1');
 
       viewModel.dispose();
     },

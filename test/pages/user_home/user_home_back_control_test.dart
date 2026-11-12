@@ -19,8 +19,7 @@ void main() {
             .where((file) {
               final source = file.readAsStringSync();
               return source.contains('FloatingActionButton') ||
-                  (source.contains('AppBar(') &&
-                      !file.path.endsWith('user_home_resume_diagnostics.dart'));
+                  source.contains('AppBar(');
             })
             .map((file) => file.path)
             .toList();

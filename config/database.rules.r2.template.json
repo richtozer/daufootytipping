@@ -104,9 +104,6 @@
           }
         }
       }
-    },
-    "Diagnostics": {
-      ".read": "auth != null"
     }
   }
 }

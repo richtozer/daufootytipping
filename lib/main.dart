@@ -20,7 +20,6 @@ import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_data_refresher.dart';
 import 'package:daufootytipping/services/analytics_service.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/connection_loss_monitor.dart';
 import 'package:daufootytipping/services/retired_view_models.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
@@ -43,7 +42,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'
     show GlobalMaterialLocalizations;
 import 'package:provider/provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
 
 import 'firebase_options.dart';
@@ -99,34 +97,6 @@ Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (AppResumeDiagnostics.supportsPlatform(
-        defaultTargetPlatform,
-        isWeb: kIsWeb,
-      ) &&
-      AppResumeDiagnostics.compileTimeEnabled) {
-    try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      await AppResumeDiagnostics.initialize(
-        processDetails: <String, Object?>{
-          'platform': defaultTargetPlatform.name,
-          'buildMode': kReleaseMode
-              ? 'release'
-              : kProfileMode
-              ? 'profile'
-              : 'debug',
-          'version': packageInfo.version,
-          'buildNumber': packageInfo.buildNumber,
-        },
-      );
-    } catch (error, stackTrace) {
-      log(
-        'Resume diagnostics initialization failed; continuing without diagnostics: $error',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
   // On web, the App Check debug token must be set before Firebase is initialized.
   if (kIsWeb && kDebugMode) {
     if (webAppCheckDebugToken.isNotEmpty) {
@@ -175,21 +145,6 @@ Future<void> main() async {
               '?ns=${Firebase.app().options.projectId}-default-rtdb',
         )
       : FirebaseDatabase.instance;
-  if (AppResumeDiagnostics.enabled) {
-    try {
-      database.setLoggingEnabled(true);
-      AppResumeDiagnostics.record(
-        'native_rtdb_logging_enabled',
-        attachToActiveAttempt: false,
-      );
-    } catch (error, stackTrace) {
-      log(
-        'Native RTDB diagnostic logging could not be enabled: $error',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-  }
   if (kDebugMode && useFirebaseEmulators) {
     if (persistInEmulator) {
       configureRealtimeDatabasePersistence(
@@ -414,11 +369,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           error: error,
           stackTrace: stackTrace,
         );
-        AppResumeDiagnostics.record(
-          'reconnect_exhausted_continuing_to_fixture_refresh',
-          details: <String, Object?>{'error': error.toString()},
-          anomalous: true,
-        );
       },
     );
     _resumeRefreshCoordinator = AppResumeRefreshCoordinator(
@@ -433,31 +383,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           error: error,
           stackTrace: stackTrace,
         );
-        AppResumeDiagnostics.record(
-          'resume_refresh_failed',
-          details: <String, Object?>{'error': error.toString()},
-          anomalous: true,
-        );
       },
-      onLifecycleEvent: AppResumeDiagnostics.enabled
-          ? _recordResumeLifecycleEvent
-          : null,
-      onRefreshStarted: AppResumeDiagnostics.enabled
-          ? () {
-              AppResumeDiagnostics.beginAttempt(
-                database: configuredRealtimeDatabase,
-              );
-            }
-          : null,
-      onRefreshFinished: AppResumeDiagnostics.enabled
-          ? AppResumeDiagnostics.finishAttempt
-          : null,
     );
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.startConnectionTracking(
-        database: configuredRealtimeDatabase,
-      );
-    }
     _connectionLossMonitor = ConnectionLossMonitor(
       connectionStates: realtimeDatabaseConnectionStates(),
       analytics: FirebaseAnalyticsService(),
@@ -493,77 +420,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _reconnectRealtimeDatabaseAfterResume() async {
     final stopwatch = Stopwatch()..start();
     log('Android resume RTDB reconnect started');
-    AppResumeDiagnostics.recordReconnectStarted();
-    try {
-      await restartRealtimeDatabaseConnection();
-      log(
-        'Android resume RTDB reconnect completed in '
-        '${stopwatch.elapsedMilliseconds}ms',
-      );
-      AppResumeDiagnostics.record(
-        'reconnect_completed',
-        details: <String, Object?>{'elapsedMs': stopwatch.elapsedMilliseconds},
-      );
-    } catch (error) {
-      AppResumeDiagnostics.record(
-        'reconnect_attempt_failed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-          'error': error.toString(),
-        },
-        anomalous: true,
-      );
-      rethrow;
-    }
+    await restartRealtimeDatabaseConnection();
+    log(
+      'Android resume RTDB reconnect completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
+    );
   }
 
   Future<void> _refreshFixtureDataAfterResume() async {
     if (!di.isRegistered<DAUCompsViewModel>()) {
       log('App resume fixture refresh skipped; DAUCompsViewModel not ready');
-      AppResumeDiagnostics.record(
-        'fixture_refresh_skipped_view_model_not_ready',
-        anomalous: true,
-      );
       return;
     }
     final stopwatch = Stopwatch()..start();
     log('App resume fixture refresh started');
-    AppResumeDiagnostics.record('fixture_refresh_started');
-    try {
-      await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
-      log(
-        'App resume fixture refresh completed in '
-        '${stopwatch.elapsedMilliseconds}ms',
-      );
-      AppResumeDiagnostics.record(
-        'fixture_refresh_completed',
-        details: <String, Object?>{'elapsedMs': stopwatch.elapsedMilliseconds},
-      );
-    } catch (error) {
-      AppResumeDiagnostics.record(
-        'fixture_refresh_attempt_failed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-          'error': error.toString(),
-        },
-        anomalous: true,
-      );
-      rethrow;
-    }
-  }
-
-  void _recordResumeLifecycleEvent(AppResumeLifecycleEvent event) {
-    AppResumeDiagnostics.record(
-      'lifecycle_${event.decision.name}',
-      details: <String, Object?>{
-        'state': event.state.name,
-        'wasBackgrounded': event.wasBackgrounded,
-        'refreshInProgress': event.refreshInProgress,
-      },
-      anomalous: event.isAnomalous,
-      attachToActiveAttempt:
-          event.decision == AppResumeLifecycleDecision.refreshStarted ||
-          event.decision == AppResumeLifecycleDecision.refreshFinished,
+    await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
+    log(
+      'App resume fixture refresh completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
     );
   }
 

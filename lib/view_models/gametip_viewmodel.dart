@@ -10,7 +10,6 @@ import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
@@ -407,11 +406,7 @@ class GameTipViewModel extends ChangeNotifier {
       // restart, and if the app closes before the screen stops waiting, this is
       // the only record that a tip is outstanding.
       await unconfirmedTips?.queued(unconfirmed);
-      final Future<void> write = AppResumeDiagnostics.trackWrite<void>(
-        'tip_submit',
-        () => _db.update(updates),
-        details: const <String, Object?>{'pathCount': 1},
-      );
+      final Future<void> write = _db.update(updates);
       final WriteAcknowledgement acknowledgement;
       try {
         acknowledgement = await awaitAcknowledgement(

@@ -1516,8 +1516,7 @@ clients remain).
   `ClaimMoves`, `TokenOwners`, `CreateIntents`, `IdentityLocks`, `IdentityOps` and `AllTippersTokens`, and anything
   not named (default deny).
 - *Deliberate differences from the original text:* a started tip is readable only **with a session** (the design's
-  `now >= kickoff` alone would have let an unauthenticated request read it); `Diagnostics` is readable by any session
-  rather than administrators only, because the Android resume diagnostic reads it; the history entry takes the
+  `now >= kickoff` alone would have let an unauthenticated request read it); the history entry takes the
   server's `t` in **milliseconds**, and the aggregator now reads that (a follow-up to M5: it had treated only
   microseconds as plausible and would have ignored the one time a client cannot choose).
 

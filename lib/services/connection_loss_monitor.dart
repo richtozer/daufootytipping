@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:daufootytipping/services/analytics_service.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 
 /// How long the connection must stay down, in the foreground, before the user
@@ -23,8 +22,7 @@ const Duration defaultConnectionLossThreshold = Duration(seconds: 30);
 ///
 /// When an [analytics] service is given, the monitor logs when the notice is
 /// shown, dismissed, and when the connection returns after it was shown, so the
-/// frequency and length of these outages can be seen. The same events go to the
-/// resume diagnostics log in diagnostics builds.
+/// frequency and length of these outages can be seen.
 class ConnectionLossMonitor extends ChangeNotifier {
   ConnectionLossMonitor({
     required Stream<bool?> connectionStates,
@@ -178,10 +176,9 @@ class ConnectionLossMonitor extends ChangeNotifier {
   int _secondsSince(DateTime? start) =>
       start == null ? 0 : _clock().difference(start).inSeconds;
 
-  /// Logs to analytics and the diagnostics log. A failure to log is never the
-  /// user's problem and must not disturb the notice.
+  /// A failure to log is never the user's problem and must not disturb the
+  /// notice.
   void _report(String name, Map<String, Object> parameters) {
-    AppResumeDiagnostics.record(name, details: parameters);
     final AnalyticsService? analytics = _analytics;
     if (analytics == null) {
       return;

@@ -1,6 +1,5 @@
 import 'dart:developer'; // For log()
 
-import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -13,7 +12,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_submit.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
@@ -298,8 +296,6 @@ class _GameListItemState extends State<GameListItem> {
       // the buttons stay live and explain themselves rather than going flat.
       canTip: true,
     );
-    _recordGamePresentation(gameTipsViewModelConsumer.game, data.status.name);
-
     final panels = widget.isPercentStatsPage
         ? const [TipsPanel.percentages]
         : tipsPanelsFor(
@@ -368,22 +364,6 @@ class _GameListItemState extends State<GameListItem> {
           },
         ),
       ),
-    );
-  }
-
-  void _recordGamePresentation(Game game, String presentation) {
-    if (!AppResumeDiagnostics.enabled) {
-      return;
-    }
-    AppResumeDiagnostics.recordGamePresentation(
-      gameKey: game.dbkey,
-      presentation: presentation,
-      gameState: game.gameState.name,
-      officialHomeScore: game.scoring?.homeTeamScore,
-      officialAwayScore: game.scoring?.awayTeamScore,
-      displayedHomeScore: game.scoring?.currentScore(ScoringTeam.home),
-      displayedAwayScore: game.scoring?.currentScore(ScoringTeam.away),
-      liveScoreCount: game.scoring?.crowdSourcedScores?.length ?? 0,
     );
   }
 

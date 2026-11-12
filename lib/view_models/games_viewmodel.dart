@@ -4,14 +4,12 @@ import 'dart:developer';
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/auth_aware_stream.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
@@ -31,7 +29,6 @@ class GamesViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   final Stream<bool> Function() _signedIn;
   late StreamSubscription<DatabaseEvent> _gamesStream;
-  int _gamesListenerGeneration = 0;
   Future<void> _gamesSnapshotProcessing = Future<void>.value();
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
@@ -101,25 +98,12 @@ class GamesViewModel extends ChangeNotifier {
 
   // Database listeners
   void _listenToGames() {
-    final int listenerGeneration = ++_gamesListenerGeneration;
     final DatabaseReference gamesReference = _db.child(_gamesPath);
     _gamesStream =
         authAwareStream<DatabaseEvent>(
           signedIn: _signedIn,
           open: () => gamesReference.onValue,
           onSourceError: (Object error, StackTrace stackTrace) {
-            if (AppResumeDiagnostics.enabled) {
-              AppResumeDiagnostics.record(
-                'games_listener_error',
-                details: <String, Object?>{
-                  'compDbKey': selectedDAUComp.dbkey,
-                  'gamesPath': _gamesPath,
-                  'listenerGeneration': listenerGeneration,
-                  'error': error.toString(),
-                },
-                anomalous: true,
-              );
-            }
             log(
               'GamesViewModel: games listener failed',
               error: error,
@@ -127,72 +111,22 @@ class GamesViewModel extends ChangeNotifier {
             );
             _reportSignedInListenerFailure(error, stackTrace);
           },
-        ).listen(
-          (event) {
-            _queueGamesSnapshotProcessing(
-              event.snapshot,
-              listenerGeneration: listenerGeneration,
-            );
-          },
-          onDone: () {
-            if (AppResumeDiagnostics.enabled) {
-              AppResumeDiagnostics.record(
-                'games_listener_done',
-                details: <String, Object?>{
-                  'compDbKey': selectedDAUComp.dbkey,
-                  'gamesPath': _gamesPath,
-                  'listenerGeneration': listenerGeneration,
-                },
-                anomalous: true,
-              );
-            }
-          },
-        );
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_attached',
-        details: <String, Object?>{
-          'compDbKey': selectedDAUComp.dbkey,
-          'gamesPath': _gamesPath,
-          'listenerGeneration': listenerGeneration,
-        },
-      );
-    }
+        ).listen((event) {
+          _queueGamesSnapshotProcessing(event.snapshot);
+        });
   }
 
   String get _gamesPath => '${p.gamesPathRoot}/${selectedDAUComp.dbkey}';
 
-  void _queueGamesSnapshotProcessing(
-    DataSnapshot snapshot, {
-    required int listenerGeneration,
-  }) {
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_snapshot_received',
-        details: <String, Object?>{
-          ..._snapshotDiagnosticDetails(snapshot),
-          'listenerGeneration': listenerGeneration,
-        },
-      );
-    }
+  void _queueGamesSnapshotProcessing(DataSnapshot snapshot) {
     _gamesSnapshotProcessing = _gamesSnapshotProcessing
         .catchError((Object error, StackTrace stackTrace) {
           log('GamesViewModel_handleEvent: recovering after error: $error');
         })
-        .then(
-          (_) => _applyGamesSnapshot(
-            snapshot,
-            source: 'listener',
-            listenerGeneration: listenerGeneration,
-          ),
-        );
+        .then((_) => _applyGamesSnapshot(snapshot));
   }
 
-  Future<void> _applyGamesSnapshot(
-    DataSnapshot snapshot, {
-    required String source,
-    int? listenerGeneration,
-  }) async {
+  Future<void> _applyGamesSnapshot(DataSnapshot snapshot) async {
     try {
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
       final dynamic rawValue = snapshot.value;
@@ -283,15 +217,6 @@ class GamesViewModel extends ChangeNotifier {
 
       // Link games with rounds
       await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_model_applied',
-          details: _currentGamesDiagnosticDetails(
-            source: source,
-            listenerGeneration: listenerGeneration,
-          ),
-        );
-      }
     } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
@@ -299,12 +224,6 @@ class GamesViewModel extends ChangeNotifier {
     } finally {
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_notify_listeners',
-          details: <String, Object?>{'source': source},
-        );
-      }
     }
   }
 
@@ -317,113 +236,7 @@ class GamesViewModel extends ChangeNotifier {
     await _teamsViewModel.initialLoadComplete;
     await _dauCompsViewModel.initialDAUCompLoadComplete;
     final DataSnapshot snapshot = await _db.child(_gamesPath).get();
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'fixture_get_returned',
-        details: _snapshotDiagnosticDetails(snapshot),
-        requireActiveAttempt: true,
-      );
-    }
-    await _applyGamesSnapshot(snapshot, source: 'resume_get');
-  }
-
-  Map<String, Object?> _snapshotDiagnosticDetails(DataSnapshot snapshot) {
-    final dynamic rawValue = snapshot.value;
-    final Map<dynamic, dynamic>? rawGames = rawValue is Map ? rawValue : null;
-    final List<Map<String, Object?>> recentGames = <Map<String, Object?>>[];
-    for (final Game game in _recentGamesForDiagnostics()) {
-      final dynamic rawGame = rawGames?[game.dbkey];
-      final Map<dynamic, dynamic>? rawGameMap = rawGame is Map ? rawGame : null;
-      recentGames.add(<String, Object?>{
-        'gameKey': game.dbkey,
-        'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
-        'homeScore': rawGameMap?['HomeTeamScore'],
-        'awayScore': rawGameMap?['AwayTeamScore'],
-      });
-    }
-    return <String, Object?>{
-      'compDbKey': selectedDAUComp.dbkey,
-      'exists': snapshot.exists,
-      'entryCount': rawGames?.length ?? 0,
-      'recentGames': recentGames,
-    };
-  }
-
-  Map<String, Object?> _currentGamesDiagnosticDetails({
-    required String source,
-    int? listenerGeneration,
-  }) {
-    return <String, Object?>{
-      'source': source,
-      'listenerGeneration': listenerGeneration,
-      'compDbKey': selectedDAUComp.dbkey,
-      'gameCount': _games.length,
-      'recentGames': _recentGamesForDiagnostics()
-          .map(
-            (game) => <String, Object?>{
-              'gameKey': game.dbkey,
-              'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
-              'gameState': game.gameState.name,
-              'officialHomeScore': game.scoring?.homeTeamScore,
-              'officialAwayScore': game.scoring?.awayTeamScore,
-              'displayedHomeScore': game.scoring?.currentScore(
-                ScoringTeam.home,
-              ),
-              'displayedAwayScore': game.scoring?.currentScore(
-                ScoringTeam.away,
-              ),
-              'liveScoreCount': game.scoring?.crowdSourcedScores?.length ?? 0,
-            },
-          )
-          .toList(),
-    };
-  }
-
-  Iterable<Game> _recentGamesForDiagnostics() {
-    final DateTime nowUtc = DateTime.now().toUtc();
-    final DateTime earliestUtc = nowUtc.subtract(const Duration(days: 8));
-    final DateTime latestUtc = nowUtc.add(const Duration(days: 2));
-    return _games
-        .where(
-          (game) =>
-              !game.startTimeUTC.toUtc().isBefore(earliestUtc) &&
-              !game.startTimeUTC.toUtc().isAfter(latestUtc),
-        )
-        .take(40);
-  }
-
-  Future<void> _cancelGamesListener({required String reason}) async {
-    final int listenerGeneration = _gamesListenerGeneration;
-    final Map<String, Object?> details = <String, Object?>{
-      'compDbKey': selectedDAUComp.dbkey,
-      'gamesPath': _gamesPath,
-      'listenerGeneration': listenerGeneration,
-      'reason': reason,
-    };
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_cancel_requested',
-        details: details,
-      );
-    }
-    try {
-      await _gamesStream.cancel();
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_listener_cancelled',
-          details: details,
-        );
-      }
-    } catch (error) {
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_listener_cancel_failed',
-          details: <String, Object?>{...details, 'error': error.toString()},
-          anomalous: true,
-        );
-      }
-      rethrow;
-    }
+    await _applyGamesSnapshot(snapshot);
   }
 
   void liveScoresUpdated() {
@@ -837,7 +650,7 @@ class GamesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(_cancelGamesListener(reason: 'view_model_disposed'));
+    unawaited(_gamesStream.cancel());
     if (_ownsTeamsViewModel) {
       _teamsViewModel.dispose();
     }

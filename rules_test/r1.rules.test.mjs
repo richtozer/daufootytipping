@@ -108,7 +108,7 @@ const newTipperJson = (overrides = {}) => ({
 
 describe('R1 reads', () => {
   it('stay open for the data the shipped client reads before and after sign-in', async () => {
-    for (const path of ['AppConfig', 'Teams', 'AllDAUComps', 'DAUCompsGames/c1', 'AllTippers', 'AllTips/c1/t1', 'Stats/c1/scoring_status', 'Diagnostics']) {
+    for (const path of ['AppConfig', 'Teams', 'AllDAUComps', 'DAUCompsGames/c1', 'AllTippers', 'AllTips/c1/t1', 'Stats/c1/scoring_status']) {
       await ok('unauth', (d) => d.ref(path).get());
     }
   });
@@ -306,14 +306,20 @@ describe('R1 stats and legacy writers', () => {
 });
 
 describe('R1 default deny', () => {
-  it('unknown paths, diagnostics and identity index nodes are not client-writable, admins included', async () => {
+  it('unknown paths and identity index nodes are not client-writable, admins included', async () => {
     for (const who of ['alice', 'admin']) {
       await no(who, (d) => d.ref('Secret/x').set(1));
-      await no(who, (d) => d.ref('Diagnostics/androidResumeProbe').set('p'));
       await no(who, (d) => d.ref('AuthIndex/aliceUid').set('t1'));
       await no(who, (d) => d.ref('AliasIndex/alice').set('t1'));
       await no(who, (d) => d.ref('LogonIndex/hash').set('t1'));
       await no(who, (d) => d.ref().set({}));
+    }
+  });
+
+  it('the retired Diagnostics node is closed to reads and writes, admins included', async () => {
+    for (const who of ['unauth', 'alice', 'admin']) {
+      await no(who, (d) => d.ref('Diagnostics').get());
+      await no(who, (d) => d.ref('Diagnostics/androidResumeProbe').set('p'));
     }
   });
 });

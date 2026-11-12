@@ -102,13 +102,12 @@ describe('recovery rules keep the protections and relax only compatibility', () 
       await no('anon', (d) => d.ref('AllTips/c1/t1/g9').set({ r: 'a', t: 1 }));
       await no('anon', (d) => d.ref('AllTippersTokens/t1/x').set('y'));
     });
-    it('backend-owned Stats branches, diagnostics, identity indexes and unknown paths stay closed to everyone, admins included', async () => {
+    it('backend-owned Stats branches, identity indexes and unknown paths stay closed to everyone, admins included', async () => {
       for (const who of ['alice', 'admin']) {
         await no(who, (d) => d.ref('Stats/c1/round_stats_backend_v1').set([]));
         await no(who, (d) => d.ref('Stats/c1/game_stats_backend_v1/paid/g1').set({ avgScore: 99 }));
         await no(who, (d) => d.ref('Stats/c1/scoring_status').set({ state: 'forged' }));
         await no(who, (d) => d.ref('Stats/c1/scoring_idempotency_backend_v1/x').set(true));
-        await no(who, (d) => d.ref('Diagnostics/androidResumeProbe').set('p'));
         await no(who, (d) => d.ref('AuthIndex/aliceUid').set('t1'));
         await no(who, (d) => d.ref('Secret/x').set(1));
         await no(who, (d) => d.ref().set({}));

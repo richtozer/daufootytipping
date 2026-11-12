@@ -129,9 +129,6 @@
         }
       }
     },
-    "Diagnostics": {
-      ".read": "true"
-    },
     "AuthIndex": {
       "$uid": {
         ".read": "(auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && auth.uid === $uid"

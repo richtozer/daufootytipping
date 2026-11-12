@@ -41,7 +41,6 @@ section 2.6, and production web was updated to 1.4.0+712 on 2026-10-05.
 | After sign-in | `/Stats/{comp}/game_stats_backend_v1/{paid\|free}` | listener (cohort chosen by paid status) and per-game `get` |
 | Admin | `/Stats/{comp}/scoring_status` | fixture banner stream |
 | After sign-in | **`/AllTippersTokens` (whole collection)** | `once()` in the messaging service |
-| Diagnostics | `.info/connected`, `/Diagnostics/androidResumeProbe`, `AppConfig/resumeProbe` | probes |
 
 ### 2.2 Writes
 | Path | Shape | Who |
@@ -216,10 +215,10 @@ The export is local and gitignored (`/test/data/`). No personal data is reproduc
 | Tokens | 61 tokens across 55 tippers, all string timestamps, none orphaned, **none registered under more than one tipper** | Cross-tipper token cleanup is rarely needed, which supports moving it server-side (D9) |
 | Games | 2,121 across 5 comps; every `DateUtc` matches `yyyy-MM-dd HH:mm:ssZ`. A new `Winner` field is written on 851 | Epoch backfill is deterministic |
 | `AllDAUComps` | new fields `fixtureDownloadLock`, `aflFixtureBaseline`, `nrlFixtureBaseline` (server-written); no `downloadLock` present at export time | Admin-write regardless |
-| `AppConfig` | 10 keys: `adminCheckFixtureUrlURL`, `adminScoringRescoreURL`, `cloudFunctionsBaseURL` (Cloud Run hostnames), `createLinkedTipper`, `currentDAUComp`, `googleClientId`, `minAppVersion` (`1.3.11`), `outstandingTipsPushEnabled`, `resumeProbe` (25-char nonce), `useBackendScoringBranches` | **No secrets.** `useBackendScoringBranches` is referenced nowhere in current code (dead flag). Public read is safe on current contents |
+| `AppConfig` | 10 keys: `adminCheckFixtureUrlURL`, `adminScoringRescoreURL`, `cloudFunctionsBaseURL` (Cloud Run hostnames), `createLinkedTipper`, `currentDAUComp`, `googleClientId`, `minAppVersion` (`1.3.11`), `outstandingTipsPushEnabled`, the now-retired `resumeProbe` nonce, `useBackendScoringBranches` | **No secrets.** `resumeProbe` and `useBackendScoringBranches` are referenced nowhere in current code. Public read is safe on current contents |
 | `Stats` (2026) | `game_stats_backend_v1` (with `paid` and `free` cohorts), `round_stats_backend_v1`, `scoring_status`, `scoring_idempotency_backend_v1`, and `scoring_audit_v3` (**7,612 entries, 4.5 MB**). Earlier comps also keep `*_v2` and `*_v3` branches | See section 2.6. The audit log is large and written by clients |
 | Live scores | No `live_scores_*` data in the export | Not evidence of non-use: the backend deletes a game's live scores when the official score arrives (`server.dart:1957`). D7 stays |
-| Top-level `Diagnostics` node | absent | The probe is a transient REST write |
+| Top-level `Diagnostics` node | absent | The retired probe used a transient REST write |
 
 ## 6. Effects on the design (all applied to DESIGN-database-rules.md v6)
 

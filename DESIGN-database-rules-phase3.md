@@ -41,7 +41,7 @@ rules to production, and the owner rolled them back. The test isolation was then
 ## 2. The R1 rule set (as built)
 
 **Reads.** Open for the data the shipped client reads, per path (`AppConfig`, `Teams`,
-`AllDAUComps`, `DAUCompsGames`, `AllTippers`, `AllTips`, `Stats`, `Diagnostics`) because 1.4.x
+`AllDAUComps`, `DAUCompsGames`, `AllTippers`, `AllTips`, `Stats`) because 1.4.x
 attaches several listeners before sign-in. **`AllTippersTokens` requires a sign-in** and the
 root and unknown paths are closed. This is a small tightening beyond the plan: the client only
 reads tokens after sign-in, and the stale-token function has no callers.
@@ -59,7 +59,7 @@ reads tokens after sign-in, and the stale-token function has no callers.
 | `AllTips/{comp}/{tipper}/{game}` | any signed-in user (status quo), shape validated; deleting a tipper's tips is admin only |
 | `Stats/{comp}/live_scores_backend_v1/{game}/current` and `.../history/{key}` | any signed-in user (status quo) |
 | every other `Stats` path (legacy `_v3`, audit, probe, backend branches, status) | **nobody** (server only), admins included |
-| everything else (`Diagnostics`, identity indexes, unknown paths) | nobody |
+| everything else (identity indexes, unknown paths) | nobody |
 
 Admin status is the **allowlist**, never a database role: a record that says `tipperRole: admin`
 grants nothing (tested).

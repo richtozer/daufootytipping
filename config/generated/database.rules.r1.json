@@ -128,9 +128,6 @@
           }
         }
       }
-    },
-    "Diagnostics": {
-      ".read": "true"
     }
   }
 }

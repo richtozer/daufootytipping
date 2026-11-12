@@ -108,9 +108,6 @@
           }
         }
       }
-    },
-    "Diagnostics": {
-      ".read": "auth != null"
     }
   }
 }

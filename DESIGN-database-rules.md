@@ -113,7 +113,6 @@ endpoints. Closing this is the first rollout step (section 5).
 | `AllTips/{comp}/{tipperId}/{game}` | owner; admin (god mode, merge) |
 | `Stats/{comp}/live_scores_backend_v1` (HEAD) | any tipper |
 | `Stats/{comp}/{game_stats_v3,live_scores_v3,round_stats_v3,scoring_audit_v3,admin_scoring_freshness_probe}` (1.3.x) | any tipper |
-| `Diagnostics/*`, `AppConfig/resumeProbe` | diagnostic probe |
 
 ## 3. Decisions (resolved)
 
@@ -328,12 +327,12 @@ merges can still change started tips). Admin merge keeps working through the adm
   `createLinkedTipper`, `currentDAUComp`, `googleClientId` (a public OAuth client id),
   `minAppVersion` (`1.3.11`), three Cloud Run function URLs (public hostnames, already shipped
   to every client, and App Check protected), `outstandingTipsPushEnabled` (read by the app-badge
-  function), `resumeProbe` (a short diagnostic nonce) and `useBackendScoringBranches`
-  (referenced nowhere in the current code; candidate for removal). **No secrets.** (Public read
+  function), the retired `resumeProbe` diagnostic nonce and `useBackendScoringBranches`
+  (referenced nowhere in the current code; both are candidates for removal). **No secrets.** (Public read
   of the whole node is required because the client listens at the parent before sign-in.)
 - `AllDAUComps`, `Teams`, `DAUCompsGames`: read `auth != null`, write admin.
 - `AllTippersTokens`: **no client access** (D9).
-- Remaining `Stats`: read `auth != null`, write server only. `Diagnostics`: admin only or removed.
+- Remaining `Stats`: read `auth != null`, write server only.
 - Anonymous users: read-only parity with today; no record, no tip writes.
 
 ### D9. Device tokens move server-side
