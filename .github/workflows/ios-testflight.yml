@@ -41,6 +41,7 @@ jobs:
             exit 1
           fi
           echo "Using $selected_xcode"
+          sudo xcode-select -s "$selected_xcode/Contents/Developer"
           echo "DEVELOPER_DIR=$selected_xcode/Contents/Developer" >> "$GITHUB_ENV"
 
       - name: Install Flutter SDK
