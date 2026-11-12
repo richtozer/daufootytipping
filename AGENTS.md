@@ -41,7 +41,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Formatting: Prefer `dart format` or IDE formatting. The agent won’t run formatters without approval.
 - Analysis: Honor `analysis_options.yaml`. Avoid introducing new warnings.
 - UI tests: Avoid unless asked. Focus on unit and ViewModel logic tests.
-- State: Current DI via `watch_it/get_it`, Provider + ChangeNotifier; migrating to RiverPod.
+- State: Current DI via `watch_it/get_it`, Provider + ChangeNotifier.
 - Architecture: Database-first with reactive listeners (Firebase streams as source of truth).
 
 ## Refactors
@@ -52,9 +52,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 
 ### DAUCompsViewModel Decomposition (in progress)
 - Current extractions in `lib/services/` with dedicated unit tests:
-  - `FixtureUpdateCoordinator`: decides timer start and whether to trigger fixture updates; unit tested.
   - `DauCompsSnapshotApplier`: pure merge of Firebase snapshot into in‑memory comps; returns keys needing relink; unit tested.
-  - `FixtureImportApplier`: builds per‑game update ops, tags raw fixture entries with league, and computes combined rounds when missing; unit tested.
 - DI pattern: New services are constructor‑injected with safe defaults. Tests can inject fakes/mocks without touching global DI.
 - Behavior gates: Public APIs on `DAUCompsViewModel` must remain stable. `notifyListeners` semantics and single‑flight guards are preserved.
 - Next extractions: Selection/init coordinator for `_initializeAndResetViewModels`; consider isolating stats aggregation if needed.
@@ -84,7 +82,6 @@ The agent will request approval before commands that:
 Current Repo Notes (subject to change)
 - Flutter project with tests in `test/` and app code in `lib/`.
 - Coverage file: `coverage/lcov.info`.
-- As of last scan, ViewModels had 0% coverage; add tests before refactoring them.
 - DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels; mock these in tests. Fixture downloads run only in the admin-fixture-download Cloud Function; the client has no local import.
 - Snapshot processing is delegated to services (see Refactors section); prefer adding tests at the service layer first.
 

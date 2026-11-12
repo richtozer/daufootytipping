@@ -8,34 +8,15 @@ We're building production-quality Flutter/Dart code together. Your role is to cr
 
 When you seem stuck or overly complex, I'll redirect you - my guidance helps you stay on track.
 
-## 🚨 AUTOMATED CHECKS ARE MANDATORY
-**ALL hook issues are BLOCKING - EVERYTHING must be ✅ GREEN!**  
-No errors. No formatting issues. No linting problems. Zero tolerance.  
-These are not suggestions. Fix ALL issues before continuing.
-
-## CRITICAL WORKFLOW - ALWAYS FOLLOW THIS!
+## Workflow
 
 ### Research → Plan → Implement
-**NEVER JUMP STRAIGHT TO CODING!** Always follow this sequence:
-1. **Research**: Explore the codebase, understand existing patterns
-2. **Plan**: Create a detailed implementation plan and verify it with me  
-3. **Implement**: Execute the plan with validation checkpoints
+Before implementing a feature, research the existing code and patterns, then present an implementation plan and get my agreement on it. Implement it with validation checkpoints.
 
 During the research phase, prefer the `jcodemunch` MCP when available for symbol-level code exploration and targeted source retrieval. Use it for `search_symbols`, `get_symbol`, `get_file_outline`, and `get_repo_outline`. Keep using `rg` and direct file reads for exact string matches, literals, config values, and cases where the index may be missing or stale.
 
-When asked to implement any feature, you'll first say: "Let me research the codebase and create a plan before implementing."
-
-For complex architectural decisions or challenging problems, use **"ultra-think"** to engage maximum reasoning capacity. Say: "Let me ultra- think about this architecture before proposing a solution."
-
-### USE MULTIPLE AGENTS!
-*Leverage subagents aggressively* for better results:
-
-* Spawn agents to explore different parts of the codebase in parallel
-* Use one agent to write tests while another implements features
-* Delegate research tasks: "I'll have an agent investigate the widget tree while I analyze the state management"
-* For complex refactors: One agent identifies changes, another implements them
-
-Say: "I'll spawn agents to tackle different aspects of this problem" whenever a task has multiple independent parts.
+### Subagents
+When a task has independent parts, such as exploring separate areas of the codebase or writing tests while implementing, subagents can work on them in parallel.
 
 ### Reality Checkpoints
 **Stop and validate** at these moments:
@@ -47,51 +28,19 @@ Say: "I'll spawn agents to tackle different aspects of this problem" whenever a 
 
 > Why: You can lose track of what's actually working. These checkpoints prevent cascading failures.
 
-### 🚨 CRITICAL: Hook Failures Are BLOCKING
-**When hooks report ANY issues (exit code 2), you MUST:**
-1. **STOP IMMEDIATELY** - Do not continue with other tasks
-2. **FIX ALL ISSUES** - Address every ❌ issue until everything is ✅ GREEN
-3. **VERIFY THE FIX** - Re-run the failed command to confirm it's fixed
-4. **CONTINUE ORIGINAL TASK** - Return to what you were doing before the interrupt
-5. **NEVER IGNORE** - There are NO warnings, only requirements
-
-This includes:
-- Formatting issues (dart format)
-- Linting violations (flutter analyze)
-- Forbidden patterns (dynamic without justification, missing null safety)
-- ALL other checks
-
-Your code must be 100% clean. No exceptions.
-
-**Recovery Protocol:**
-- When interrupted by a hook failure, maintain awareness of your original task
-- After fixing all issues and verifying the fix, continue where you left off
-- Use the todo list to track both the fix and your original task
+### Hook failures block the task
+When a hook reports issues (exit code 2) — formatting, `flutter analyze`, forbidden patterns or any other check — treat every one as a requirement, not a warning: fix them all, re-run the failed command to confirm, then continue the original task.
 
 ## Working Memory Management
 
 ### When context gets long:
-- Re-read this CLAUDE.md file
-- Summarize progress in a PROGRESS.md file
 - Document current state before major changes
 - Before working on any problem, always run pwd command and find out the current working directory.
-
-### Maintain TODO.md:
-```
-## Current Task
-- [ ] What we're doing RIGHT NOW
-
-## Completed  
-- [x] What's actually done and tested
-
-## Next Steps
-- [ ] What comes next
-```
 
 ## Codebase Architecture
 
 ### Technology Stack
-- **Frontend**: Flutter/Dart (SDK >=3.8.0)
+- **Frontend**: Flutter/Dart (SDK >=3.14.0)
 - **Backend**: Firebase (Realtime Database, Firestore, Cloud Functions, Auth, Analytics, Crashlytics)
 - **State Management**: Provider pattern with ChangeNotifier
 - **Dependency Injection**: watch_it/get_it service locator pattern
@@ -158,9 +107,9 @@ scripts/promote-to-testing.sh
 scripts/bump_build_number.sh
 
 # Deploy Cloud Functions (PRODUCTION - deliberate, separate step):
-scripts/deploy-functions.sh                 # both codebases
-scripts/deploy-functions.sh --only dart     # functions_dart only
-scripts/deploy-functions.sh --only default  # TypeScript only
+scripts/deploy-functions.sh --project <id>                # both codebases
+scripts/deploy-functions.sh --project <id> --only dart    # functions_dart only
+scripts/deploy-functions.sh --project <id> --only default # TypeScript only
 ```
 
 Precondition for `promote-to-testing.sh`: must be on `development` with a clean working tree.
@@ -171,10 +120,10 @@ TestFlight/Play-internal testers and real users share one backend. Deploy them
 deliberately with `deploy-functions.sh`, and keep function changes backward compatible
 with the client version currently on `main`.
 
-### Current State (See TODO.md)
+### Current State
 - Test suite currently passes (`flutter test --no-pub`)
-- 26 files with dynamic types needing concrete types
-- 24 unnecessary StatefulWidgets to convert
+- Some files still use `dynamic` and need concrete types
+- Some StatefulWidgets hold no state and should become StatelessWidgets
 - Widget const constructor cleanup is complete; keep new widgets const by default
 - Large complex widgets need decomposition (650+ lines)
 
@@ -193,8 +142,7 @@ with the client version currently on `main`.
 - **NO** using ! operator without strong justification
 - **NO** TODOs in final code
 
-> **AUTOMATED ENFORCEMENT**: The flutter analyze hook will BLOCK commits that violate these rules.  
-> When you see `❌ FORBIDDEN PATTERN`, you MUST fix it immediately!
+> `flutter analyze` must pass with zero issues; fix any violation of these rules that it or a hook reports before moving on.
 
 ### Required Standards:
 - **Delete** old code when replacing it
@@ -222,6 +170,7 @@ Use the "Database-First with Reactive Listeners" pattern for all state changes t
 
 ### Testing Strategy
 - **Complex business logic** → Write tests first (TDD)
+- **Reproducible bugs** → Before changing any code, write a regression test that reproduces the bug and run it to show it fails. Then apply the fix and show the same test passes. The failing run proves the test actually catches the bug.
 - **UI components** → Write widget tests after implementation
 - **User flows** → Add integration tests
 - **Performance critical paths** → Add performance tests
@@ -234,17 +183,17 @@ lib/
 ├── models/               # Data models and entities
 ├── pages/                # UI screens/pages
 ├── services/             # Business logic and API calls
-├── view_models/          # State management (Provider/Riverpod)
+├── view_models/          # State management (Provider + ChangeNotifier)
 ├── widgets/              # Reusable UI components
 ├── theme_data.dart       # App theming
-└── constants.dart        # App constants
+└── constants/            # App constants
 
 test/                     # Tests mirror lib/ structure
 ├── models/
 ├── services/
 ├── view_models/
 ├── widgets/
-└── integration_test/     # Full app integration tests
+└── integration/          # Integration tests against the emulators
 
 functions/                # Firebase backend functions
 ├── src/                  # TypeScript source
@@ -256,10 +205,9 @@ functions/                # Firebase backend functions
 When you're stuck or confused:
 1. **Stop** - Don't spiral into complex solutions
 2. **Delegate** - Consider spawning agents for parallel investigation
-3. **Ultra-think** - For complex problems, say "I need to ultra-think through this challenge" to engage deeper reasoning
-4. **Step back** - Re-read the requirements
-5. **Simplify** - The simple solution is usually correct
-6. **Ask** - "I see two approaches: [A] vs [B]. Which do you prefer?"
+3. **Step back** - Re-read the requirements
+4. **Simplify** - The simple solution is usually correct
+5. **Ask** - "I see two approaches: [A] vs [B]. Which do you prefer?"
 
 My insights on better approaches are valued - please ask for them!
 
@@ -297,36 +245,10 @@ Would you like me to [specific improvement]?"
 
 ## Working Together
 
-- This is always a feature branch - no backwards compatibility needed
+- Client code needs no backwards-compatibility layers; Cloud Functions changes must stay compatible with the client on `main` (see Branch Workflow & Releases)
 - When in doubt, we choose clarity over cleverness
 - Prefer composition over inheritance in Widget design
 - Use Flutter's built-in widgets before creating custom ones
-- **REMINDER**: If this file hasn't been referenced in 30+ minutes, RE-READ IT!
 
 Avoid complex abstractions or "clever" code. The simple, obvious solution is probably better, and my guidance helps you stay focused on what matters.
 
-## Flutter-Specific Best Practices
-
-### Widget Design:
-- **StatelessWidget first** - only use StatefulWidget when state is truly needed
-- **Const constructors** - use them everywhere possible
-- **Single responsibility** - each widget should have one clear purpose
-- **Proper key usage** - use keys for widgets in lists or when identity matters
-
-### State Management:
-- **Provider/Riverpod** for app-wide state
-- **setState** only for simple, local widget state
-- **Avoid** global variables or static state
-- **Proper disposal** of resources in StatefulWidgets
-
-### Navigation:
-- **Named routes** for complex navigation
-- **Proper context management** - don't store BuildContext in fields
-- **Navigator 2.0** for complex routing scenarios
-
-### Common Flutter Pitfalls to Avoid:
-- Widget overflow errors - use `Flexible`, `Expanded`, or `SingleChildScrollView`
-- Calling `setState` after `dispose()` - always check `mounted`
-- Not disposing controllers, listeners, or streams
-- Using `Scaffold.of(context)` without proper context
-- Forgetting to handle loading/error states in async operations
