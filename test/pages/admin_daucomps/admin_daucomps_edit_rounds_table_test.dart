@@ -14,7 +14,7 @@ void main() {
         home: Scaffold(
           body: AdminDaucompsEditRoundsTable(
             rounds: <DAURound>[round],
-            onRoundDateChanged: (_, _, _) {},
+            onRoundDateChanged: (_, _) {},
           ),
         ),
       ),
@@ -28,35 +28,33 @@ void main() {
     return field.controller.text;
   }
 
-  testWidgets('shows the kickoff date and time when there is no override', (
-    tester,
-  ) async {
-    final firstKickoff = DateTime.utc(2026, 3, 5, 8, 0);
-    final lastKickoff = DateTime.utc(2026, 3, 8, 6, 30);
-    await pumpTable(tester, _buildRound(1, firstKickoff, lastKickoff));
+  testWidgets(
+    'shows the kickoff date and time when there is no override and omits end column',
+    (tester) async {
+      final firstKickoff = DateTime.utc(2026, 3, 5, 8, 0);
+      final lastKickoff = DateTime.utc(2026, 3, 8, 6, 30);
+      await pumpTable(tester, _buildRound(1, firstKickoff, lastKickoff));
 
-    expect(fieldText(tester, 'start-1'), formatRoundDateTime(firstKickoff));
-    expect(fieldText(tester, 'end-1'), formatRoundDateTime(lastKickoff));
-  });
+      expect(fieldText(tester, 'start-1'), formatRoundDateTime(firstKickoff));
+      expect(find.text('Last kickoff'), findsNothing);
+      expect(find.byKey(const ValueKey('end-1')), findsNothing);
+    },
+  );
 
-  testWidgets('shows the admin override date and time, not the kickoff time', (
-    tester,
-  ) async {
-    final overrideStart = DateTime.utc(2026, 3, 4, 2, 15);
-    final overrideEnd = DateTime.utc(2026, 3, 9, 11, 45);
-    final round =
-        _buildRound(
-            1,
-            DateTime.utc(2026, 3, 5, 8, 0),
-            DateTime.utc(2026, 3, 8, 6, 30),
-          )
-          ..adminOverrideRoundStartDate = overrideStart
-          ..adminOverrideRoundEndDate = overrideEnd;
-    await pumpTable(tester, round);
+  testWidgets(
+    'shows the admin override start date and time, not the kickoff time',
+    (tester) async {
+      final overrideStart = DateTime.utc(2026, 3, 4, 2, 15);
+      final round = _buildRound(
+        1,
+        DateTime.utc(2026, 3, 5, 8, 0),
+        DateTime.utc(2026, 3, 8, 6, 30),
+      )..adminOverrideRoundStartDate = overrideStart;
+      await pumpTable(tester, round);
 
-    expect(fieldText(tester, 'start-1'), formatRoundDateTime(overrideStart));
-    expect(fieldText(tester, 'end-1'), formatRoundDateTime(overrideEnd));
-  });
+      expect(fieldText(tester, 'start-1'), formatRoundDateTime(overrideStart));
+    },
+  );
 
   test('formatRoundDateTime abbreviates the meridiem', () {
     final afternoon = DateTime(2026, 3, 5, 19, 50);

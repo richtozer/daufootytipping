@@ -59,18 +59,18 @@ void main() {
       );
 
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now.subtract(const Duration(microseconds: 1)),
         ),
-        isNull,
+        isEmpty,
       );
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now,
         ),
-        same(round),
+        <DAURound>[round],
       );
     });
 
@@ -82,18 +82,18 @@ void main() {
       );
 
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now,
         ),
-        same(round),
+        <DAURound>[round],
       );
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now.add(const Duration(microseconds: 1)),
         ),
-        isNull,
+        isEmpty,
       );
     });
 
@@ -106,35 +106,47 @@ void main() {
       );
 
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now,
         ),
-        same(round),
+        <DAURound>[round],
       );
     });
 
-    test('uses the admin override end for badge deactivation', () {
-      final round = DAURound(
+    test('skips an empty round whose end is at or before its start', () {
+      final emptyRound = DAURound(
         dAUroundNumber: 1,
-        firstGameKickOffUTC: now.subtract(const Duration(days: 2)),
-        lastGameKickOffUTC: now,
-        adminOverrideRoundEndDate: now.add(const Duration(hours: 1)),
+        firstGameKickOffUTC: now.add(const Duration(hours: 24)),
+        lastGameKickOffUTC: now.add(const Duration(hours: 24)),
       );
 
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
-          rounds: <DAURound>[round],
-          now: now.add(const Duration(minutes: 30)),
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
+          rounds: <DAURound>[emptyRound],
+          now: now,
         ),
-        same(round),
+        isEmpty,
+      );
+    });
+
+    test('returns all overlapping active rounds', () {
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.subtract(const Duration(days: 3)),
+        lastGameKickOffUTC: now.add(const Duration(hours: 6)),
+      );
+      final round2 = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: now.add(const Duration(hours: 40)),
+        lastGameKickOffUTC: now.add(const Duration(days: 4)),
       );
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
-          rounds: <DAURound>[round],
-          now: now.add(const Duration(hours: 1, microseconds: 1)),
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
+          rounds: <DAURound>[round1, round2],
+          now: now,
         ),
-        isNull,
+        <DAURound>[round1, round2],
       );
     });
   });

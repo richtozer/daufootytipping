@@ -6,23 +6,25 @@ class OutstandingTipsCalculator {
 
   static const Duration appBadgeActivationLeadTime = Duration(hours: 48);
 
-  static DAURound? appBadgeRoundForTime({
+  static List<DAURound> appBadgeRoundsForTime({
     required Iterable<DAURound> rounds,
     required DateTime now,
   }) {
+    final activeRounds = <DAURound>[];
     for (final round in rounds) {
-      final activationTime = round.getRoundStartDate().subtract(
-        appBadgeActivationLeadTime,
-      );
+      final roundStart = round.getRoundStartDate();
+      // Empty rounds (end <= start) must not open a 48h badge window.
+      if (!round.lastGameKickOffUTC.isAfter(roundStart)) {
+        continue;
+      }
+      final activationTime = roundStart.subtract(appBadgeActivationLeadTime);
       final isActivated = !now.isBefore(activationTime);
-      final hasNotPassedLastKickoff = !now.isAfter(
-        round.getRoundEndDate(),
-      );
+      final hasNotPassedLastKickoff = !now.isAfter(round.lastGameKickOffUTC);
       if (isActivated && hasNotPassedLastKickoff) {
-        return round;
+        activeRounds.add(round);
       }
     }
-    return null;
+    return activeRounds;
   }
 
   static int countUpcomingUntippedGames({

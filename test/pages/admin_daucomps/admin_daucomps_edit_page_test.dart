@@ -7,6 +7,8 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_rounds_table.dart';
+import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_warning.dart';
+import 'package:daufootytipping/services/rounds_linking_service.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
@@ -106,6 +108,7 @@ void main() {
     when(() => pageDauCompsViewModel.activeDAUComp).thenReturn(activeComp);
     when(() => pageDauCompsViewModel.selectedDAUComp).thenReturn(viewedComp);
     when(() => pageDauCompsViewModel.unassignedGames).thenReturn(const []);
+    when(() => pageDauCompsViewModel.splitRoundGames).thenReturn(const []);
     when(() => pageDauCompsViewModel.isDownloading).thenReturn(false);
     when(() => pageDauCompsViewModel.otherViewModelsLoadComplete)
         .thenAnswer((_) async {});
@@ -306,7 +309,6 @@ void main() {
       roundsTable.onRoundDateChanged(
         viewedRound,
         DateTime.utc(2024, 3, 14, 11),
-        true,
       );
       await tester.pump();
 
@@ -314,6 +316,197 @@ void main() {
         () => pageDauCompsViewModel.linkGamesWithRounds(viewedComp.daurounds),
       ).called(1);
       verifyNever(() => globalDauCompsViewModel.linkGamesWithRounds(any()));
+    },
+  );
+
+  testWidgets(
+    'save button stays enabled after a round start edit followed by a text edit',
+    (tester) async {
+      await tester.pumpWidget(
+        appWithControls(appControls, home: const SizedBox.shrink()),
+      );
+      tester
+          .state<NavigatorState>(find.byType(Navigator))
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => DAUCompsEditPage(
+                viewedComp,
+                adminDauCompsViewModel: pageDauCompsViewModel,
+              ),
+            ),
+          );
+      await tester.pumpAndSettle();
+
+      VoidCallback? saveOnTap() => tester
+          .widget<InkResponse>(
+            find.ancestor(
+              of: find.byIcon(Icons.save),
+              matching: find.byType(InkResponse),
+            ),
+          )
+          .onTap;
+
+      expect(saveOnTap(), isNull);
+
+      final roundsTable = tester.widget<AdminDaucompsEditRoundsTable>(
+        find.byType(AdminDaucompsEditRoundsTable),
+      );
+      roundsTable.onRoundDateChanged(
+        viewedRound,
+        DateTime.utc(2024, 3, 14, 11),
+      );
+      await tester.pumpAndSettle();
+      expect(saveOnTap(), isNotNull);
+
+      final nameField = find.byType(TextFormField).first;
+      await tester.enterText(nameField, 'Renamed Comp');
+      await tester.pumpAndSettle();
+      expect(saveOnTap(), isNotNull);
+
+      // Even reverting the text field back to the original name keeps Save
+      // enabled while the round start date override remains modified.
+      await tester.enterText(nameField, viewedComp.name);
+      await tester.pumpAndSettle();
+      expect(saveOnTap(), isNotNull);
+    },
+  );
+
+  testWidgets(
+    'shows both unassigned and split-round warnings and clears split warning when round start moves back',
+    (tester) async {
+      final teamHome = Team(
+        dbkey: 'nrl-home',
+        name: 'Broncos',
+        league: League.nrl,
+      );
+      final teamAway = Team(
+        dbkey: 'nrl-away',
+        name: 'Roosters',
+        league: League.nrl,
+      );
+      final earlyGame = Game(
+        dbkey: 'nrl-02-001',
+        league: League.nrl,
+        homeTeam: teamHome,
+        awayTeam: teamAway,
+        location: 'Suncorp',
+        startTimeUTC: DateTime.utc(2030, 3, 9, 9, 0),
+        fixtureRoundNumber: 2,
+        fixtureMatchNumber: 1,
+      );
+      final homeGame1 = Game(
+        dbkey: 'nrl-02-002',
+        league: League.nrl,
+        homeTeam: teamHome,
+        awayTeam: teamAway,
+        location: 'Suncorp',
+        startTimeUTC: DateTime.utc(2030, 3, 15, 9, 0),
+        fixtureRoundNumber: 2,
+        fixtureMatchNumber: 2,
+      );
+      final homeGame2 = Game(
+        dbkey: 'nrl-02-003',
+        league: League.nrl,
+        homeTeam: teamHome,
+        awayTeam: teamAway,
+        location: 'Suncorp',
+        startTimeUTC: DateTime.utc(2030, 3, 16, 9, 0),
+        fixtureRoundNumber: 2,
+        fixtureMatchNumber: 3,
+      );
+      final unassignedGame = Game(
+        dbkey: 'nrl-00-001',
+        league: League.nrl,
+        homeTeam: teamHome,
+        awayTeam: teamAway,
+        location: 'Suncorp',
+        startTimeUTC: DateTime.utc(2030, 2, 1, 9, 0),
+        fixtureRoundNumber: 0,
+        fixtureMatchNumber: 1,
+      );
+
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: DateTime.utc(2030, 3, 1, 8, 0),
+        lastGameKickOffUTC: DateTime.utc(2030, 3, 3, 12, 0),
+        games: [earlyGame],
+      )..nrlGameCount = 1;
+      final round2 = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: DateTime.utc(2030, 3, 14, 8, 0),
+        lastGameKickOffUTC: DateTime.utc(2030, 3, 16, 12, 0),
+        games: [homeGame1, homeGame2],
+      )..nrlGameCount = 2;
+
+      final splitComp = _buildComp(
+        'split-comp',
+        'Split Comp',
+        rounds: [round1, round2],
+      );
+
+      const linking = RoundsLinkingService();
+      var currentUnassigned = <Game>[unassignedGame];
+      var currentSplit = linking.computeSplitRoundGames(
+        rounds: splitComp.daurounds,
+        now: DateTime.utc(2030, 1, 1),
+      );
+
+      when(() => pageDauCompsViewModel.selectedDAUComp).thenReturn(splitComp);
+      when(() => pageDauCompsViewModel.unassignedGames)
+          .thenAnswer((_) => currentUnassigned);
+      when(() => pageDauCompsViewModel.splitRoundGames)
+          .thenAnswer((_) => currentSplit);
+      when(() => pageDauCompsViewModel.linkGamesWithRounds(any())).thenAnswer((
+        invocation,
+      ) async {
+        final rounds = invocation.positionalArguments.first as List<DAURound>;
+        final all = <Game>[unassignedGame, earlyGame, homeGame1, homeGame2];
+        for (final r in rounds) {
+          r.games = all
+              .where(
+                (g) =>
+                    g.getDAURound(splitComp)?.dAUroundNumber ==
+                    r.dAUroundNumber,
+              )
+              .toList();
+        }
+        currentUnassigned = linking.finalizeRoundsAndComputeUnassigned(
+          rounds: rounds,
+          allGames: all,
+        );
+        currentSplit = linking.computeSplitRoundGames(
+          rounds: rounds,
+          now: DateTime.utc(2030, 1, 1),
+        );
+      });
+
+      await tester.pumpWidget(
+        appWithControls(
+          appControls,
+          home: DAUCompsEditPage(
+            splitComp,
+            adminDauCompsViewModel: pageDauCompsViewModel,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(kUnassignedGamesWarningTitle), findsOneWidget);
+      expect(find.text(kSplitRoundGamesWarningTitle), findsOneWidget);
+      expect(
+        find.textContaining('in DAU Round 1, home DAU Round 2'),
+        findsOneWidget,
+      );
+
+      final roundsTable = tester.widget<AdminDaucompsEditRoundsTable>(
+        find.byType(AdminDaucompsEditRoundsTable),
+      );
+      // Move Round 2 start back before earlyGame -> earlyGame joins Round 2.
+      roundsTable.onRoundDateChanged(round2, DateTime.utc(2030, 3, 9, 8, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text(kUnassignedGamesWarningTitle), findsOneWidget);
+      expect(find.text(kSplitRoundGamesWarningTitle), findsNothing);
     },
   );
 }

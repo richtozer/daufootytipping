@@ -46,12 +46,12 @@ void main(List<String> args) {
       awayTeamScore: raw['AwayTeamScore'],
     );
     games[key] = game;
-    final matching = rounds.where(game.isGameInRound).toList();
-    if (matching.length != 1) {
-      throw StateError('Game $key must belong to exactly one round');
+    final matchedRound = game.getDAURound(comp);
+    if (matchedRound == null) {
+      throw StateError('Game $key must belong to a round');
     }
     // DAURound's default games list is const; populate with a new list.
-    matching.single.games = [...matching.single.games, game];
+    matchedRound.games = [...matchedRound.games, game];
   }
   final tippers = <Tipper>[
     for (final entry in (data['AllTippers'] as Map).entries)

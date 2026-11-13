@@ -60,21 +60,22 @@ void main() {
         expect(dauRound.aflGameCount, equals(0));
       });
 
-      test('should create DAURound with optional admin override dates', () {
-        final adminStartDate = DateTime.utc(2024, 1, 14, 12, 0);
-        final adminEndDate = DateTime.utc(2024, 1, 18, 12, 0);
+      test(
+        'should create DAURound with optional admin override start date',
+        () {
+          final adminStartDate = DateTime.utc(2024, 1, 14, 12, 0);
 
-        final dauRound = DAURound(
-          dAUroundNumber: 2,
-          firstGameKickOffUTC: testStartTime,
-          lastGameKickOffUTC: testEndTime,
-          adminOverrideRoundStartDate: adminStartDate,
-          adminOverrideRoundEndDate: adminEndDate,
-        );
+          final dauRound = DAURound(
+            dAUroundNumber: 2,
+            firstGameKickOffUTC: testStartTime,
+            lastGameKickOffUTC: testEndTime,
+            adminOverrideRoundStartDate: adminStartDate,
+          );
 
-        expect(dauRound.adminOverrideRoundStartDate, equals(adminStartDate));
-        expect(dauRound.adminOverrideRoundEndDate, equals(adminEndDate));
-      });
+          expect(dauRound.adminOverrideRoundStartDate, equals(adminStartDate));
+          expect(dauRound.getRoundStartDate(), equals(adminStartDate));
+        },
+      );
 
       test('should create DAURound with initial games list', () {
         final dauRound = DAURound(
@@ -124,6 +125,20 @@ void main() {
           dauRound.lastGameKickOffUTC,
           equals(DateTime.parse('2024-01-17T21:30:00.000Z')),
         );
+      });
+
+      test('should ignore leftover adminOverrideRoundEndDate in JSON data', () {
+        final jsonData = {
+          'roundStartDate': '2024-01-15T19:00:00.000Z',
+          'roundEndDate': '2024-01-17T21:30:00.000Z',
+          'adminOverrideRoundStartDate': '2024-01-15T12:00:00.000Z',
+          'adminOverrideRoundEndDate': '2024-01-18T12:00:00.000Z',
+        };
+
+        final dauRound = DAURound.fromJson(jsonData, 3);
+
+        expect(dauRound.getRoundStartDate(), DateTime.utc(2024, 1, 15, 12, 0));
+        expect(dauRound.lastGameKickOffUTC, DateTime.utc(2024, 1, 17, 21, 30));
       });
 
       test('should handle ISO8601 date formats correctly', () {

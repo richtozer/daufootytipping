@@ -776,8 +776,7 @@ Map<String, int> calculateOutstandingTipCounts({
     round.games = games
         .where(
           (game) =>
-              game.isGameInRound(round) &&
-              !_isBackendScoringGameOutsideRegularComp(comp, game),
+              game.getDAURound(comp)?.dAUroundNumber == round.dAUroundNumber,
         )
         .toList();
   }
@@ -789,7 +788,7 @@ Map<String, int> calculateOutstandingTipCounts({
     now: now,
   );
 
-  final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+  final badgeRounds = OutstandingTipsCalculator.appBadgeRoundsForTime(
     rounds: comp.daurounds,
     now: now,
   );
@@ -817,13 +816,15 @@ Map<String, int> calculateOutstandingTipCounts({
     if (rawTips is Map) {
       submittedGameKeys.addAll(rawTips.keys.map((key) => key.toString()));
     }
-    result[tipperId] = badgeRound == null
-        ? 0
-        : OutstandingTipsCalculator.countUpcomingUntippedGames(
-            games: badgeRound.games,
-            submittedGameKeys: submittedGameKeys,
-            now: now,
-          );
+    var count = 0;
+    for (final badgeRound in badgeRounds) {
+      count += OutstandingTipsCalculator.countUpcomingUntippedGames(
+        games: badgeRound.games,
+        submittedGameKeys: submittedGameKeys,
+        now: now,
+      );
+    }
+    result[tipperId] = count;
   }
   return result;
 }
@@ -1711,8 +1712,22 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
       message: 'Applying fixture updates...',
     );
 
+    final existingGamesValue = await readDatabaseValue(
+      db,
+      '${paths.gamesPathRoot}/$compKey',
+    );
+    final Map<String, dynamic> existingGames = existingGamesValue != null
+        ? Map<String, dynamic>.from(existingGamesValue as Map)
+        : {};
+
     final importApplier = const FixtureImportApplier();
-    final ops = importApplier.buildGameUpdates(nrlGames, aflGames);
+    final ops = importApplier.buildGameUpdates(
+      nrlGames,
+      aflGames,
+      existingGames: existingGames,
+      now: now,
+      log: (msg) => logFunction('executeFixtureDownload: $msg'),
+    );
 
     final dbUpdates = <String, dynamic>{};
 
@@ -1758,17 +1773,26 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
     final allGames = [...nrlGames, ...aflGames];
     final combined = importApplier.computeCombinedRoundsIfMissing(comp, allGames);
     if (combined != null) {
-      for (var i = 0; i < combined.length; i++) {
-        final round = combined[i];
-        final startDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
-        final endDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.lastGameKickOffUTC)}Z';
-        dbUpdates[
-            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
-            '${paths.roundStartDateKey}'] = startDateStr;
-        dbUpdates[
-            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
-            '${paths.roundEndDateKey}'] = endDateStr;
+      for (final round in combined) {
+        final roundIndex = round.dAUroundNumber - 1;
+        final startDateStr =
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
+        dbUpdates['${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$roundIndex/'
+                '${paths.roundStartDateKey}'] =
+            startDateStr;
       }
+    }
+    final roundEndUpdates = importApplier.recalculateRoundEndDates(
+      comp: comp,
+      gameUpdates: ops,
+      existingGames: existingGames,
+      roundsOverride: combined,
+      forceWriteAll: combined != null,
+    );
+    for (final entry in roundEndUpdates.entries) {
+      dbUpdates['${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/${entry.key}/'
+              '${paths.roundEndDateKey}'] =
+          entry.value;
     }
 
     dbUpdates[

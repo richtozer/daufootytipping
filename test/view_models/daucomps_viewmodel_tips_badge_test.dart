@@ -388,10 +388,85 @@ void main() {
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          previousRound,
-          League.afl,
+              previousRound,
+              League.afl,
+            ),
+      );
+    });
+
+    test('app badge sums outstanding tips across overlapping badge rounds before and after postponed kickoff', () {
+      // Round 1 is extended by a postponed Monday night game (kickoff +10h
+      // -> roundEndDate +13h), overlapping Round 2's 48h activation window.
+      final nowBeforePostponed = DateTime.parse('2030-01-01T12:00:00Z');
+      final nowAfterPostponed = DateTime.parse('2030-01-01T23:00:00Z');
+
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: nowBeforePostponed.subtract(
+          const Duration(days: 3),
+        ),
+        lastGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 13)),
+      );
+      final round2 = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 40)),
+        lastGameKickOffUTC: nowBeforePostponed.add(const Duration(days: 5)),
+      );
+
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[round1, round2],
         ),
       );
+      vm.selectedTipperTipsViewModel = mockTipsViewModel;
+
+      // Before postponed kickoff: Round 1 has 1 upcoming untipped NRL game,
+      // Round 2 has 2 upcoming untipped AFL games -> total 3.
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.nrl,
+            ),
+      ).thenReturn(1);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.afl,
+            ),
+      ).thenReturn(0);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round2,
+              League.nrl,
+            ),
+      ).thenReturn(0);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round2,
+              League.afl,
+            ),
+      ).thenReturn(2);
+
+      expect(vm.appBadgeOutstandingTipsCount(nowBeforePostponed), 3);
+
+      // After postponed kickoff (inside 3h end buffer): Round 1 now has 0
+      // upcoming untipped games, Round 2 still has 2 -> total 2.
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.nrl,
+            ),
+      ).thenReturn(0);
+      expect(vm.appBadgeOutstandingTipsCount(nowAfterPostponed), 2);
     });
   });
 }

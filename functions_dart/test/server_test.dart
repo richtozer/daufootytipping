@@ -537,68 +537,178 @@ void main() {
         {'paid': 0},
       );
     });
+
+    test(
+      'sums outstanding tips across overlapping badge rounds before and after postponed kickoff',
+      () {
+        final nowBeforePostponed = DateTime.parse('2030-01-01T12:00:00Z');
+        final nowAfterPostponed = DateTime.parse('2030-01-01T23:00:00Z');
+
+        final round1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: nowBeforePostponed.subtract(
+            const Duration(days: 3),
+          ),
+          lastGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 13)),
+        );
+        final round2 = DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: nowBeforePostponed.add(
+            const Duration(hours: 40),
+          ),
+          lastGameKickOffUTC: nowBeforePostponed.add(const Duration(days: 5)),
+        );
+        final overlapComp = DAUComp(
+          dbkey: 'comp-2030',
+          name: '2030',
+          aflFixtureJsonURL: Uri.parse('https://example.invalid/afl.json'),
+          nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl.json'),
+          daurounds: <DAURound>[round1, round2],
+        );
+        final overlapGames = <Game>[
+          _badgeTestGame(
+            'nrl-01-001',
+            nowBeforePostponed.add(const Duration(hours: 10)),
+          ),
+          _badgeTestGame(
+            'afl-02-001',
+            nowBeforePostponed.add(const Duration(hours: 40)),
+          ),
+          _badgeTestGame(
+            'afl-02-002',
+            nowBeforePostponed.add(const Duration(hours: 45)),
+          ),
+        ];
+        final paidTipper = _badgeTestTipper('paid', comp: overlapComp);
+
+        expect(
+          calculateOutstandingTipCounts(
+            comp: overlapComp,
+            games: overlapGames,
+            allTippers: <Tipper>[paidTipper],
+            tipsByTipperRaw: const {},
+            now: nowBeforePostponed,
+            requestedTipperIds: {'paid'},
+          ),
+          {'paid': 3},
+        );
+        expect(
+          calculateOutstandingTipCounts(
+            comp: overlapComp,
+            games: overlapGames,
+            allTippers: <Tipper>[paidTipper],
+            tipsByTipperRaw: const {},
+            now: nowAfterPostponed,
+            requestedTipperIds: {'paid'},
+          ),
+          {'paid': 2},
+        );
+      },
+    );
+
+    test('ignores an empty round whose end is at or before its start', () {
+      final start = now.add(const Duration(hours: 24));
+      final emptyRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: start,
+        lastGameKickOffUTC: start,
+      );
+      final activeRound = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: now.add(const Duration(hours: 30)),
+        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+      );
+      final testComp = DAUComp(
+        dbkey: 'comp-2026',
+        name: '2026',
+        aflFixtureJsonURL: Uri.parse('https://example.invalid/afl.json'),
+        nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl.json'),
+        daurounds: <DAURound>[emptyRound, activeRound],
+      );
+      final testGames = <Game>[
+        _badgeTestGame('nrl-02-001', now.add(const Duration(hours: 30))),
+      ];
+
+      expect(
+        calculateOutstandingTipCounts(
+          comp: testComp,
+          games: testGames,
+          allTippers: <Tipper>[_badgeTestTipper('paid', comp: testComp)],
+          tipsByTipperRaw: const {},
+          now: now,
+          requestedTipperIds: {'paid'},
+        ),
+        {'paid': 1},
+      );
+    });
   });
 
   group('executeFixtureDownload tests', () {
     // The administrator check is the validated private role, by the same test as
     // the identity callables and the R2 rules (admin_gate_test.dart covers the
     // gate itself); these prove each older endpoint goes through it.
-    test('a database record saying admin does not make a caller admin', () async {
-      // The old authorization trusted authuid + tipperRole in publicly
-      // writable data. A forged public record must grant nothing.
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'forged': {'authuid': 'attacker-uid', 'tipperRole': 'admin'},
-        },
-      });
+    test(
+      'a database record saying admin does not make a caller admin',
+      () async {
+        // The old authorization trusted authuid + tipperRole in publicly
+        // writable data. A forged public record must grant nothing.
+        final db = DuckTypedDatabase({
+          '/AllTippers': {
+            'forged': {'authuid': 'attacker-uid', 'tipperRole': 'admin'},
+          },
+        });
 
-      await expectLater(
-        executeFixtureDownload(
-          authUid: 'attacker-uid',
-          compKey: 'comp2026',
-          db: db,
-          fetchFixtureJson: (_) async => [],
-          now: DateTime.now().toUtc(),
-        ),
-        throwsA(isA<PermissionDeniedError>()),
-      );
-      await expectLater(
-        executeAdminScoringRescore(
-          authUid: 'attacker-uid',
-          compKey: 'comp2026',
-          db: db,
-          now: DateTime.parse('2026-07-19T12:00:00Z'),
-        ),
-        throwsA(isA<PermissionDeniedError>()),
-      );
-      await expectLater(
-        checkFixtureUrlActive(
-          authUid: 'attacker-uid',
-          url: 'https://example.com/fixture.json',
-          db: db,
-          checkUrl: (_) async => true,
-        ),
-        throwsA(isA<PermissionDeniedError>()),
-      );
-    });
-
-    test('an ordinary tipper, or a record naming someone else, is refused', () async {
-      for (final db in [
-        administratorsDb(role: 'tipper'),
-        administratorsDb(recordedUid: 'someone-else'),
-        DuckTypedDatabase({'/AuthIndex/admin-uid': 'tipper-admin'}),
-      ]) {
+        await expectLater(
+          executeFixtureDownload(
+            authUid: 'attacker-uid',
+            compKey: 'comp2026',
+            db: db,
+            fetchFixtureJson: (_) async => [],
+            now: DateTime.now().toUtc(),
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
         await expectLater(
           executeAdminScoringRescore(
-            authUid: 'admin-uid',
+            authUid: 'attacker-uid',
             compKey: 'comp2026',
             db: db,
             now: DateTime.parse('2026-07-19T12:00:00Z'),
           ),
           throwsA(isA<PermissionDeniedError>()),
         );
-      }
-    });
+        await expectLater(
+          checkFixtureUrlActive(
+            authUid: 'attacker-uid',
+            url: 'https://example.com/fixture.json',
+            db: db,
+            checkUrl: (_) async => true,
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
+      },
+    );
+
+    test(
+      'an ordinary tipper, or a record naming someone else, is refused',
+      () async {
+        for (final db in [
+          administratorsDb(role: 'tipper'),
+          administratorsDb(recordedUid: 'someone-else'),
+          DuckTypedDatabase({'/AuthIndex/admin-uid': 'tipper-admin'}),
+        ]) {
+          await expectLater(
+            executeAdminScoringRescore(
+              authUid: 'admin-uid',
+              compKey: 'comp2026',
+              db: db,
+              now: DateTime.parse('2026-07-19T12:00:00Z'),
+            ),
+            throwsA(isA<PermissionDeniedError>()),
+          );
+        }
+      },
+    );
 
     test('each endpoint lets a validated administrator through', () async {
       final db = administratorsDb();
@@ -876,6 +986,16 @@ void main() {
       when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
       when(() => mockTeamsSnapshot.value).thenReturn({});
 
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
+
       final result = await executeFixtureDownload(
         authUid: 'user123',
         requireAdministrator: _allowAnyone,
@@ -943,6 +1063,16 @@ void main() {
           'league': 'afl',
         }
       });
+
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
 
       final mockAflGames = [
         {
@@ -1236,6 +1366,16 @@ void main() {
         },
       });
 
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
+
       final mockNrlGames = [
         {
           'RoundNumber': 1,
@@ -1272,6 +1412,413 @@ void main() {
         containsPair('name', 'Roosters'),
       );
     });
+
+    test(
+      'ignores kickoff change in feed once stored kickoff has passed, including new kickoff inside grace period',
+      () async {
+        final storedKickoffStr = '2026-06-01T10:00:00Z';
+        final storedKickoff = DateTime.parse(storedKickoffStr);
+        // 16 minutes after stored kickoff: past the 900s grace period, so tipping
+        // has closed and tips are visible.
+        final now = storedKickoff.add(const Duration(minutes: 16));
+        // Feed moves kickoff to 15 minutes after stored kickoff (still <= now,
+        // but within 900s grace of now so without freezing tipping would reopen).
+        final feedMovedInsideGraceStr = '2026-06-01T10:15:00Z';
+
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-06-01T07:00:00Z',
+              'roundEndDate': '2026-06-01T13:00:00Z',
+            },
+          ],
+        });
+
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'DateUtc': storedKickoffStr,
+            'DateUtcEpochMs': storedKickoff.millisecondsSinceEpoch,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+          },
+        });
+
+        final mockLockRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+        ).thenReturn(mockLockRef);
+        final mockTransactionResult = MockTransactionResult();
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockLockRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('downloadLock', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(
+          () => mockLockRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockStatusRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockRootRef = MockDatabaseReference();
+        when(() => mockDb.ref('/')).thenReturn(mockRootRef);
+        when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        await executeFixtureDownload(
+          authUid: 'user123',
+          requireAdministrator: _allowAnyone,
+          compKey: 'comp2026',
+          db: mockDb,
+          fetchFixtureJson: (url) async {
+            if (url.toString().contains('afl')) return [];
+            return [
+              {
+                'RoundNumber': 1,
+                'MatchNumber': 1,
+                'HomeTeam': 'Broncos',
+                'AwayTeam': 'Roosters',
+                'DateUtc': feedMovedInsideGraceStr,
+              },
+            ];
+          },
+          now: now,
+        );
+
+        final capturedUpdates =
+            verify(() => mockRootRef.update(captureAny())).captured.single
+                as Map<String, dynamic>;
+        expect(
+          capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtc'],
+          storedKickoffStr,
+        );
+        expect(
+          capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtcEpochMs'],
+          storedKickoff.millisecondsSinceEpoch,
+        );
+        expect(
+          tippingHasClosed(
+            DateTime.parse(
+              capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtc']
+                  as String,
+            ),
+            now,
+            900,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'moving a live-scored game from round 1 to round 2 recalculates ends (empty round gets end=start) and rescores both rounds',
+      () async {
+        final mockDb = MockDatabase();
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        final mockLockRef = MockDatabaseReference();
+        final mockStatusRef = MockDatabaseReference();
+        final mockRootRef = MockDatabaseReference();
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        final mockLiveScoresRef = MockDatabaseReference();
+        final mockLiveScoresSnapshot = MockDataSnapshot();
+        final mockAllTippersRef = MockDatabaseReference();
+        final mockAllTippersSnapshot = MockDataSnapshot();
+        final mockAllTipsRef = MockDatabaseReference();
+        final mockAllTipsSnapshot = MockDataSnapshot();
+        final mockIdempotencyRef = MockDatabaseReference();
+        final mockRoundOneStatsRootRef = MockDatabaseReference();
+        final mockRoundTwoStatsRootRef = MockDatabaseReference();
+        final mockGameStatsRootRef = MockDatabaseReference();
+        final mockTransactionResult = MockTransactionResult();
+
+        final now = DateTime.parse('2026-06-01T11:00:00Z');
+
+        final compJson = <String, dynamic>{
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-06-01T08:00:00Z',
+              'roundEndDate': '2026-06-01T13:00:00Z',
+            },
+            {
+              'roundStartDate': '2026-06-08T08:00:00Z',
+              // Admin moved round 2 start before nrl-01-001 (10:00Z).
+              'adminOverrideRoundStartDate': '2026-06-01T09:00:00Z',
+              'roundEndDate': '2026-06-08T13:00:00Z',
+            },
+          ],
+        };
+
+        final gamesJson = <String, dynamic>{
+          'nrl-01-001': {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Suncorp',
+            'DateUtc': '2026-06-01 10:00:00Z',
+          },
+        };
+
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn(compJson);
+
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn(gamesJson);
+
+        when(
+          () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+        ).thenReturn(mockLockRef);
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockLockRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('downloadLock', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(
+          () => mockLockRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+        when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/')).thenReturn(mockRootRef);
+        when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        await executeFixtureDownload(
+          authUid: 'admin-uid',
+          requireAdministrator: _allowAnyone,
+          compKey: 'comp2026',
+          db: mockDb,
+          fetchFixtureJson: (url) async {
+            if (url.toString().contains('afl')) return [];
+            return [
+              {
+                'RoundNumber': 1,
+                'MatchNumber': 1,
+                'HomeTeam': 'Broncos',
+                'AwayTeam': 'Roosters',
+                'Location': 'Suncorp',
+                'DateUtc': '2026-06-01 10:00:00Z',
+              },
+            ];
+          },
+          now: now,
+        );
+
+        final capturedUpdates =
+            verify(() => mockRootRef.update(captureAny())).captured.single
+                as Map<String, dynamic>;
+
+        // Source round (index 0) now has no games -> end = start.
+        expect(
+          capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/0/roundEndDate'],
+          '2026-06-01 08:00:00Z',
+        );
+        // Destination round (index 1) end recalculated from moved game + 3h.
+        expect(
+          capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/1/roundEndDate'],
+          '2026-06-01 13:00:00Z',
+        );
+
+        // Apply recalculated end dates before running full backend rescore.
+        final rounds = compJson['combinedRounds2'] as List<dynamic>;
+        (rounds[0] as Map<String, dynamic>)['roundEndDate'] =
+            capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/0/roundEndDate'];
+        (rounds[1] as Map<String, dynamic>)['roundEndDate'] =
+            capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/1/roundEndDate'];
+
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-move',
+          ),
+        ).thenReturn(mockIdempotencyRef);
+        when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('admin-rescore-move', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+        // Live crowd-sourced score makes the started-unscored game carry points.
+        when(
+          () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+        ).thenReturn(mockLiveScoresRef);
+        when(
+          () => mockLiveScoresRef.once(),
+        ).thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(() => mockLiveScoresSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'current': {
+              'crowdSourcedScores': {
+                '0': {
+                  'submittedTimeUTC': '2026-06-01T10:20:00Z',
+                  'scoreTeam': 'home',
+                  'tipperID': 'score-tipper',
+                  'interimScore': 20,
+                  'gameComplete': false,
+                },
+                '1': {
+                  'submittedTimeUTC': '2026-06-01T10:21:00Z',
+                  'scoreTeam': 'away',
+                  'tipperID': 'score-tipper',
+                  'interimScore': 10,
+                  'gameComplete': false,
+                },
+              },
+            },
+          },
+        });
+
+        _stubNoPrivateTippers(mockDb);
+        when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
+        when(
+          () => mockAllTippersRef.once(),
+        ).thenAnswer((_) async => mockAllTippersSnapshot);
+        when(() => mockAllTippersSnapshot.value).thenReturn({
+          'tipper-1': {
+            'authuid': 'auth-1',
+            'email': 'tipper@example.com',
+            'name': 'Tipper',
+            'tipperRole': 'tipper',
+            'compsParticipatedIn': ['comp2026'],
+            'isAnonymous': false,
+          },
+        });
+
+        when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
+        when(
+          () => mockAllTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
+        when(() => mockAllTipsSnapshot.value).thenReturn({
+          'tipper-1': {
+            'nrl-01-001': {'r': 'b', 't': 1760000001},
+          },
+        });
+
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+        ).thenReturn(mockRoundOneStatsRootRef);
+        when(
+          () => mockRoundOneStatsRootRef.set(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2'),
+        ).thenReturn(mockRoundTwoStatsRootRef);
+        when(
+          () => mockRoundTwoStatsRootRef.set(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+        ).thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.set(any())).thenAnswer((_) async {});
+
+        final rescoreResult = await executeBackendScoringCommand(
+          db: mockDb,
+          command: BackendScoringCommand(
+            commandType: BackendScoringCommandType.adminRescore,
+            compKey: 'comp2026',
+            roundNumber: null,
+            tipperId: null,
+            gameKey: null,
+            sourceEventId: 'admin-rescore-move',
+            sourcePath: '/admin/backendScoring/adminRescore',
+            scopeKey: 'comp:comp2026/all_rounds/all_tippers',
+            commandId: 'admin-rescore-move',
+          ),
+          now: now,
+        );
+
+        expect(rescoreResult.skipped, isFalse);
+        expect(rescoreResult.message, contains('1 rounds'));
+        expect(rescoreResult.message, contains('skipped 1 empty rounds'));
+
+        // Points left round 1 (replaced with null) and appeared in round 2.
+        verify(() => mockRoundOneStatsRootRef.set(null)).called(1);
+        final roundTwoStats =
+            verify(
+                  () => mockRoundTwoStatsRootRef.set(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(roundTwoStats['tipper-1'], isA<Map>());
+        expect((roundTwoStats['tipper-1'] as Map)['nS'], 2);
+      },
+    );
   });
 
   group('executeAdminScoringRescore tests', () {

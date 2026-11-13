@@ -252,40 +252,14 @@ class GamesViewModel extends ChangeNotifier {
     await initialLoadComplete;
 
     List<Game> gamesForRound = _games
-        .where((game) => (game.isGameInRound(dauRound)))
+        .where(
+          (game) =>
+              game.getDAURound(selectedDAUComp)?.dAUroundNumber ==
+              dauRound.dAUroundNumber,
+        )
         .toList();
 
-    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
-    removeGamesOutsideRegularComp(gamesForRound);
-
     return gamesForRound;
-  }
-
-  void removeGamesOutsideRegularComp(List<Game> gamesForRound) {
-    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
-    gamesForRound.removeWhere((game) {
-      bool shouldRemove = false;
-
-      if (game.league == League.afl &&
-          selectedDAUComp.aflRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC.isAfter(
-          selectedDAUComp.aflRegularCompEndDateUTC!,
-        );
-      } else if (game.league == League.nrl &&
-          selectedDAUComp.nrlRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC.isAfter(
-          selectedDAUComp.nrlRegularCompEndDateUTC!,
-        );
-      }
-
-      if (shouldRemove) {
-        log(
-          'removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, Start Time: ${game.startTimeUTC}',
-        );
-      }
-
-      return shouldRemove;
-    });
   }
 
   // Helper method to calculate ladder points for a game

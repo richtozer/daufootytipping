@@ -18,7 +18,6 @@ const String roundEndDateKey = 'roundEndDate';
 
 /// Admin override date keys per round.
 const String adminOverrideRoundStartDateKey = 'adminOverrideRoundStartDate';
-const String adminOverrideRoundEndDateKey = 'adminOverrideRoundEndDate';
 
 /// DAUComp field keys.
 const String compNameKey = 'name';

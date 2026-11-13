@@ -130,12 +130,10 @@ class DauCompsSnapshotApplier {
       existingRound.lastGameKickOffUTC = databaseRound.lastGameKickOffUTC;
       changed = true;
     }
-    if (existingRound.adminOverrideRoundStartDate != databaseRound.adminOverrideRoundStartDate) {
-      existingRound.adminOverrideRoundStartDate = databaseRound.adminOverrideRoundStartDate;
-      changed = true;
-    }
-    if (existingRound.adminOverrideRoundEndDate != databaseRound.adminOverrideRoundEndDate) {
-      existingRound.adminOverrideRoundEndDate = databaseRound.adminOverrideRoundEndDate;
+    if (existingRound.adminOverrideRoundStartDate !=
+        databaseRound.adminOverrideRoundStartDate) {
+      existingRound.adminOverrideRoundStartDate =
+          databaseRound.adminOverrideRoundStartDate;
       changed = true;
     }
     return changed;

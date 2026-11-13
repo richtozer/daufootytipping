@@ -16,7 +16,6 @@ class DAURound implements Comparable<DAURound> {
   DateTime firstGameKickOffUTC;
   DateTime lastGameKickOffUTC;
   DateTime? adminOverrideRoundStartDate;
-  DateTime? adminOverrideRoundEndDate;
 
   int nrlGameCount = 0;
   int aflGameCount = 0;
@@ -31,7 +30,6 @@ class DAURound implements Comparable<DAURound> {
     required this.firstGameKickOffUTC,
     required this.lastGameKickOffUTC,
     this.adminOverrideRoundStartDate,
-    this.adminOverrideRoundEndDate,
     this.games = const [],
   });
 
@@ -43,20 +41,12 @@ class DAURound implements Comparable<DAURound> {
       adminOverrideRoundStartDate: data[p.adminOverrideRoundStartDateKey] != null
           ? DateTime.parse(data[p.adminOverrideRoundStartDateKey])
           : null,
-      adminOverrideRoundEndDate: data[p.adminOverrideRoundEndDateKey] != null
-          ? DateTime.parse(data[p.adminOverrideRoundEndDateKey])
-          : null,
     );
   }
 
   // method returns admin overridden round start data if it exists, otherwise the round start date
   DateTime getRoundStartDate() {
     return adminOverrideRoundStartDate ?? firstGameKickOffUTC;
-  }
-
-  // method returns admin overridden round end data if it exists, otherwise the round end date
-  DateTime getRoundEndDate() {
-    return adminOverrideRoundEndDate ?? lastGameKickOffUTC;
   }
 
   // method to return games filtered on supplied league
@@ -77,8 +67,7 @@ class DAURound implements Comparable<DAURound> {
         other.dAUroundNumber == dAUroundNumber &&
         other.firstGameKickOffUTC == firstGameKickOffUTC &&
         other.lastGameKickOffUTC == lastGameKickOffUTC &&
-        other.adminOverrideRoundStartDate == adminOverrideRoundStartDate &&
-        other.adminOverrideRoundEndDate == adminOverrideRoundEndDate;
+        other.adminOverrideRoundStartDate == adminOverrideRoundStartDate;
   }
 
   @override
@@ -86,6 +75,5 @@ class DAURound implements Comparable<DAURound> {
       dAUroundNumber.hashCode ^
       firstGameKickOffUTC.hashCode ^
       lastGameKickOffUTC.hashCode ^
-      adminOverrideRoundStartDate.hashCode ^
-      adminOverrideRoundEndDate.hashCode;
+      adminOverrideRoundStartDate.hashCode;
 }

@@ -3,10 +3,13 @@ import 'dart:developer';
 
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_warning.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_rounds_table.dart'; // Import the new widget
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart'; // Import the new buttons
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_form.dart'; // Import the new form widget
+import 'package:daufootytipping/services/rounds_linking_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
@@ -66,12 +69,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   late final TextEditingController _aflRegularCompEndDateController;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
+  late final Map<int, DateTime?> _initialRoundStartOverrides;
+  late String _lastValidNrlCutoffText;
+  late String _lastValidAflCutoffText;
+  bool _isRevertingCutoff = false;
 
   /// What the Run updates action last showed, so the page rebuilds only when
   /// that changes.
   late ({bool ready, bool busy}) _shownRunUpdates;
 
-  // Controllers for round start and end dates are now managed by AdminDaucompsEditRoundsTable
+  // Controllers for round start dates are managed by AdminDaucompsEditRoundsTable
 
   @override
   void initState() {
@@ -92,6 +100,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         (_) => _refreshRunUpdatesAction(),
       ),
     );
+    _initialRoundStartOverrides = <int, DateTime?>{
+      if (widget.daucomp != null)
+        for (final r in widget.daucomp!.daurounds)
+          r.dAUroundNumber: r.adminOverrideRoundStartDate,
+    };
     _daucompNameController = TextEditingController(text: widget.daucomp?.name);
     _daucompAflJsonURLController = TextEditingController(
       text: widget.daucomp?.aflFixtureJsonURL.toString(),
@@ -111,6 +124,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                 .format(widget.daucomp!.aflRegularCompEndDateUTC!)
           : '',
     );
+    _lastValidNrlCutoffText = _nrlRegularCompEndDateController.text;
+    _lastValidAflCutoffText = _aflRegularCompEndDateController.text;
     // Correct initialization of _localActiveCompState
     if (widget.daucomp != null) {
       final globalDauCompsVM =
@@ -130,18 +145,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   @override
   void dispose() {
-    // Dispose all controllers
-    // for (var controller in _startDateControllers.values) { // Removed
-    //   controller.dispose();
-    // }
-    // for (var controller in _endDateControllers.values) { // Removed
-    //   controller.dispose();
-    // }
     _daucompNameController.removeListener(_updateSaveButtonState);
     _daucompAflJsonURLController.removeListener(_updateSaveButtonState);
     _daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
-    _nrlRegularCompEndDateController.removeListener(_updateSaveButtonState);
-    _aflRegularCompEndDateController.removeListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.removeListener(_onNrlCutoffChanged);
+    _aflRegularCompEndDateController.removeListener(_onAflCutoffChanged);
     _daucompNameController.dispose();
     _daucompAflJsonURLController.dispose();
     _daucompNrlJsonURLController.dispose();
@@ -158,11 +166,86 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _daucompNameController.addListener(_updateSaveButtonState);
     _daucompAflJsonURLController.addListener(_updateSaveButtonState);
     _daucompNrlJsonURLController.addListener(_updateSaveButtonState);
-    _nrlRegularCompEndDateController.addListener(_updateSaveButtonState);
-    _aflRegularCompEndDateController.addListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.addListener(_onNrlCutoffChanged);
+    _aflRegularCompEndDateController.addListener(_onAflCutoffChanged);
   }
 
-  // _initializeRoundControllers() removed
+  void _onNrlCutoffChanged() => _handleCutoffControllerChanged(
+    League.nrl,
+    _nrlRegularCompEndDateController,
+    lastValid: _lastValidNrlCutoffText,
+    setLastValid: (value) => _lastValidNrlCutoffText = value,
+  );
+
+  void _onAflCutoffChanged() => _handleCutoffControllerChanged(
+    League.afl,
+    _aflRegularCompEndDateController,
+    lastValid: _lastValidAflCutoffText,
+    setLastValid: (value) => _lastValidAflCutoffText = value,
+  );
+
+  void _handleCutoffControllerChanged(
+    League league,
+    TextEditingController controller, {
+    required String lastValid,
+    required void Function(String value) setLastValid,
+  }) {
+    if (_isRevertingCutoff) return;
+    final text = controller.text.trim();
+    if (text.isEmpty) {
+      setLastValid('');
+      _updateSaveButtonState();
+      return;
+    }
+    DateTime? parsed;
+    try {
+      parsed = DateFormat('yyyy-MM-dd').parseStrict(text);
+    } on FormatException {
+      return;
+    }
+    final error = _roundsLinking.validateLeagueCutoffEdit(
+      league: league,
+      oldCutoffUTC: league == League.nrl
+          ? widget.daucomp?.nrlRegularCompEndDateUTC?.toUtc()
+          : widget.daucomp?.aflRegularCompEndDateUTC?.toUtc(),
+      newCutoffUTC: parsed.toUtc(),
+      allGames: _allGamesForValidation(_pageDauCompsViewModel),
+    );
+    if (error != null) {
+      _isRevertingCutoff = true;
+      controller.text = lastValid;
+      _isRevertingCutoff = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    setLastValid(controller.text);
+    _updateSaveButtonState();
+  }
+
+  List<Game> _allGamesForValidation(DAUCompsViewModel viewModel) {
+    final rounds = viewModel.selectedDAUComp?.daurounds ?? const <DAURound>[];
+    final seen = <String>{};
+    final games = <Game>[];
+    for (final r in rounds) {
+      for (final g in r.games) {
+        if (seen.add(g.dbkey)) games.add(g);
+      }
+    }
+    for (final g in viewModel.unassignedGames) {
+      if (seen.add(g.dbkey)) games.add(g);
+    }
+    return games;
+  }
+
+  bool _sameInstant(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.isAtSameMomentAs(b);
+  }
 
   void _updateSaveButtonState() {
     bool shouldEnableSave;
@@ -179,16 +262,16 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           _daucompNameController.text.isNotEmpty &&
           _daucompAflJsonURLController.text.isNotEmpty &&
           _daucompNrlJsonURLController.text.isNotEmpty;
-      // For new comps, also consider if _localActiveCompState is true (if we allow setting new comp as active immediately)
-      // Based on current logic, new comp is only set active on save, so _localActiveCompState change might not enable save alone.
-      // However, if other fields are filled, and user toggles active, it should be saveable.
-      // The original logic didn't factor in _localActiveCompState for new comps for enabling save.
-      // Let's assume any interaction makes it saveable if basic fields are there.
-      // The original logic for new comp save was only based on text fields.
-      // Adding `|| _localActiveCompState` might be too aggressive if other fields are empty.
-      // The current `onFormInteracted` in AdminDaucompsEditForm handles `disableSaves = false;`
-      // which then calls this. So, we just need to ensure the condition includes active state change.
     } else {
+      final rounds =
+          _pageDauCompsViewModel.selectedDAUComp?.daurounds ??
+          widget.daucomp!.daurounds;
+      final roundStartsChanged = rounds.any(
+        (r) => !_sameInstant(
+          r.adminOverrideRoundStartDate,
+          _initialRoundStartOverrides[r.dAUroundNumber],
+        ),
+      );
       shouldEnableSave =
           (_daucompNameController.text != widget.daucomp!.name ||
               _daucompAflJsonURLController.text !=
@@ -204,9 +287,9 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   (widget.daucomp!.aflRegularCompEndDateUTC != null
                       ? DateFormat('yyyy-MM-dd')
                             .format(widget.daucomp!.aflRegularCompEndDateUTC!)
-                      : '')) ||
-          (_localActiveCompState !=
-              originalActiveStatus); // Added this condition
+                      : '') ||
+              roundStartsChanged) ||
+          (_localActiveCompState != originalActiveStatus);
     }
 
     log(
@@ -244,6 +327,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         currentRounds:
             dauCompsViewModel.selectedDAUComp?.daurounds ??
             [], // Added this line
+        initialRoundStartOverrides: _initialRoundStartOverrides,
       );
 
       if (!mounted) return; // Check if the widget is still in the tree
@@ -426,8 +510,15 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                         if (dauCompsViewModelConsumer
                             .unassignedGames
                             .isNotEmpty)
-                          AdminDaucompsEditWarning(
-                            viewModel: dauCompsViewModelConsumer,
+                          AdminDaucompsEditWarning.unassigned(
+                            games: dauCompsViewModelConsumer.unassignedGames,
+                          ),
+                        if (dauCompsViewModelConsumer
+                            .splitRoundGames
+                            .isNotEmpty)
+                          AdminDaucompsEditWarning.splitRound(
+                            splitGames:
+                                dauCompsViewModelConsumer.splitRoundGames,
                           ),
                         Row(
                           //mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -447,7 +538,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                     return AlertDialog(
                                       title: const Text('Information'),
                                       content: const Text(
-                                        'This is a list of round start and end times. Any game kickoff times that fall within this range are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
+                                        'This is a list of round start times. Any game kickoff times from a round start up to the next round start are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
                                       ),
                                       actions: <Widget>[
                                         TextButton(
@@ -473,22 +564,37 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                   .toList() ??
                               [],
                           onRoundDateChanged:
-                              (
-                                DAURound round,
-                                DateTime newDate,
-                                bool isStartDate,
-                              ) {
+                              (DAURound round, DateTime newDate) {
+                                final comp =
+                                    dauCompsViewModelConsumer.selectedDAUComp ??
+                                    widget.daucomp!;
+                                final error = _roundsLinking
+                                    .validateRoundStartDateEdit(
+                                      comp: comp,
+                                      rounds: comp.daurounds,
+                                      editedRoundNumber: round.dAUroundNumber,
+                                      newStartDateUTC: newDate.toUtc(),
+                                      allGames: _allGamesForValidation(
+                                        dauCompsViewModelConsumer,
+                                      ),
+                                    );
+                                if (error != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(error),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  setState(() {});
+                                  return;
+                                }
                                 setState(() {
-                                  if (isStartDate) {
-                                    round.adminOverrideRoundStartDate = newDate;
-                                  } else {
-                                    round.adminOverrideRoundEndDate = newDate;
-                                  }
+                                  round.adminOverrideRoundStartDate = newDate;
                                   _recalculateGameCounts(
                                     dauCompsViewModelConsumer,
                                   );
-                                  disableSaves = false;
                                 });
+                                _updateSaveButtonState();
                               },
                         ),
                       ],

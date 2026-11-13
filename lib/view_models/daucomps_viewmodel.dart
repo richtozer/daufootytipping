@@ -67,6 +67,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get adminMode => _adminMode;
 
   List<Game> unassignedGames = []; // List to store unassigned games
+  List<SplitRoundGame> splitRoundGames = [];
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
   final Map<League, Future<LeagueLadder?>> _inFlightLadderCalculations = {};
   final Map<League, LeagueLadderAvailability> _cachedLadderAvailability = {};
@@ -88,6 +89,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Future<String?> Function()? _adminScoringRescoreURLLoader;
   final String? Function()? _adminCheckFixtureUrlURLProvider;
   final Future<String?> Function()? _adminCheckFixtureUrlURLLoader;
+  final Future<String> Function(DAUComp comp)? _networkFixtureDownloader;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -108,6 +110,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     Future<String?> Function()? adminScoringRescoreURLLoader,
     String? Function()? adminCheckFixtureUrlURLProvider,
     Future<String?> Function()? adminCheckFixtureUrlURLLoader,
+    Future<String> Function(DAUComp comp)? networkFixtureDownloader,
     KickoffRefreshScheduler? kickoffRefreshScheduler,
   }) : _repo = repo ?? FirebaseDauCompsRepository(),
        _tippers = tippers ?? (() => di<TippersViewModel>()),
@@ -119,6 +122,7 @@ class DAUCompsViewModel extends ChangeNotifier {
        _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
        _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
        _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
+       _networkFixtureDownloader = networkFixtureDownloader,
        _cloudFunctionsBaseURLOverride =
            cloudFunctionsBaseURLOverride ??
            resolveDefaultCloudFunctionsBaseURLOverride() {
@@ -473,6 +477,9 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
+    if (_networkFixtureDownloader != null) {
+      return await _networkFixtureDownloader(daucompToUpdate);
+    }
     _lastFixtureDownloadRanViaCloudFunction = false;
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
@@ -717,7 +724,14 @@ class DAUCompsViewModel extends ChangeNotifier {
         nrlCutoff: _selectedDAUComp!.nrlRegularCompEndDateUTC,
         aflCutoff: _selectedDAUComp!.aflRegularCompEndDateUTC,
       );
-      log('Unassigned games count: ${unassignedGames.length}');
+      splitRoundGames = _roundsLinking.computeSplitRoundGames(
+        rounds: allRounds,
+        nrlCutoff: _selectedDAUComp!.nrlRegularCompEndDateUTC,
+        aflCutoff: _selectedDAUComp!.aflRegularCompEndDateUTC,
+      );
+      log(
+        'Unassigned games count: ${unassignedGames.length}, split round games count: ${splitRoundGames.length}',
+      );
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
     } finally {
@@ -889,23 +903,26 @@ class DAUCompsViewModel extends ChangeNotifier {
       return 0;
     }
 
-    final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+    final badgeRounds = OutstandingTipsCalculator.appBadgeRoundsForTime(
       rounds: comp.daurounds,
       now: now ?? DateTime.now().toUtc(),
     );
-    if (badgeRound == null) {
+    if (badgeRounds.isEmpty) {
       return 0;
     }
 
-    final outstanding =
-        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          badgeRound,
-          League.nrl,
-        ) +
-        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          badgeRound,
-          League.afl,
-        );
+    var outstanding = 0;
+    for (final badgeRound in badgeRounds) {
+      outstanding +=
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            badgeRound,
+            League.nrl,
+          ) +
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            badgeRound,
+            League.afl,
+          );
+    }
     return outstanding > 0 ? outstanding : 0;
   }
 
@@ -1138,6 +1155,12 @@ class DAUCompsViewModel extends ChangeNotifier {
         previousUri: previousUri,
       );
 
+  bool _sameInstant(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.isAtSameMomentAs(b);
+  }
+
   Future<Map<String, dynamic>> processAndSaveDauComp({
     required String name,
     required String aflFixtureJsonURL,
@@ -1146,6 +1169,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     required String? aflRegularCompEndDateString,
     required DAUComp? existingComp,
     required List<DAURound> currentRounds, // New parameter
+    Map<int, DateTime?>? initialRoundStartOverrides,
   }) async {
     try {
       bool aflURLActive = await _isUriActiveIfChanged(
@@ -1197,6 +1221,144 @@ class DAUCompsViewModel extends ChangeNotifier {
           };
         } else {
           // Existing comp
+          final DateTime? newNrlCutoff =
+              nrlRegularCompEndDateString != null &&
+                      nrlRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(nrlRegularCompEndDateString)
+                  : null;
+          final DateTime? newAflCutoff =
+              aflRegularCompEndDateString != null &&
+                      aflRegularCompEndDateString.isNotEmpty
+                  ? DateTime.parse(aflRegularCompEndDateString)
+                  : null;
+          final Map<int, DateTime?> baselineOverrides =
+              initialRoundStartOverrides ??
+              <int, DateTime?>{
+                for (final r in existingComp.daurounds)
+                  r.dAUroundNumber: r.adminOverrideRoundStartDate,
+              };
+          final bool nrlCutoffChanged = !_sameInstant(
+            newNrlCutoff,
+            existingComp.nrlRegularCompEndDateUTC,
+          );
+          final bool aflCutoffChanged = !_sameInstant(
+            newAflCutoff,
+            existingComp.aflRegularCompEndDateUTC,
+          );
+          final bool cutoffsChanged = nrlCutoffChanged || aflCutoffChanged;
+          final bool roundStartsChanged = currentRounds.any((r) {
+            if (baselineOverrides.containsKey(r.dAUroundNumber)) {
+              return !_sameInstant(
+                r.adminOverrideRoundStartDate,
+                baselineOverrides[r.dAUroundNumber],
+              );
+            }
+            return r.adminOverrideRoundStartDate != null;
+          });
+
+          // Re-run start and cutoff validation right before writing so an
+          // official result that landed after the edit cannot be bypassed.
+          final seenKeys = <String>{};
+          final allGames = <Game>[];
+          if (gamesViewModel != null &&
+              gamesViewModel!.selectedDAUComp.dbkey == existingComp.dbkey) {
+            for (final g in await gamesViewModel!.getGames()) {
+              if (seenKeys.add(g.dbkey)) allGames.add(g);
+            }
+          }
+          for (final r in currentRounds) {
+            for (final g in r.games) {
+              if (seenKeys.add(g.dbkey)) allGames.add(g);
+            }
+          }
+          for (final g in unassignedGames) {
+            if (seenKeys.add(g.dbkey)) allGames.add(g);
+          }
+
+          if (nrlCutoffChanged && newNrlCutoff != null) {
+            final nrlError = _roundsLinking.validateLeagueCutoffEdit(
+              league: League.nrl,
+              oldCutoffUTC: existingComp.nrlRegularCompEndDateUTC?.toUtc(),
+              newCutoffUTC: newNrlCutoff.toUtc(),
+              allGames: allGames,
+            );
+            if (nrlError != null) {
+              return {
+                'success': false,
+                'message': nrlError,
+                'newCompData': null,
+              };
+            }
+          }
+          if (aflCutoffChanged && newAflCutoff != null) {
+            final aflError = _roundsLinking.validateLeagueCutoffEdit(
+              league: League.afl,
+              oldCutoffUTC: existingComp.aflRegularCompEndDateUTC?.toUtc(),
+              newCutoffUTC: newAflCutoff.toUtc(),
+              allGames: allGames,
+            );
+            if (aflError != null) {
+              return {
+                'success': false,
+                'message': aflError,
+                'newCompData': null,
+              };
+            }
+          }
+          if (roundStartsChanged) {
+            final workingRounds = [
+              for (final r in currentRounds)
+                DAURound(
+                  dAUroundNumber: r.dAUroundNumber,
+                  firstGameKickOffUTC: r.firstGameKickOffUTC,
+                  lastGameKickOffUTC: r.lastGameKickOffUTC,
+                  adminOverrideRoundStartDate:
+                      baselineOverrides[r.dAUroundNumber],
+                ),
+            ]..sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
+            final validationComp = DAUComp(
+              dbkey: existingComp.dbkey,
+              name: name,
+              aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
+              nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
+              daurounds: workingRounds,
+              aflRegularCompEndDateUTC: newAflCutoff?.toUtc(),
+              nrlRegularCompEndDateUTC: newNrlCutoff?.toUtc(),
+            );
+            final sortedEditedRounds = [...currentRounds]
+              ..sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
+            for (final round in sortedEditedRounds) {
+              final initialOverride = baselineOverrides[round.dAUroundNumber];
+              if (_sameInstant(
+                round.adminOverrideRoundStartDate,
+                initialOverride,
+              )) {
+                continue;
+              }
+              final startError = _roundsLinking.validateRoundStartDateEdit(
+                comp: validationComp,
+                rounds: workingRounds,
+                editedRoundNumber: round.dAUroundNumber,
+                newStartDateUTC: round.getRoundStartDate().toUtc(),
+                allGames: allGames,
+              );
+              if (startError != null) {
+                return {
+                  'success': false,
+                  'message': startError,
+                  'newCompData': null,
+                };
+              }
+              final idx = workingRounds.indexWhere(
+                (r) => r.dAUroundNumber == round.dAUroundNumber,
+              );
+              if (idx != -1) {
+                workingRounds[idx].adminOverrideRoundStartDate =
+                    round.adminOverrideRoundStartDate;
+              }
+            }
+          }
+
           updateCompAttribute(existingComp.dbkey!, compNameKey, name);
           updateCompAttribute(
             existingComp.dbkey!,
@@ -1211,26 +1373,14 @@ class DAUCompsViewModel extends ChangeNotifier {
           updateCompAttribute(
             existingComp.dbkey!,
             nrlRegularCompEndDateUTCKey,
-            nrlRegularCompEndDateString != null &&
-                    nrlRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(nrlRegularCompEndDateString).toIso8601String()
-                : null,
+            newNrlCutoff?.toIso8601String(),
           );
           updateCompAttribute(
             existingComp.dbkey!,
             aflRegularCompEndDateUTCKey,
-            aflRegularCompEndDateString != null &&
-                    aflRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(aflRegularCompEndDateString).toIso8601String()
-                : null,
+            newAflCutoff?.toIso8601String(),
           );
 
-          // If activeDAUComp is not null and its dbkey matches existingComp's dbkey,
-          // then iterate over activeDAUComp.daurounds. Otherwise, use existingComp.daurounds.
-          // This is to ensure that we are saving the latest version of the rounds data if it was modified in memory.
-          // However, the existingComp passed from the UI _should_ be the one from the ViewModel's perspective (activeDAUComp or selectedDAUComp).
-          // For safety, let's use the rounds from the `existingComp` parameter as it's what the UI is working with.
-          // Changed to iterate over currentRounds as per the subtask instruction
           for (DAURound round in currentRounds) {
             if (round.adminOverrideRoundStartDate != null) {
               updateRoundAttribute(
@@ -1240,21 +1390,33 @@ class DAUCompsViewModel extends ChangeNotifier {
                 round.adminOverrideRoundStartDate!.toUtc().toIso8601String(),
               );
             }
-            if (round.adminOverrideRoundEndDate != null) {
-              updateRoundAttribute(
-                existingComp.dbkey!,
-                round.dAUroundNumber,
-                adminOverrideRoundEndDateKey,
-                round.adminOverrideRoundEndDate!.toUtc().toIso8601String(),
-              );
-            }
           }
           await saveBatchOfCompAttributes();
-          return {
-            'success': true,
-            'message': 'DAUComp record saved',
-            'newCompData': null,
-          };
+
+          if (!(roundStartsChanged || cutoffsChanged)) {
+            return {
+              'success': true,
+              'message': 'DAUComp record saved',
+              'newCompData': null,
+            };
+          }
+
+          try {
+            final fixtureMessage = await getNetworkFixtureData(existingComp);
+            return {
+              'success': true,
+              'message': 'DAUComp record saved. $fixtureMessage',
+              'newCompData': null,
+            };
+          } catch (e) {
+            log('Error downloading fixtures after saving DAUComp: $e');
+            return {
+              'success': false,
+              'message':
+                  'DAUComp record saved, but fixture download failed: $e',
+              'newCompData': null,
+            };
+          }
         }
       } else {
         return {

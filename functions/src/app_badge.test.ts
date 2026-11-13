@@ -578,15 +578,49 @@ test("hourly reconciliation stops after the buffered round end",
     assert.equal(fetched, false);
   });
 
-test("admin end override extends hourly reconciliation", async () => {
+test("stored roundEndDate extends hourly reconciliation and ignores leftover adminOverrideRoundEndDate",
+  async () => {
+    const db = new FakeDatabase({
+      "/AppConfig/currentDAUComp": "comp-1",
+      "/AppConfig/outstandingTipsPushEnabled": true,
+      ...badgeWindow(
+        "comp-1",
+        "2026-08-09 00:00:00Z",
+        "2026-08-09 09:05:00Z",
+        {adminOverrideRoundEndDate: "2026-08-09 09:30:00Z"},
+      ),
+      "/AllTippersTokens": {},
+    });
+    let fetchCount = 0;
+
+    await handleAppBadgeReconciliation({
+      db,
+      now: new Date("2026-08-09T09:15:00Z"),
+      commandUrl: "https://example.com/appBadgeCount",
+      commandSecret: "secret-1",
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response(JSON.stringify({
+          compKey: "comp-1",
+          calculatedAt: "2026-08-09T09:15:00Z",
+          counts: {},
+        }), {status: 200});
+      },
+      logger: silentLogger,
+    });
+
+    assert.equal(fetchCount, 0);
+  });
+
+test("later admin start override delays badge activation", async () => {
   const db = new FakeDatabase({
     "/AppConfig/currentDAUComp": "comp-1",
     "/AppConfig/outstandingTipsPushEnabled": true,
     ...badgeWindow(
       "comp-1",
-      "2026-08-09 00:00:00Z",
-      "2026-08-09 09:05:00Z",
-      {adminOverrideRoundEndDate: "2026-08-09 09:30:00Z"},
+      "2026-08-12 00:00:00Z",
+      "2026-08-15 00:00:00Z",
+      {adminOverrideRoundStartDate: "2026-08-14 00:00:00Z"},
     ),
     "/AllTippersTokens": {},
   });
@@ -594,22 +628,49 @@ test("admin end override extends hourly reconciliation", async () => {
 
   await handleAppBadgeReconciliation({
     db,
-    now: new Date("2026-08-09T09:15:00Z"),
+    // 48h before 2026-08-12 (would activate under Math.min), but 72h before
+    // the override 2026-08-14 -> must NOT activate yet.
+    now: new Date("2026-08-10T00:00:00Z"),
     commandUrl: "https://example.com/appBadgeCount",
     commandSecret: "secret-1",
     fetchImpl: async () => {
       fetchCount++;
-      return new Response(JSON.stringify({
-        compKey: "comp-1",
-        calculatedAt: "2026-08-09T09:15:00Z",
-        counts: {},
-      }), {status: 200});
+      return new Response("{}", {status: 200});
     },
     logger: silentLogger,
   });
 
-  assert.equal(fetchCount, 1);
+  assert.equal(fetchCount, 0);
 });
+
+test("empty round with end equal to start opens no 48h badge window",
+  async () => {
+    const db = new FakeDatabase({
+      "/AppConfig/currentDAUComp": "comp-1",
+      "/AppConfig/outstandingTipsPushEnabled": true,
+      ...badgeWindow(
+        "comp-1",
+        "2026-08-12 00:00:00Z",
+        "2026-08-12 00:00:00Z",
+      ),
+      "/AllTippersTokens": {},
+    });
+    let fetchCount = 0;
+
+    await handleAppBadgeReconciliation({
+      db,
+      now: new Date("2026-08-10T12:00:00Z"),
+      commandUrl: "https://example.com/appBadgeCount",
+      commandSecret: "secret-1",
+      fetchImpl: async () => {
+        fetchCount++;
+        return new Response("{}", {status: 200});
+      },
+      logger: silentLogger,
+    });
+
+    assert.equal(fetchCount, 0);
+  });
 
 test("earlier admin start override advances badge activation", async () => {
   const db = new FakeDatabase({
@@ -732,6 +793,42 @@ test("rounds starting after the later comp cutoff are ignored", async () => {
   });
 
   assert.equal(fetched, false);
+});
+
+test("rounds starting after a single league cutoff remain active when the other league has no cutoff", async () => {
+  const db = new FakeDatabase({
+    "/AppConfig/currentDAUComp": "comp-1",
+    "/AppConfig/outstandingTipsPushEnabled": true,
+    ...badgeWindow(
+      "comp-1",
+      "2026-08-10 12:00:00Z",
+      "2026-08-12 12:00:00Z",
+    ),
+    "/AllDAUComps/comp-1/aflRegularCompEndDateUTC": "2026-08-06 12:00:00Z",
+    "/AllTippersTokens": {
+      "tipper-1": {"token-1": "2026-08-09T12:00:00Z"},
+    },
+  });
+  let requestBody: unknown;
+
+  await handleAppBadgeReconciliation({
+    db,
+    messaging: new FakeMessaging(),
+    now: new Date("2026-08-09T12:00:00Z"),
+    commandUrl: "https://example.com/appBadgeCount",
+    commandSecret: "secret-1",
+    fetchImpl: async (_url, init) => {
+      requestBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        compKey: "comp-1",
+        calculatedAt: "2026-08-09T12:00:00Z",
+        counts: {},
+      }), {status: 200});
+    },
+    logger: silentLogger,
+  });
+
+  assert.deepEqual(requestBody, {compKey: "comp-1"});
 });
 
 test("a scheduled kickoff boundary triggers only once", async () => {

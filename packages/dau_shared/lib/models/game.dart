@@ -62,28 +62,67 @@ class Game implements Comparable<Game> {
   // backward-compatible getter
   GameState get gameState => getGameState(DateTime.now().toUtc());
 
-  DAURound? getDAURound(DAUComp daucomp) {
-    for (var dauRound in daucomp.daurounds) {
-      if (_isDateInRound(startTimeUTC, dauRound)) {
-        return dauRound;
+  bool get hasOfficialScore =>
+      scoring?.homeTeamScore != null && scoring?.awayTeamScore != null;
+
+  /// Assigns a kickoff time to the round with the latest effective start at or
+  /// before [kickoffUTC], subject to per-league cutoffs. When
+  /// [boundFinalRoundByEndDate] is true (historical cross-comp lookup), a
+  /// game past the final round's stored `lastGameKickOffUTC` returns null.
+  static DAURound? roundForKickoff({
+    required DateTime kickoffUTC,
+    required League league,
+    required List<DAURound> rounds,
+    DateTime? aflCutoffUTC,
+    DateTime? nrlCutoffUTC,
+    bool boundFinalRoundByEndDate = false,
+  }) {
+    if (league == League.nrl &&
+        nrlCutoffUTC != null &&
+        kickoffUTC.isAfter(nrlCutoffUTC)) {
+      return null;
+    }
+    if (league == League.afl &&
+        aflCutoffUTC != null &&
+        kickoffUTC.isAfter(aflCutoffUTC)) {
+      return null;
+    }
+    if (rounds.isEmpty) {
+      return null;
+    }
+    DAURound? matched;
+    for (var i = rounds.length - 1; i >= 0; i--) {
+      final round = rounds[i];
+      if (!kickoffUTC.isBefore(round.getRoundStartDate())) {
+        matched = round;
+        break;
       }
     }
-    log(
-      'Game.getDAURound: WARNING, no DAURound found for game $dbkey. Check that the game start time is within the round start and end dates.',
+    if (matched == null) {
+      return null;
+    }
+    if (boundFinalRoundByEndDate &&
+        identical(matched, rounds.last) &&
+        kickoffUTC.isAfter(rounds.last.lastGameKickOffUTC)) {
+      return null;
+    }
+    return matched;
+  }
+
+  DAURound? getDAURound(DAUComp daucomp) {
+    final matched = roundForKickoff(
+      kickoffUTC: startTimeUTC,
+      league: league,
+      rounds: daucomp.daurounds,
+      aflCutoffUTC: daucomp.aflRegularCompEndDateUTC,
+      nrlCutoffUTC: daucomp.nrlRegularCompEndDateUTC,
     );
-    return null;
-  }
-
-  bool isGameInRound(DAURound round) {
-    return _isDateInRound(startTimeUTC, round);
-  }
-
-  bool _isDateInRound(DateTime date, DAURound round) {
-    final startDate = round.getRoundStartDate();
-    final endDate = round.getRoundEndDate();
-
-    return ((date.isAfter(startDate) || date.isAtSameMomentAs(startDate)) &&
-        (date.isBefore(endDate) || date.isAtSameMomentAs(endDate)));
+    if (matched == null) {
+      log(
+        'Game.getDAURound: WARNING, no DAURound found for game $dbkey. Check that the game start time is within the round boundaries and cutoffs.',
+      );
+    }
+    return matched;
   }
 
   double getGameResultPercentage(GameResult gameResult) {

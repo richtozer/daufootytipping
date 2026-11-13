@@ -4,8 +4,7 @@ import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_datetim
 
 class AdminDaucompsEditRoundsTable extends StatefulWidget {
   final List<DAURound> rounds;
-  final Function(DAURound round, DateTime newDate, bool isStartDate)
-  onRoundDateChanged;
+  final void Function(DAURound round, DateTime newDate) onRoundDateChanged;
 
   const AdminDaucompsEditRoundsTable({
     super.key,
@@ -21,7 +20,6 @@ class AdminDaucompsEditRoundsTable extends StatefulWidget {
 class AdminDaucompsEditRoundsTableState
     extends State<AdminDaucompsEditRoundsTable> {
   final Map<int, TextEditingController> _startDateControllers = {};
-  final Map<int, TextEditingController> _endDateControllers = {};
 
   @override
   void initState() {
@@ -41,9 +39,6 @@ class AdminDaucompsEditRoundsTableState
                 oldWidget.rounds[i].dAUroundNumber ||
             !widget.rounds[i].getRoundStartDate().isAtSameMomentAs(
               oldWidget.rounds[i].getRoundStartDate(),
-            ) ||
-            !widget.rounds[i].getRoundEndDate().isAtSameMomentAs(
-              oldWidget.rounds[i].getRoundEndDate(),
             )) {
           needsReinitialization = true;
           break;
@@ -62,9 +57,6 @@ class AdminDaucompsEditRoundsTableState
       _startDateControllers[round.dAUroundNumber] = TextEditingController(
         text: formatRoundDateTime(round.getRoundStartDate()),
       );
-      _endDateControllers[round.dAUroundNumber] = TextEditingController(
-        text: formatRoundDateTime(round.getRoundEndDate()),
-      );
     }
   }
 
@@ -73,10 +65,6 @@ class AdminDaucompsEditRoundsTableState
       controller.dispose();
     }
     _startDateControllers.clear();
-    for (var controller in _endDateControllers.values) {
-      controller.dispose();
-    }
-    _endDateControllers.clear();
   }
 
   @override
@@ -91,9 +79,8 @@ class AdminDaucompsEditRoundsTableState
       columnWidths: const {
         0: FlexColumnWidth(0.40),
         1: FlexColumnWidth(2),
-        2: FlexColumnWidth(2),
+        2: FlexColumnWidth(0.5),
         3: FlexColumnWidth(0.5),
-        4: FlexColumnWidth(0.5),
       },
       children: [
         const TableRow(
@@ -106,13 +93,6 @@ class AdminDaucompsEditRoundsTableState
               verticalAlignment: TableCellVerticalAlignment.bottom,
               child: Text(
                 'First kickoff',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            TableCell(
-              verticalAlignment: TableCellVerticalAlignment.bottom,
-              child: Text(
-                'Last kickoff',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -135,27 +115,27 @@ class AdminDaucompsEditRoundsTableState
                   child: Text(round.dAUroundNumber.toString()),
                 ),
                 TableCell(
-                  child: DateTimePickerField(
-                    key: ValueKey('start-${round.dAUroundNumber}'),
-                    controller: _startDateControllers[round.dAUroundNumber]!,
-                    initialDate: round.getRoundStartDate(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    isBold: round.adminOverrideRoundStartDate != null,
-                    onDateTimeChanged: (selectedDateTime) => widget
-                        .onRoundDateChanged(round, selectedDateTime, true),
-                  ),
-                ),
-                TableCell(
-                  child: DateTimePickerField(
-                    key: ValueKey('end-${round.dAUroundNumber}'),
-                    controller: _endDateControllers[round.dAUroundNumber]!,
-                    initialDate: round.getRoundEndDate(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    isBold: round.adminOverrideRoundEndDate != null,
-                    onDateTimeChanged: (selectedDateTime) => widget
-                        .onRoundDateChanged(round, selectedDateTime, false),
+                  child: Builder(
+                    builder: (context) {
+                      final controller =
+                          _startDateControllers[round.dAUroundNumber]!;
+                      final expectedText = formatRoundDateTime(
+                        round.getRoundStartDate(),
+                      );
+                      if (controller.text != expectedText) {
+                        controller.text = expectedText;
+                      }
+                      return DateTimePickerField(
+                        key: ValueKey('start-${round.dAUroundNumber}'),
+                        controller: controller,
+                        initialDate: round.getRoundStartDate(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                        isBold: round.adminOverrideRoundStartDate != null,
+                        onDateTimeChanged: (selectedDateTime) =>
+                            widget.onRoundDateChanged(round, selectedDateTime),
+                      );
+                    },
                   ),
                 ),
                 TableCell(

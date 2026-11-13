@@ -492,12 +492,10 @@ async function loadBadgeSchedule(
     const overrideStartMs = typeof round.adminOverrideRoundStartDate ===
       "string" ?
       parseFirebaseUtcTimestamp(round.adminOverrideRoundStartDate) : NaN;
-    const overrideEndMs = typeof round.adminOverrideRoundEndDate === "string" ?
-      parseFirebaseUtcTimestamp(round.adminOverrideRoundEndDate) : NaN;
     const effectiveStartMs = Number.isFinite(overrideStartMs) ?
-      Math.min(storedStartMs, overrideStartMs) : storedStartMs;
-    const effectiveEndMs = Number.isFinite(overrideEndMs) ?
-      Math.max(storedEndMs, overrideEndMs) : storedEndMs;
+      overrideStartMs : storedStartMs;
+    const effectiveEndMs = storedEndMs;
+    if (effectiveEndMs <= effectiveStartMs) continue;
     if (latestCutoffMs != null && effectiveStartMs > latestCutoffMs) continue;
     parsedRounds.push({
       activationMs: effectiveStartMs - BADGE_ACTIVATION_LEAD_MS,
@@ -517,18 +515,22 @@ function isWithinBadgeSyncWindow(
 }
 
 function latestRegularCompCutoffMs(cutoffs: GameCompCutoffs): number | null {
-  let latest: number | null = null;
-  for (const value of [
-    cutoffs.aflRegularCompEndDateUTC,
-    cutoffs.nrlRegularCompEndDateUTC,
-  ]) {
-    if (typeof value !== "string" || value.trim() === "") continue;
-    const parsed = parseFirebaseUtcTimestamp(value);
-    if (Number.isFinite(parsed) && (latest == null || parsed > latest)) {
-      latest = parsed;
-    }
+  const aflRaw = cutoffs.aflRegularCompEndDateUTC;
+  const nrlRaw = cutoffs.nrlRegularCompEndDateUTC;
+  if (
+    typeof aflRaw !== "string" ||
+    aflRaw.trim() === "" ||
+    typeof nrlRaw !== "string" ||
+    nrlRaw.trim() === ""
+  ) {
+    return null;
   }
-  return latest;
+  const aflMs = parseFirebaseUtcTimestamp(aflRaw);
+  const nrlMs = parseFirebaseUtcTimestamp(nrlRaw);
+  if (!Number.isFinite(aflMs) || !Number.isFinite(nrlMs)) {
+    return null;
+  }
+  return Math.max(aflMs, nrlMs);
 }
 
 function isInScheduledBoundaryWindow(

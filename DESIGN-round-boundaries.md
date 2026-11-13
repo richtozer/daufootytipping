@@ -24,19 +24,23 @@ value that is always derived from the round's games, because:
 2. **A scored game is fixed.** Its kickoff cannot change, an admin start edit
    cannot move it to another round, and an admin cannot set a league cutoff
    earlier than the latest scored game in that league.
-3. **A kickoff is frozen once it has passed.** If the stored kickoff is at or
-   before now, fixture import keeps the stored kickoff (`DateUtc` and
-   `DateUtcEpochMs`). Every other field still updates. Tipping closes at
-   kickoff plus a grace period of up to 900s, so comparing a new kickoff with
-   now is not enough to stop a closed game reopening; freezing the kickoff is.
-   A game postponed after its scheduled kickoff stays closed in its original
-   round and is scored there when the result arrives.
+3. **A kickoff is frozen once it enters the grace window.** If the stored kickoff
+   is at or before `now + maxTipGracePeriodSeconds` (15 minutes), fixture import
+   keeps the stored kickoff (`DateUtc` and `DateUtcEpochMs`). Every other field
+   still updates. Tipping closes at kickoff plus a grace period of up to 900s,
+   so freezing at `now + maxTipGracePeriodSeconds` stops a late postponement
+   during an import from reopening tipping after tips are visible. A game
+   postponed after that point stays closed in its original round and is scored
+   there when the result arrives.
 4. **Everything else can change.** Unstarted games can be rescheduled. A
    started, unscored game can change round through an admin start edit; any
    live-score points follow it because the full rescore runs afterwards
    (`replaceRoundStats`, `allowEmptyRound`).
-5. **A fully scored round keeps its end.** Import does not recalculate it, and
-   the next round's start cannot move before it.
+5. **A fully scored round keeps its end, capped before the next round.** Import
+   does not recalculate it from its games, but still caps its stored end at one
+   second before the next round's start (in case it became fully scored when an
+   admin start edit moved its last unscored game into the next round), and the
+   next round's start cannot move before an already fully scored round's end.
 
 Showing other tippers' tips needs no change: tips are shown after tipping
 closes, so a real kickoff running late cannot leak anything. The only leak is
@@ -73,7 +77,8 @@ code first to show they fail.
     round's start, so clients on `main` (inclusive start-to-end per round)
     never show a game in two rounds;
   - a round with no games gets end = start;
-  - a fully scored round is skipped (rule 5).
+  - a fully scored round keeps its stored end, still capped at one second
+    before the next round's start (rule 5).
 - Write `roundEndDate` only where it changed.
 - The full rescore continues to run after every import.
 
@@ -105,9 +110,12 @@ code first to show they fail.
   warnings update before saving.
 - Fix `_updateSaveButtonState`, which works only from the text fields, so a
   text edit after a round date change no longer disables Save.
-- Admin save writes only the start overrides and cutoffs, then runs the cloud
-  fixture download (`getNetworkFixtureData`), which recalculates the ends from
-  the comp's full fixture list and rescores.
+- Admin save re-runs start and cutoff validation against in-memory games
+  before writing only the start overrides and cutoffs. When round starts or
+  cutoffs changed, it then runs the cloud fixture download
+  (`getNetworkFixtureData`), which recalculates the ends from the comp's full
+  fixture list and rescores; it shows the download message on success and
+  reports a failed download separately from the save.
 - **Split-round warning.**
   - A pure function in `lib/services`: for each league round (league +
     `fixtureRoundNumber`), the home DAU round is the one holding most of its
@@ -158,13 +166,15 @@ Existing tests to update: `test/models/game_test.dart` (boundary test),
 
 1. `flutter analyze`, `flutter test`, `(cd packages/dau_shared && dart test)`,
    `(cd functions_dart && dart test)`, `npm --prefix functions test`,
+   `npm --prefix rules_test run test:dart`,
    `scripts/test-client-integration.sh`.
 2. Deploy both function codebases first, so clients on `main` get the
-   recalculated ends.
-3. Release the client.
-4. Clear the leftover `adminOverrideRoundEndDate` values in the comp by hand
-   and check they are gone. Don't use an older build as admin afterwards: it
-   can write them again.
+   recalculated ends, and clear any leftover `adminOverrideRoundEndDate` values
+   in the comp by hand (checking they are gone). New functions and new clients
+   ignore those overrides, so clearing them at deploy time removes stale
+   overrides for old clients immediately.
+3. Release the client. Don't use an older build as admin afterwards: it can
+   write `adminOverrideRoundEndDate` again.
 
 ## Not changing
 

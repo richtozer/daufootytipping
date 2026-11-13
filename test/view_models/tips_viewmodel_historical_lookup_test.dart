@@ -224,5 +224,93 @@ void main() {
       expect(secondResult?.tip, GameResult.b);
       verify(() => historicalTipRef.get()).called(1);
     });
+
+    test('findTipAcrossCompetitions bounds historical final round by lastGameKickOffUTC and respects single-league cutoffs', () async {
+      final historicalCompWithSingleCutoff = DAUComp(
+        dbkey: 'comp-2025-single-cutoff',
+        name: '2025 Single Cutoff',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl/2025'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl/2025'),
+        nrlRegularCompEndDateUTC: DateTime.parse('2025-03-20T00:00:00Z'),
+        daurounds: [
+          round(
+            number: 1,
+            start: DateTime.parse('2025-03-01T00:00:00Z'),
+            end: DateTime.parse('2025-03-31T23:59:59Z'),
+          ),
+        ],
+      );
+
+      final vm = TipsViewModel.forTipper(
+        mockTippersViewModel,
+        currentComp,
+        mockGamesViewModel,
+        tipper,
+        database: mockDb,
+        listenToTips: false,
+      );
+
+      final aflHome = Team(
+        dbkey: 'afl-home',
+        name: 'AFL H',
+        league: League.afl,
+      );
+      final aflAway = Team(
+        dbkey: 'afl-away',
+        name: 'AFL A',
+        league: League.afl,
+      );
+
+      // Current-season game well after 2025's stored final-round end must NOT query historical comp.
+      final currentSeasonAflGame = Game(
+        dbkey: 'afl-01-001',
+        league: League.afl,
+        homeTeam: aflHome,
+        awayTeam: aflAway,
+        location: 'MCG',
+        startTimeUTC: DateTime.parse('2026-03-10T10:00:00Z'),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 1,
+        scoring: Scoring(homeTeamScore: 80, awayTeamScore: 70),
+      );
+
+      final resAfterEnd = await vm.findTipAcrossCompetitions(
+        currentSeasonAflGame,
+        tipper,
+        [historicalCompWithSingleCutoff],
+      );
+      expect(resAfterEnd?.isDefaultTip(), isTrue);
+      verifyNever(() => mockDb.child(any()));
+
+      // AFL game inside 2025 final round (no AFL cutoff, only NRL cutoff exists) still belongs to historical comp.
+      final historicalAflGame = Game(
+        dbkey: 'afl-01-002',
+        league: League.afl,
+        homeTeam: aflHome,
+        awayTeam: aflAway,
+        location: 'MCG',
+        startTimeUTC: DateTime.parse('2025-03-25T10:00:00Z'),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 2,
+        scoring: Scoring(homeTeamScore: 80, awayTeamScore: 70),
+      );
+      final histRef = MockDatabaseReference();
+      final histSnap = MockDataSnapshot();
+      final histPath =
+          '${p.tipsPathRoot}/${historicalCompWithSingleCutoff.dbkey}/${tipper.dbkey}/${historicalAflGame.dbkey}';
+      when(() => mockDb.child(histPath)).thenReturn(histRef);
+      when(() => histRef.get()).thenAnswer((_) async => histSnap);
+      when(() => histSnap.exists).thenReturn(true);
+      when(() => histSnap.value)
+          .thenReturn({'r': GameResult.a.name, 't': 1742800000});
+
+      final resWithinEnd = await vm.findTipAcrossCompetitions(
+        historicalAflGame,
+        tipper,
+        [historicalCompWithSingleCutoff],
+      );
+      expect(resWithinEnd?.isDefaultTip(), isFalse);
+      expect(resWithinEnd?.tip, GameResult.a);
+    });
   });
 }

@@ -2,6 +2,9 @@ import 'package:test/test.dart';
 
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
 
@@ -112,7 +115,7 @@ void main() {
     expect(res.comps.firstWhere((c) => c.dbkey == 'x').name, 'New Name');
   });
 
-  test('applies cutoff filter to remove late rounds', () {
+  test('applies cutoff filter to remove late rounds when both leagues have a cutoff', () {
     final applier = const DauCompsSnapshotApplier();
     final existing = <DAUComp>[];
     final db = {
@@ -121,6 +124,7 @@ void main() {
         aflUrl: 'https://afl-k',
         nrlUrl: 'https://nrl-k',
         endAfl: '2025-01-09T00:00:00Z',
+        endNrl: '2025-01-12T00:00:00Z',
         rounds: [
           round('2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z'),
           // after cutoff
@@ -133,5 +137,127 @@ void main() {
     final compK = res.comps.firstWhere((c) => c.dbkey == 'k');
     expect(compK.daurounds.length, 1);
   });
-}
 
+  test('keeps late rounds when only one league has a cutoff', () {
+    final applier = const DauCompsSnapshotApplier();
+    final db = {
+      'k': compJson(
+        name: 'K',
+        aflUrl: 'https://afl-k',
+        nrlUrl: 'https://nrl-k',
+        endAfl: '2025-01-09T00:00:00Z',
+        rounds: [
+          round('2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z'),
+          round('2025-02-01T00:00:00Z', '2025-02-02T00:00:00Z'),
+        ],
+      ),
+    };
+
+    final res = applier.apply(databaseValue: db, currentComps: const []);
+    final compK = res.comps.firstWhere((c) => c.dbkey == 'k');
+    expect(compK.daurounds.length, 2);
+  });
+
+  test('snapshot update changing only roundEndDate updates lastGameKickOffUTC and marks relink', () {
+    final applier = const DauCompsSnapshotApplier();
+    final existing = <DAUComp>[
+      DAUComp(
+        dbkey: 'a',
+        name: 'Comp A',
+        aflFixtureJsonURL: Uri.parse('https://afl-a'),
+        nrlFixtureJsonURL: Uri.parse('https://nrl-a'),
+        daurounds: [
+          DAURound(
+            dAUroundNumber: 1,
+            firstGameKickOffUTC: DateTime.utc(2025, 1, 1, 0, 0),
+            lastGameKickOffUTC: DateTime.utc(2025, 1, 2, 0, 0),
+          ),
+        ],
+      ),
+    ];
+
+    final db = <String, dynamic>{
+      'a': compJson(
+        name: 'Comp A',
+        aflUrl: 'https://afl-a',
+        nrlUrl: 'https://nrl-a',
+        rounds: [round('2025-01-01T00:00:00Z', '2025-01-05T13:00:00Z')],
+      ),
+    };
+
+    final res = applier.apply(databaseValue: db, currentComps: existing);
+    final compA = res.comps.firstWhere((c) => c.dbkey == 'a');
+    expect(
+      compA.daurounds.single.lastGameKickOffUTC,
+      DateTime.utc(2025, 1, 5, 13, 0),
+    );
+    expect(res.compKeysNeedingRelink, contains('a'));
+  });
+
+  test('fixture and round updates arriving in either order produce identical game assignment and end dates', () {
+    final applier = const DauCompsSnapshotApplier();
+    final postponedKickoff = DateTime.utc(2025, 1, 4, 10, 0);
+    final postponedGame = Game(
+      dbkey: 'nrl-01-002',
+      league: League.nrl,
+      homeTeam: Team(dbkey: 'nrl-h', name: 'Home', league: League.nrl),
+      awayTeam: Team(dbkey: 'nrl-a', name: 'Away', league: League.nrl),
+      location: 'Suncorp',
+      startTimeUTC: postponedKickoff,
+      fixtureRoundNumber: 1,
+      fixtureMatchNumber: 2,
+    );
+
+    final initialDb = <String, dynamic>{
+      'a': compJson(
+        name: 'Comp A',
+        aflUrl: 'https://afl-a',
+        nrlUrl: 'https://nrl-a',
+        rounds: [round('2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z')],
+      ),
+    };
+    final updatedDb = <String, dynamic>{
+      'a': compJson(
+        name: 'Comp A',
+        aflUrl: 'https://afl-a',
+        nrlUrl: 'https://nrl-a',
+        rounds: [round('2025-01-01T00:00:00Z', '2025-01-04T13:00:00Z')],
+      ),
+    };
+
+    // Order 1: fixture updates first, then roundEndDate snapshot arrives.
+    var comp1 = applier
+        .apply(databaseValue: initialDb, currentComps: const [])
+        .comps
+        .single;
+    final assignBeforeRoundUpdate = postponedGame.getDAURound(comp1);
+    comp1 = applier
+        .apply(databaseValue: updatedDb, currentComps: [comp1])
+        .comps
+        .single;
+    final assignAfterOrder1 = postponedGame.getDAURound(comp1);
+
+    // Order 2: roundEndDate snapshot arrives first, then fixture game arrives.
+    var comp2 = applier
+        .apply(databaseValue: initialDb, currentComps: const [])
+        .comps
+        .single;
+    comp2 = applier
+        .apply(databaseValue: updatedDb, currentComps: [comp2])
+        .comps
+        .single;
+    final assignAfterOrder2 = postponedGame.getDAURound(comp2);
+
+    expect(assignBeforeRoundUpdate?.dAUroundNumber, 1);
+    expect(assignAfterOrder1?.dAUroundNumber, 1);
+    expect(assignAfterOrder2?.dAUroundNumber, 1);
+    expect(
+      comp1.daurounds.single.lastGameKickOffUTC,
+      comp2.daurounds.single.lastGameKickOffUTC,
+    );
+    expect(
+      comp1.daurounds.single.lastGameKickOffUTC,
+      DateTime.utc(2025, 1, 4, 13, 0),
+    );
+  });
+}

@@ -443,21 +443,15 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   bool _gameBelongsToComp(Game game, DAUComp dauComp) {
-    for (final round in dauComp.daurounds) {
-      final start = round.getRoundStartDate();
-      final end = round.getRoundEndDate();
-      final isOnOrAfterStart =
-          game.startTimeUTC.isAfter(start) ||
-          game.startTimeUTC.isAtSameMomentAs(start);
-      final isOnOrBeforeEnd =
-          game.startTimeUTC.isBefore(end) ||
-          game.startTimeUTC.isAtSameMomentAs(end);
-      if (isOnOrAfterStart && isOnOrBeforeEnd) {
-        return true;
-      }
-    }
-
-    return false;
+    return Game.roundForKickoff(
+          kickoffUTC: game.startTimeUTC,
+          league: game.league,
+          rounds: dauComp.daurounds,
+          aflCutoffUTC: dauComp.aflRegularCompEndDateUTC,
+          nrlCutoffUTC: dauComp.nrlRegularCompEndDateUTC,
+          boundFinalRoundByEndDate: true,
+        ) !=
+        null;
   }
 
   static const Duration _crossCompTipCacheTtl = Duration(minutes: 5);
