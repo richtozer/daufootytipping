@@ -169,12 +169,15 @@ Existing tests to update: `test/models/game_test.dart` (boundary test),
    `npm --prefix rules_test run test:dart`,
    `scripts/test-client-integration.sh`.
 2. Deploy both function codebases first, so clients on `main` get the
-   recalculated ends, and clear any leftover `adminOverrideRoundEndDate` values
-   in the comp by hand (checking they are gone). New functions and new clients
-   ignore those overrides, so clearing them at deploy time removes stale
-   overrides for old clients immediately.
-3. Release the client. Don't use an older build as admin afterwards: it can
-   write `adminOverrideRoundEndDate` again.
+   recalculated ends.
+3. Release the client.
+
+Leave existing `adminOverrideRoundEndDate` values in place. New functions and
+new clients ignore them, but clients on `main` still use them, and fully
+scored rounds keep their stored `roundEndDate`. In the 2026 comp, rounds 23
+and 25 have override ends covering a game that kicked off after the stored end
+(`afl-22-185`, `afl-24-207`). Deleting those overrides would leave both games
+unassigned on old clients.
 
 ## Not changing
 
