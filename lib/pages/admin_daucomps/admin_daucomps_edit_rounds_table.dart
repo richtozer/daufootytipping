@@ -39,18 +39,12 @@ class AdminDaucompsEditRoundsTableState
       for (int i = 0; i < widget.rounds.length; i++) {
         if (widget.rounds[i].dAUroundNumber !=
                 oldWidget.rounds[i].dAUroundNumber ||
-            widget.rounds[i].getRoundStartDate().toLocal() !=
-                oldWidget.rounds[i].getRoundStartDate().toLocal() ||
-            widget.rounds[i].getRoundEndDate().toLocal() !=
-                oldWidget.rounds[i].getRoundEndDate().toLocal() ||
-            widget.rounds[i].firstGameKickOffUTC.toLocal() !=
-                oldWidget.rounds[i].firstGameKickOffUTC.toLocal() ||
-            widget.rounds[i].lastGameKickOffUTC.toLocal() !=
-                oldWidget.rounds[i].lastGameKickOffUTC.toLocal() ||
-            (widget.rounds[i].adminOverrideRoundStartDate !=
-                oldWidget.rounds[i].adminOverrideRoundStartDate) ||
-            (widget.rounds[i].adminOverrideRoundEndDate !=
-                oldWidget.rounds[i].adminOverrideRoundEndDate)) {
+            !widget.rounds[i].getRoundStartDate().isAtSameMomentAs(
+              oldWidget.rounds[i].getRoundStartDate(),
+            ) ||
+            !widget.rounds[i].getRoundEndDate().isAtSameMomentAs(
+              oldWidget.rounds[i].getRoundEndDate(),
+            )) {
           needsReinitialization = true;
           break;
         }

@@ -18,7 +18,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Scope: Changes are surgical; avoid unrelated edits or drive-by refactors.
 - Commits/branches: The agent does not commit or create branches unless explicitly asked.
 - Pre‑flight checks: Always run `flutter analyze` and the relevant `flutter test` scope before and after refactors.
-- Formatting: Do not run `dart format` or other bulk formatting tools unless the maintainer explicitly requests formatting for the task.
+- Formatting: Run `dart format` on the files you changed, naming each one (`dart format lib/a.dart test/b_test.dart`). Never format a directory such as `lib/` or `test/`: the repo is not uniformly formatted, and a directory run buries the change in unrelated churn. If formatting a changed file also rewrites code you did not touch, say so in your summary.
 - Repo exploration: When `jcodemunch` MCP is available, prefer it for symbol-level exploration (`search_symbols`, `get_symbol`, `get_file_outline`, `get_repo_outline`). Keep using `rg` and direct file reads for exact text matches, literals, config values, and when the MCP index is missing or stale.
 
 ## Secrets & Local Config
@@ -38,7 +38,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Gate: Treat a clean analyzer run and a green test suite as gates before merging further refactors.
 
 ## Flutter/Dart Specifics
-- Formatting: Prefer `dart format` or IDE formatting. The agent won’t run formatters without approval.
+- Formatting: See the Formatting rule under Workflow Conventions.
 - Analysis: Honor `analysis_options.yaml`. Avoid introducing new warnings.
 - UI tests: Avoid unless asked. Focus on unit and ViewModel logic tests.
 - State: Current DI via `watch_it/get_it`, Provider + ChangeNotifier.

@@ -99,7 +99,6 @@ flutter:
     - assets/grass_background_blurred.webp
     - assets/nrl.svg
     - assets/icon/
-    - html/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

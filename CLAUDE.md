@@ -81,7 +81,7 @@ flutter clean
 flutter analyze                          # MANDATORY - must pass
 flutter test                             # MANDATORY - must pass
 flutter test test/path/to/test_file.dart # Run a single test file
-dart format lib/                         # MANDATORY - must pass
+dart format <changed files>              # MANDATORY - the files you changed, never a directory
 
 # Backend tests
 npm --prefix functions test              # TypeScript functions (node:test)

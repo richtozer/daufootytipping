@@ -42,9 +42,11 @@ class DateTimePickerField extends StatelessWidget {
       decoration: const InputDecoration(isDense: true),
       onTap: () async {
         FocusScope.of(context).requestFocus(FocusNode());
+        // The field shows local time, so seed both pickers with it too.
+        final localInitialDate = initialDate.toLocal();
         DateTime? date = await showDatePicker(
           context: context,
-          initialDate: initialDate,
+          initialDate: localInitialDate,
           firstDate: firstDate,
           lastDate: lastDate,
         );
@@ -52,7 +54,7 @@ class DateTimePickerField extends StatelessWidget {
           if (!context.mounted) return;
           TimeOfDay? time = await showTimePicker(
             context: context,
-            initialTime: TimeOfDay.fromDateTime(initialDate),
+            initialTime: TimeOfDay.fromDateTime(localInitialDate),
           );
           if (time != null) {
             DateTime selectedDateTime = DateTime(
