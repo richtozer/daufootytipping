@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+/// Formats a round boundary for the admin rounds table, in local time, as a
+/// short day and date followed by the time with an abbreviated meridiem, for
+/// example `Thu 5/3 7:50p`.
+String formatRoundDateTime(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  final time = DateFormat('h:mm a')
+      .format(local)
+      .replaceAll(' AM', 'a')
+      .replaceAll(' PM', 'p');
+  return '${DateFormat('E d/M').format(local)} $time';
+}
+
 class DateTimePickerField extends StatelessWidget {
   final TextEditingController controller;
   final DateTime initialDate;
@@ -50,8 +62,7 @@ class DateTimePickerField extends StatelessWidget {
               time.hour,
               time.minute,
             );
-            controller.text =
-                '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
+            controller.text = formatRoundDateTime(selectedDateTime);
             onDateTimeChanged(selectedDateTime);
           }
         }

@@ -67,9 +67,6 @@ class TippersViewModel extends ChangeNotifier {
 
   StreamSubscription<DatabaseEvent>? _tippersStream;
 
-  bool _savingTipper = false;
-  bool get savingTipper => _savingTipper;
-
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
 
@@ -377,7 +374,6 @@ class TippersViewModel extends ChangeNotifier {
       }
     } finally {
       updates.clear();
-      _savingTipper = false;
     }
   }
 

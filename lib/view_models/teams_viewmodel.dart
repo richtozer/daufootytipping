@@ -14,11 +14,9 @@ class TeamsViewModel extends ChangeNotifier {
   List<Team> _teams = [];
   DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _teamsStream;
-  bool _savingTeam = false;
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Map _groupedTeams = {};
 
-  bool get savingTeam => _savingTeam;
   List<Team> get teams => _teams;
   Map get groupedTeams => _groupedTeams;
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -64,8 +62,6 @@ class TeamsViewModel extends ChangeNotifier {
 
   Future<void> editTeam(Team updatedTeam) async {
     await _initialLoadCompleter.future;
-    _savingTeam = true;
-    notifyListeners();
 
     Team? originalTeam = _teams.firstWhereOrNull(
       (existingTeam) => existingTeam.dbkey == updatedTeam.dbkey,
@@ -78,11 +74,8 @@ class TeamsViewModel extends ChangeNotifier {
         'Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request',
       );
     }
-
-    _savingTeam = false;
-    notifyListeners(); // Notify about _savingTeam state change
-    // Note: Team data UI update will be triggered by database listener in _listenToTeams()
-    // when the database change event is received
+    // The UI updates when the database listener in _listenToTeams() receives
+    // the change.
   }
 
   Future<void> _editExistingTeam(Team originalTeam, Team updatedTeam) async {
@@ -107,8 +100,6 @@ class TeamsViewModel extends ChangeNotifier {
 
   Future<void> addTeam(Team team) async {
     await _initialLoadCompleter.future;
-    _savingTeam = true;
-    notifyListeners();
 
     Team? foundTeam = teams.firstWhereOrNull(
       (existingTeam) =>
@@ -119,9 +110,6 @@ class TeamsViewModel extends ChangeNotifier {
       _addNewTeam(team);
       log('Team: ${team.dbkey.toLowerCase()} added to the database');
     }
-
-    _savingTeam = false;
-    notifyListeners();
   }
 
   Future<void> _addNewTeam(Team team) async {

@@ -161,27 +161,26 @@ class TipsViewModel extends ChangeNotifier {
       final Completer<void> firstAnswer = Completer<void>();
       firstAnswers.add(firstAnswer.future);
       late final StreamSubscription<DatabaseEvent> subscription;
-      subscription = authAwareStream<DatabaseEvent>(
-        signedIn: _signedIn,
-        open: () => _db
-          .child(
-            '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/${entry.key}',
-          )
-          .onValue,
-        onSourceError: (Object error, StackTrace stackTrace) {
-          log('TipsViewModel: cannot read game ${entry.key}: $error');
-          _gameReadFailed(entry.key, subscription);
-          if (!firstAnswer.isCompleted) firstAnswer.complete();
-        },
-      ).listen(
-            (DatabaseEvent event) {
-              _failedGameReads.remove(entry.key);
-              _applyGameSnapshot(entry.value, event.snapshot);
-              if (!firstAnswer.isCompleted) {
-                firstAnswer.complete();
-              }
+      subscription =
+          authAwareStream<DatabaseEvent>(
+            signedIn: _signedIn,
+            open: () => _db
+                .child(
+                  '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/${entry.key}',
+                )
+                .onValue,
+            onSourceError: (Object error, StackTrace stackTrace) {
+              log('TipsViewModel: cannot read game ${entry.key}: $error');
+              _gameReadFailed(entry.key, subscription);
+              if (!firstAnswer.isCompleted) firstAnswer.complete();
             },
-          );
+          ).listen((DatabaseEvent event) {
+            _failedGameReads.remove(entry.key);
+            _applyGameSnapshot(entry.value, event.snapshot);
+            if (!firstAnswer.isCompleted) {
+              firstAnswer.complete();
+            }
+          });
       _gameStreams[entry.key] = subscription;
     }
 
@@ -248,12 +247,15 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _listenToTips() {
-    _tipsStream = authAwareStream<DatabaseEvent>(
-      signedIn: _signedIn,
-      open: () => _db
-        .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}')
-        .onValue,
-    ).listen((event) {
+    _tipsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}',
+              )
+              .onValue,
+        ).listen((event) {
           _handleEvent(event);
         });
   }
@@ -564,11 +566,6 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   // returns true if the supplied tipper has submitted at least one tip for the comp
-  Future<bool> hasSubmittedTips(Tipper tipper) async {
-    await initialLoadCompleted;
-    return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
-  }
-
   // Outstanding tips for games that have not started yet (includes startingSoon).
   int numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
     DAURound round,

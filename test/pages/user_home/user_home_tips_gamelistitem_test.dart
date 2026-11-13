@@ -1,4 +1,3 @@
-import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -150,8 +149,6 @@ void main() {
     when(() => mockGameTipViewModel.game).thenReturn(game);
     when(() => mockGameTipViewModel.tip).thenReturn(null);
     when(() => mockGameTipViewModel.savingTip).thenReturn(false);
-    when(() => mockGameTipViewModel.controller)
-        .thenReturn(CarouselSliderController());
 
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
   });

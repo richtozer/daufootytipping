@@ -256,28 +256,6 @@ int _firstUpcomingUntippedGameIndex(
   return originalIndexes[upcomingIndex];
 }
 
-int activeTipsLeagueSectionIndex({
-  required List<TipsLeagueSection> sections,
-  required double scrollOffset,
-  required double leadingExtent,
-}) {
-  if (sections.isEmpty) {
-    return 0;
-  }
-
-  var cursor = leadingExtent;
-  for (var index = 0; index < sections.length; index++) {
-    final section = sections[index];
-    final nextCursor = cursor + section.headerExtent + section.bodyExtent;
-    if (scrollOffset < nextCursor) {
-      return index;
-    }
-    cursor = nextCursor;
-  }
-
-  return sections.length - 1;
-}
-
 int activeStickyTipsLeagueSectionIndex({
   required List<TipsLeagueSection> sections,
   required double scrollOffset,

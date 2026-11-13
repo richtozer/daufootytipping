@@ -62,10 +62,6 @@ const String tokenOwnersPath = '/TokenOwners';
 /// every client under every ruleset.
 const String serverConfigPath = '/ServerConfig';
 
-/// Legacy/client-owned scoring branches under [statsPathRoot].
-const String roundStatsLegacyRoot = 'round_stats_v3';
-const String gameStatsLegacyRoot = 'game_stats_v3';
-
 /// Backend-owned scoring branches under [statsPathRoot].
 ///
 /// Keep these versioned independently. Do not assume that bumping one backend

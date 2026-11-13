@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_datetimepickerfield.dart';
 
@@ -67,12 +66,10 @@ class AdminDaucompsEditRoundsTableState
   void _initializeRoundControllers() {
     for (var round in widget.rounds) {
       _startDateControllers[round.dAUroundNumber] = TextEditingController(
-        text:
-            '${DateFormat('E d/M').format(round.getRoundStartDate().toLocal())} ${DateFormat('h:mm a').format(round.firstGameKickOffUTC.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+        text: formatRoundDateTime(round.getRoundStartDate()),
       );
       _endDateControllers[round.dAUroundNumber] = TextEditingController(
-        text:
-            '${DateFormat('E d/M').format(round.getRoundEndDate().toLocal())} ${DateFormat('h:mm a').format(round.lastGameKickOffUTC.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+        text: formatRoundDateTime(round.getRoundEndDate()),
       );
     }
   }
@@ -151,12 +148,8 @@ class AdminDaucompsEditRoundsTableState
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                     isBold: round.adminOverrideRoundStartDate != null,
-                    onDateTimeChanged: (selectedDateTime) {
-                      widget.onRoundDateChanged(round, selectedDateTime, true);
-                      // Update controller text after parent handles state change
-                      _startDateControllers[round.dAUroundNumber]!.text =
-                          '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-                    },
+                    onDateTimeChanged: (selectedDateTime) => widget
+                        .onRoundDateChanged(round, selectedDateTime, true),
                   ),
                 ),
                 TableCell(
@@ -167,11 +160,8 @@ class AdminDaucompsEditRoundsTableState
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                     isBold: round.adminOverrideRoundEndDate != null,
-                    onDateTimeChanged: (selectedDateTime) {
-                      widget.onRoundDateChanged(round, selectedDateTime, false);
-                      _endDateControllers[round.dAUroundNumber]!.text =
-                          '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-                    },
+                    onDateTimeChanged: (selectedDateTime) => widget
+                        .onRoundDateChanged(round, selectedDateTime, false),
                   ),
                 ),
                 TableCell(

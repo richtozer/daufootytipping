@@ -14,9 +14,6 @@ import {reminderRecipientName} from "./reminder_recipients";
 
 export const sendHourlyReminders =
   onSchedule("20 21-23,0-9 * 3-9 *", async () => {
-    const isTestingMode = false; // DOES NOT WORK IN TESTING MODE
-    const testTipperId = "-NoGNrrChbi0sETPpJNq";
-
     // Format the current date to match the database format:
     // "YYYY-MM-DD HH:MM:SSZ"
     const now = new Date().toISOString()
@@ -78,14 +75,8 @@ export const sendHourlyReminders =
     }
 
     const tokensRef = getDatabase().ref("/AllTippersTokens");
-    let tippersWithTokens;
-    if (isTestingMode) {
-      const tokensSnapshot = await tokensRef.child(testTipperId).once("value");
-      tippersWithTokens = {[testTipperId]: tokensSnapshot.val()};
-    } else {
-      const tokensSnapshot = await tokensRef.once("value");
-      tippersWithTokens = tokensSnapshot.val();
-    }
+    const tokensSnapshot = await tokensRef.once("value");
+    const tippersWithTokens = tokensSnapshot.val();
 
     const tippersRef = getDatabase().ref("/AllTippers");
     const tippersSnapshot = await tippersRef.once("value");
@@ -95,11 +86,8 @@ export const sendHourlyReminders =
 
     for (const tipperId in tippersWithTokens) {
       if (Object.prototype.hasOwnProperty.call(tippersWithTokens, tipperId)) {
-        // if (tipper.compsParticipatedIn && tipper.compsParticipatedIn
-        // .includes(compDBKey)) {
         const tipperName = reminderRecipientName(tippers, tipperId);
         const tokens = tippersWithTokens[tipperId];
-        let gamesNotTipped = 0;
 
         for (const gameKey of gameKeys) {
           const tipRef = getDatabase()
@@ -107,7 +95,6 @@ export const sendHourlyReminders =
           const tipSnapshot = await tipRef.once("value");
 
           if (!tipSnapshot.exists()) {
-            gamesNotTipped++;
             const homeTeamLongName = games[gameKey].HomeTeam;
             const awayTeamLongName = games[gameKey].AwayTeam;
 
@@ -129,13 +116,11 @@ export const sendHourlyReminders =
                   homeTeam: homeTeam,
                   awayTeam: awayTeam,
                   gameStartTimeUTC: new Date(games[gameKey].DateUtc),
-                  gamesNotTipped: gamesNotTipped,
                 });
               }
             }
           }
         }
-        // }
       } else {
         console.log("No tokens found for tipperId: ", tipperId);
       }
@@ -204,5 +189,4 @@ interface Reminder {
   homeTeam: string;
   awayTeam: string;
   gameStartTimeUTC: Date;
-  gamesNotTipped?: number;
 }

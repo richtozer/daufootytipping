@@ -71,13 +71,7 @@ class StatsViewModel extends ChangeNotifier {
   String get _liveScoresReadRoot => p.liveScoresBackendRoot;
   String get _gameStatsReadRoot => p.gameStatsBackendRoot;
 
-  final Completer<void> _initialLiveScoreLoadCompleter = Completer();
-  Future<void> get initialLiveScoreLoadComplete =>
-      _initialLiveScoreLoadCompleter.future;
-
   final Completer<void> _initialRoundPointsLoadCompleted = Completer();
-  Future<void> get initialRoundPointsComplete =>
-      _initialRoundPointsLoadCompleted.future;
 
   List<LeaderboardEntry> _compLeaderboard = [];
   List<LeaderboardEntry> get compLeaderboard => _compLeaderboard;
@@ -90,7 +84,6 @@ class StatsViewModel extends ChangeNotifier {
   GamesViewModel? gamesViewModel;
 
   bool? _isSelectedTipperPaidUpMember;
-  bool get isSelectedTipperPaidUpMember => _isSelectedTipperPaidUpMember!;
 
   // Constructor
   StatsViewModel(
@@ -144,14 +137,15 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> _listenToScores() async {
-    _allRoundPointsStream = authAwareStream<DatabaseEvent>(
-      signedIn: _signedIn,
-      open: () => _db
-        .child(
-          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
-        )
-        .onValue,
-    ).listen(
+    _allRoundPointsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
+              )
+              .onValue,
+        ).listen(
           _handleEventRoundPoints,
           onError: (error) {
             log('StatsViewModel() Error listening to round points: $error');
@@ -159,14 +153,15 @@ class StatsViewModel extends ChangeNotifier {
         );
     _hasRoundPointsListener = true;
 
-    _liveScoresStream = authAwareStream<DatabaseEvent>(
-      signedIn: _signedIn,
-      open: () => _db
-        .child(
-          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
-        )
-        .onValue,
-    ).listen(
+    _liveScoresStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
+              )
+              .onValue,
+        ).listen(
           _handleEventLiveScores,
           onError: (error) {
             log('StatsViewModel() Error listening to live scores: $error');
@@ -212,15 +207,16 @@ class StatsViewModel extends ChangeNotifier {
 
       _isSelectedTipperPaidUpMember = isPaid;
       _gameStatsListenerSubKey = subKey;
-      _gameStatsStream = authAwareStream<DatabaseEvent>(
-        signedIn: _signedIn,
-        open: () => _db
-          .child(statsPathRootLocal)
-          .child(selectedDAUComp.dbkey!)
-          .child(_gameStatsReadRoot)
-          .child(subKey)
-          .onValue,
-      ).listen(
+      _gameStatsStream =
+          authAwareStream<DatabaseEvent>(
+            signedIn: _signedIn,
+            open: () => _db
+                .child(statsPathRootLocal)
+                .child(selectedDAUComp.dbkey!)
+                .child(_gameStatsReadRoot)
+                .child(subKey)
+                .onValue,
+          ).listen(
             (event) {
               if (_disposed) {
                 return;
@@ -463,10 +459,6 @@ class StatsViewModel extends ChangeNotifier {
         'StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRootLocal/live_scores: $e',
       );
       rethrow;
-    } finally {
-      if (!_initialLiveScoreLoadCompleter.isCompleted) {
-        _initialLiveScoreLoadCompleter.complete();
-      }
     }
   }
 
@@ -1117,7 +1109,9 @@ class StatsViewModel extends ChangeNotifier {
   }) async {
     await _submitLock.synchronized(() async {
       if (tippingIsOpen(tip.game.startTimeUTC)) {
-        throw StateError('Live scoring is not open yet. Please try again in a moment.');
+        throw StateError(
+          'Live scoring is not open yet. Please try again in a moment.',
+        );
       }
       final currentHomeScore = tip.game.scoring?.currentScore(ScoringTeam.home);
       final currentAwayScore = tip.game.scoring?.currentScore(ScoringTeam.away);

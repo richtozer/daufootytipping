@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:carousel_slider/carousel_controller.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -23,7 +22,6 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
@@ -102,17 +100,6 @@ class GameTipViewModel extends ChangeNotifier {
   final Completer<void> _initialLoadCompleter = Completer();
   Future<bool> get initialLoadCompleted async =>
       _initialLoadCompleter.isCompleted;
-
-  int historicalTotalTipsOnCombination = 0;
-  int historicalWinsOnCombination = 0;
-  int historicalLossesOnCombination = 0;
-  int historicalDrawsOnCombination = 0;
-  String historicalInsightsString = "";
-
-  int currentIndex = 0;
-
-  final CarouselSliderController _controller = CarouselSliderController();
-  CarouselSliderController get controller => _controller;
 
   //constructor
   GameTipViewModel(
@@ -272,107 +259,10 @@ class GameTipViewModel extends ChangeNotifier {
     }
 
     _notifyListenersIfAlive();
-
-    // Fetch historical stats after the main tip is found and initial load is complete
-    if (_initialLoadCompleter.isCompleted) {
-      await _fetchHistoricalTipStats();
-    }
   }
 
   void _syncTipGameScoring() {
     _tip?.game.scoring = game.scoring;
-  }
-
-  Future<void> _fetchHistoricalTipStats() async {
-    // Reset stats before recalculating
-    historicalTotalTipsOnCombination = 0;
-    historicalWinsOnCombination = 0;
-    historicalLossesOnCombination = 0;
-    historicalDrawsOnCombination = 0;
-    historicalInsightsString = "";
-
-    // Ensure allTipsViewModel has completed its initial load.
-    // GameTipViewModel's _findTip already awaits allTipsViewModel.initialLoadCompleted
-    // so it should be safe here.
-
-    List<Tip?> tipperPastTips = allTipsViewModel.getTipsForTipper(
-      currentTipper,
-    );
-
-    if (tipperPastTips.isEmpty) {
-      historicalInsightsString = "No past tips for this team combination.";
-      _notifyListenersIfAlive();
-      return;
-    }
-
-    for (Tip? pastTip in tipperPastTips) {
-      if (pastTip == null) {
-        // Should not happen if game is valid
-        continue;
-      }
-
-      // Exclude current game
-      if (pastTip.game.dbkey == game.dbkey) {
-        continue;
-      }
-
-      bool sameCombination =
-          (pastTip.game.homeTeam.dbkey == game.homeTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
-          (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
-
-      if (sameCombination) {
-        historicalTotalTipsOnCombination++;
-
-        if (pastTip.game.scoring == null) {
-          continue;
-        }
-
-        GameResult? actualGameResult = pastTip.game.scoring!
-            .getGameResultCalculated(pastTip.game.league);
-
-        bool isActualGameDraw =
-            (pastTip.game.league == League.afl &&
-                actualGameResult == GameResult.c) ||
-            (pastTip.game.league == League.nrl &&
-                actualGameResult == GameResult.c);
-
-        bool isTipperPickedDraw =
-            (pastTip.game.league == League.afl &&
-                pastTip.tip == GameResult.c) ||
-            (pastTip.game.league == League.nrl && pastTip.tip == GameResult.c);
-
-        bool isWin = pastTip.tip == actualGameResult;
-
-        if (isWin) {
-          historicalWinsOnCombination++;
-          if (isActualGameDraw && isTipperPickedDraw) {
-            // Tipper correctly predicted a draw
-            historicalDrawsOnCombination++;
-          }
-        } else {
-          // Not a win
-          // It's a loss if it's not a win AND it's not the specific case of (actual draw AND tipper picked draw)
-          // The case (actual draw AND tipper picked draw) is already handled under "isWin"
-          // So, if it's not a "Win" (meaning tip != actualResult), it's a Loss.
-          historicalLossesOnCombination++;
-        }
-      }
-    }
-
-    if (historicalTotalTipsOnCombination == 0) {
-      historicalInsightsString = "No past tips for this team combination.";
-    } else {
-      historicalInsightsString =
-          "Previously on this matchup ($historicalTotalTipsOnCombination games): $historicalWinsOnCombination Wins, $historicalLossesOnCombination Losses, $historicalDrawsOnCombination Draws.";
-    }
-    _notifyListenersIfAlive();
-  }
-
-  // Test hook for unit tests
-  Future<void> testHookFetchHistoricalTipStats() async {
-    await _fetchHistoricalTipStats();
   }
 
   Future<Tip?> getTip() async {
@@ -583,100 +473,5 @@ class GameTipViewModel extends ChangeNotifier {
     }
     allTipsViewModel.removeListener(_tipsUpdated);
     super.dispose();
-  }
-
-  Future<List<HistoricalMatchupUIData>> getFormattedHistoricalMatchups() async {
-    log(
-      'GameTipViewModel.getFormattedHistoricalMatchups() called for game ${game.dbkey}',
-    );
-    final List<HistoricalMatchupUIData> formattedMatchups = [];
-
-    // 1. Get GamesViewModel
-    final gamesViewModel = allTipsViewModel.gamesViewModel;
-    await gamesViewModel.initialLoadComplete; // Ensure games are loaded
-
-    // 2. Get historical matchups
-    final List<Game> historicalGames = await gamesViewModel
-        .getCompleteMatchupHistory(game.homeTeam, game.awayTeam, game.league);
-
-    log(
-      'Found ${historicalGames.length} historical games for ${game.homeTeam.name} vs ${game.awayTeam.name}',
-    );
-
-    // 3. For each past game, format the data
-    for (final pastGame in historicalGames) {
-      if (pastGame.scoring == null ||
-          pastGame.scoring!.homeTeamScore == null ||
-          pastGame.scoring!.awayTeamScore == null) {
-        log('Skipping game ${pastGame.dbkey} due to missing scores.');
-        continue;
-      }
-
-      // a. Get user's tip for the past game
-      final Tip? pastTip = await allTipsViewModel.findTipAcrossCompetitions(
-        pastGame,
-        currentTipper,
-        di<DAUCompsViewModel>().daucomps,
-      );
-
-      // b. Determine winning team and winType
-      String winningTeamName = '';
-      String winType = ''; // "Home", "Away", "Draw"
-
-      if (pastGame.scoring!.homeTeamScore! > pastGame.scoring!.awayTeamScore!) {
-        winningTeamName = pastGame.homeTeam.name;
-        winType = 'Home';
-      } else if (pastGame.scoring!.awayTeamScore! >
-          pastGame.scoring!.homeTeamScore!) {
-        winningTeamName = pastGame.awayTeam.name;
-        winType = 'Away';
-      } else {
-        winningTeamName = 'Draw'; // Or "Nobody" or handle as per UI needs
-        winType = 'Draw';
-      }
-
-      // c. Determine userTipTeamName
-      String userTipTeamName = ''; // Default to empty
-      if (pastTip != null && !pastTip.isDefaultTip()) {
-        // New stricter condition
-        if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) {
-          // Home tip
-          userTipTeamName = pastGame.homeTeam.name;
-        } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) {
-          // Away tip
-          userTipTeamName = pastGame.awayTeam.name;
-        } else if (pastTip.tip == GameResult.c) {
-          // Draw tip
-          userTipTeamName = 'Draw';
-        }
-      }
-      // If pastTip is null or pastTip.isDefaultTip() is true, userTipTeamName remains empty.
-
-      // d. Determine date components
-      final gameDateLocal = pastGame.startTimeUTC.toLocal();
-      final String year = DateFormat('yyyy').format(gameDateLocal);
-      final String month = DateFormat('MMM').format(gameDateLocal);
-      final bool isCurrentYear = gameDateLocal.year == DateTime.now().year;
-
-      formattedMatchups.add(
-        HistoricalMatchupUIData(
-          year: year,
-          month: month,
-          winningTeamName: winningTeamName,
-          winType: winType,
-          userTipTeamName: userTipTeamName,
-          isCurrentYear: isCurrentYear,
-          pastGame: pastGame,
-          location: pastGame.location, // Populate new field
-        ),
-      );
-      log(
-        'Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName, Location: ${pastGame.location}',
-      );
-    }
-    log(
-      'Finished formatting ${formattedMatchups.length} historical match-ups.',
-    );
-    return formattedMatchups;
   }
 }

@@ -45,9 +45,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   DAUComp? get selectedDAUComp =>
       _selectedDAUComp; // this is the comp that folks are currently viewing
 
-  bool _savingDAUComp = false;
-  bool get savingDAUComp => _savingDAUComp;
-
   final Completer<void> _initialDAUCompLoadCompleter = Completer<void>();
   Future<void> get initialDAUCompLoadComplete =>
       _initialDAUCompLoadCompleter.future;
@@ -60,9 +57,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool _lastFixtureDownloadRanViaCloudFunction = false;
   bool get lastFixtureDownloadRanViaCloudFunction =>
       _lastFixtureDownloadRanViaCloudFunction;
-
-  final bool _isLegacySyncing = false;
-  bool get isLegacySyncing => _isLegacySyncing;
 
   GamesViewModel? gamesViewModel;
   StatsViewModel? statsViewModel;
@@ -804,7 +798,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     await initialDAUCompLoadComplete;
     log('Saving batch of ${updates.length} DAUComp database updates');
     await _repo.update(updates);
-    _savingDAUComp = false;
   }
 
   Future<List<DAUComp>> getDAUcomps() async {

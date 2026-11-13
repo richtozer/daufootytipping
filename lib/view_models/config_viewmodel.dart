@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:daufootytipping/services/tipping_policy.dart';
 
 import 'package:daufootytipping/services/configured_realtime_database.dart';
@@ -8,7 +9,8 @@ import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:daufootytipping/services/identity_service.dart' show identityFunctionsUrlPatternKey;
+import 'package:daufootytipping/services/identity_service.dart'
+    show identityFunctionsUrlPatternKey;
 
 /// The startup config read could not reach the database: it timed out, or App
 /// Check kept refusing it. From the device this looks the same as having no
@@ -347,14 +349,6 @@ class ConfigViewModel extends ChangeNotifier {
 
   Future<void> setConfigCurrentDAUComp(String value) async {
     await _db.child(p.currentDAUCompKey).set(value);
-  }
-
-  Future<void> setConfigMinAppVersion(String value) async {
-    await _db.child(p.minAppVersionKey).set(value);
-  }
-
-  Future<void> setCreateLinkedTipper(bool value) async {
-    await _db.child(p.createLinkedTipperKey).set(value);
   }
 
   @override

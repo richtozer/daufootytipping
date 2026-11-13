@@ -1,4 +1,3 @@
-import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
@@ -60,7 +59,6 @@ void main() {
     when(() => model.game).thenReturn(game);
     when(() => model.tip).thenReturn(null);
     when(() => model.savingTip).thenReturn(false);
-    when(() => model.controller).thenReturn(CarouselSliderController());
     // Measure with the theme the card is rendered with: two different themes
     // give two different answers, and the card would then overflow its row.
     final textTheme = ThemeData.localize(

@@ -63,7 +63,6 @@ dependencies:
   json_diff: ^0.2.1
   modal_bottom_sheet: ^3.0.0
   package_info_plus: ^10.2.1
-  path: ^1.9.0
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   sign_in_with_apple: ^8.0.0-spm.1
@@ -97,7 +96,6 @@ flutter:
     - assets/teams/afl/
     - assets/teams/nrl/
     - assets/afl.svg
-    - assets/epl.svg
     - assets/grass_background_blurred.webp
     - assets/nrl.svg
     - assets/icon/
