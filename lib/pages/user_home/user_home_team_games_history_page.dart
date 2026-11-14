@@ -74,9 +74,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
     if (listEquals(_renderedValues, values)) return _rows;
     _renderedValues = values;
     // The ladder's own shading marks what matters there; here it marks a win.
-    final winColour = isDarkMode
-        ? Colors.lightGreen[900]
-        : Colors.lightGreen[200];
+    final winColour = widget.league.rowShading(isDarkMode: isDarkMode);
     _rows = [
       for (final game in _gameHistory)
         AppRow(
@@ -253,7 +251,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
               ),
               title: '${widget.team.name} - Game History',
               description:
-                  'Matchup history for the ${widget.team.name} across recent years. Green shading marks games won by the ${widget.team.name}. Tap column headings to sort.',
+                  'Matchup history for the ${widget.team.name} across recent years. Shaded rows mark games won by the ${widget.team.name}. Tap column headings to sort.',
             ),
             table: _isLoading
                 ? const Center(child: CircularProgressIndicator())

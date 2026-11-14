@@ -67,9 +67,7 @@ class _LeagueLadderHistoricalMatchupsState
     _renderedValues = values;
     // The shading the ladder and the game history use to mark what matters: here,
     // a game the tipper called correctly.
-    final correctColour = isDarkMode
-        ? Colors.lightGreen[900]
-        : Colors.lightGreen[200];
+    final correctColour = widget.league.rowShading(isDarkMode: isDarkMode);
     _rows = [
       for (final matchup in matchups)
         AppRow(
@@ -360,7 +358,7 @@ class _LeagueLadderHistoricalMatchupsState
       heading: const AppTableHeading(
         leading: Icon(Icons.history, size: 50),
         title: 'Historical Matchups',
-        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Green shading marks games you tipped correctly.',
+        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Shaded rows mark games you tipped correctly.',
       ),
       table: _matchupsTable(context),
     );

@@ -431,13 +431,13 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     if (widget.league == League.nrl) {
-      return isDarkMode ? Colors.lightGreen[900] : Colors.lightGreen[200];
+      return widget.league.rowShading(isDarkMode: isDarkMode);
     }
 
     if (widget.league == League.afl) {
       switch (highlightBand) {
         case LeagueLadderHighlightBand.finals:
-          return isDarkMode ? const Color(0xFF5C1A1A) : Colors.red[100];
+          return widget.league.rowShading(isDarkMode: isDarkMode);
         case LeagueLadderHighlightBand.wildcard:
           return isDarkMode ? const Color(0xFF452626) : Colors.red[50];
         case LeagueLadderHighlightBand.none:
