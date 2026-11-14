@@ -30,15 +30,21 @@ class RoundsLinkingService {
     for (final round in rounds) {
       _initRoundState(round, targetTime);
 
-      round.nrlGameCount = round.games.where((g) => g.league == League.nrl).length;
-      round.aflGameCount = round.games.where((g) => g.league == League.afl).length;
+      round.nrlGameCount = round.games
+          .where((g) => g.league == League.nrl)
+          .length;
+      round.aflGameCount = round.games
+          .where((g) => g.league == League.afl)
+          .length;
     }
 
     // Compute unassigned: all minus assigned
     final assignedKeys = <String>{
       for (final r in rounds) ...r.games.map((g) => g.dbkey),
     };
-    final unassigned = allGames.where((g) => !assignedKeys.contains(g.dbkey)).toList();
+    final unassigned = allGames
+        .where((g) => !assignedKeys.contains(g.dbkey))
+        .toList();
 
     // Remove games beyond cutoffs
     unassigned.removeWhere((game) {
@@ -59,10 +65,14 @@ class RoundsLinkingService {
       round.roundState = RoundState.noGames;
       return;
     }
-    final anyStarted = round.games.any((game) =>
-        game.getGameState(now) == GameState.startedResultKnown ||
-        game.getGameState(now) == GameState.startedResultNotKnown);
-    final allEnded = round.games.every((game) => game.getGameState(now) == GameState.startedResultKnown);
+    final anyStarted = round.games.any(
+      (game) =>
+          game.getGameState(now) == GameState.startedResultKnown ||
+          game.getGameState(now) == GameState.startedResultNotKnown,
+    );
+    final allEnded = round.games.every(
+      (game) => game.getGameState(now) == GameState.startedResultKnown,
+    );
     if (allEnded) {
       round.roundState = RoundState.allGamesEnded;
     } else if (anyStarted) {

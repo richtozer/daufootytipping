@@ -10,31 +10,33 @@ import 'package:daufootytipping/services/rounds_linking_service.dart';
 
 void main() {
   group('RoundsLinkingService', () {
-    Team nrlTeam(String id) => Team(dbkey: 'nrl-$id', name: 'NRL $id', league: League.nrl);
-    Team aflTeam(String id) => Team(dbkey: 'afl-$id', name: 'AFL $id', league: League.afl);
+    Team nrlTeam(String id) =>
+        Team(dbkey: 'nrl-$id', name: 'NRL $id', league: League.nrl);
+    Team aflTeam(String id) =>
+        Team(dbkey: 'afl-$id', name: 'AFL $id', league: League.afl);
 
     Game finishedNRL(String key, int round) => Game(
-          dbkey: key,
-          league: League.nrl,
-          homeTeam: nrlTeam('h'),
-          awayTeam: nrlTeam('a'),
-          location: 'X',
-          startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 5)),
-          fixtureRoundNumber: round,
-          fixtureMatchNumber: 1,
-          scoring: Scoring(homeTeamScore: 10, awayTeamScore: 8),
-        );
+      dbkey: key,
+      league: League.nrl,
+      homeTeam: nrlTeam('h'),
+      awayTeam: nrlTeam('a'),
+      location: 'X',
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 5)),
+      fixtureRoundNumber: round,
+      fixtureMatchNumber: 1,
+      scoring: Scoring(homeTeamScore: 10, awayTeamScore: 8),
+    );
     Game finishedAFL(String key, int round) => Game(
-          dbkey: key,
-          league: League.afl,
-          homeTeam: aflTeam('h'),
-          awayTeam: aflTeam('a'),
-          location: 'Y',
-          startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 6)),
-          fixtureRoundNumber: round,
-          fixtureMatchNumber: 1,
-          scoring: Scoring(homeTeamScore: 12, awayTeamScore: 3),
-        );
+      dbkey: key,
+      league: League.afl,
+      homeTeam: aflTeam('h'),
+      awayTeam: aflTeam('a'),
+      location: 'Y',
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 6)),
+      fixtureRoundNumber: round,
+      fixtureMatchNumber: 1,
+      scoring: Scoring(homeTeamScore: 12, awayTeamScore: 3),
+    );
 
     test('finalizes rounds, sets state/counts, and computes unassigned with cutoffs', () {
       final svc = const RoundsLinkingService();
@@ -44,10 +46,7 @@ void main() {
         dAUroundNumber: 1,
         firstGameKickOffUTC: now.subtract(const Duration(days: 2)),
         lastGameKickOffUTC: now.subtract(const Duration(days: 1)),
-        games: [
-          finishedNRL('nrl-01-001', 1),
-          finishedAFL('afl-01-001', 1),
-        ],
+        games: [finishedNRL('nrl-01-001', 1), finishedAFL('afl-01-001', 1)],
       );
 
       // All games in r1 are finished => state should be allGamesEnded

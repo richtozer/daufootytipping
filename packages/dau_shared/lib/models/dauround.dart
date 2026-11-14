@@ -38,7 +38,8 @@ class DAURound implements Comparable<DAURound> {
       dAUroundNumber: roundNumber,
       firstGameKickOffUTC: DateTime.parse(data[p.roundStartDateKey]),
       lastGameKickOffUTC: DateTime.parse(data[p.roundEndDateKey]),
-      adminOverrideRoundStartDate: data[p.adminOverrideRoundStartDateKey] != null
+      adminOverrideRoundStartDate:
+          data[p.adminOverrideRoundStartDateKey] != null
           ? DateTime.parse(data[p.adminOverrideRoundStartDateKey])
           : null,
     );

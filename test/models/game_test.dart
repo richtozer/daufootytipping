@@ -10,8 +10,10 @@ import 'package:daufootytipping/models/daucomp.dart';
 
 void main() {
   group('Game model', () {
-    Team nrl(String key) => Team(dbkey: key, name: key.toUpperCase(), league: League.nrl);
-    Team afl(String key) => Team(dbkey: key, name: key.toUpperCase(), league: League.afl);
+    Team nrl(String key) =>
+        Team(dbkey: key, name: key.toUpperCase(), league: League.nrl);
+    Team afl(String key) =>
+        Team(dbkey: key, name: key.toUpperCase(), league: League.afl);
 
     test('gameState transitions across time and scoring', () {
       final now = DateTime.now().toUtc();
@@ -218,8 +220,7 @@ void main() {
                 as String,
           ).toUtc();
           final end = DateTime.parse(
-            (raw['adminOverrideRoundEndDate'] ?? raw['roundEndDate'])
-                as String,
+            (raw['adminOverrideRoundEndDate'] ?? raw['roundEndDate']) as String,
           ).toUtc();
           if (!game.startTimeUTC.isBefore(start) &&
               !game.startTimeUTC.isAfter(end)) {
@@ -229,7 +230,12 @@ void main() {
         return matches;
       }
 
-      Game makeGame(String dbkey, DateTime kickoff, {int roundNum = 1, int matchNum = 1}) => Game(
+      Game makeGame(
+        String dbkey,
+        DateTime kickoff, {
+        int roundNum = 1,
+        int matchNum = 1,
+      }) => Game(
         dbkey: dbkey,
         league: League.nrl,
         homeTeam: nrl('nrl-a'),
@@ -268,7 +274,11 @@ void main() {
 
       // Demonstrate that old clients apply leftover adminOverrideRoundEndDate and
       // match TWO rounds for a game kicking off after R2 start.
-      final overlapGame = makeGame('nrl-02-001', DateTime.utc(2026, 3, 6, 11, 0), roundNum: 2);
+      final overlapGame = makeGame(
+        'nrl-02-001',
+        DateTime.utc(2026, 3, 6, 11, 0),
+        roundNum: 2,
+      );
       expect(oldInclusiveRoundsFromRawJson(overlapGame, rawRounds), [1, 2]);
 
       // Clear leftover adminOverrideRoundEndDate and recalculate roundEndDate.
@@ -276,7 +286,8 @@ void main() {
         raw.remove('adminOverrideRoundEndDate');
       }
       final rounds = [
-        for (var i = 0; i < rawRounds.length; i++) DAURound.fromJson(rawRounds[i], i + 1),
+        for (var i = 0; i < rawRounds.length; i++)
+          DAURound.fromJson(rawRounds[i], i + 1),
       ];
       final comp = DAUComp(
         name: '2026',
@@ -361,8 +372,16 @@ void main() {
         p1RawRounds[entry.key]['roundEndDate'] = entry.value;
       }
 
-      final movedGame = makeGame('nrl-01-002', DateTime.utc(2026, 4, 1, 20, 0), matchNum: 2);
-      final scoredGame = makeGame('nrl-01-001', DateTime.utc(2026, 4, 1, 18, 0), matchNum: 1);
+      final movedGame = makeGame(
+        'nrl-01-002',
+        DateTime.utc(2026, 4, 1, 20, 0),
+        matchNum: 2,
+      );
+      final scoredGame = makeGame(
+        'nrl-01-001',
+        DateTime.utc(2026, 4, 1, 18, 0),
+        matchNum: 1,
+      );
       expect(scoredGame.getDAURound(p1Comp)?.dAUroundNumber, 1);
       expect(oldInclusiveRoundsFromRawJson(scoredGame, p1RawRounds), [1]);
       expect(movedGame.getDAURound(p1Comp)?.dAUroundNumber, 2);
@@ -464,4 +483,3 @@ void main() {
     );
   });
 }
-

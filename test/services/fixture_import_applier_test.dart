@@ -182,7 +182,13 @@ void main() {
         ],
         const [],
         existingGames: existing,
-        now: DateTime.utc(2026, 6, 1, 9, 45), // exactly 15m before stored kickoff
+        now: DateTime.utc(
+          2026,
+          6,
+          1,
+          9,
+          45,
+        ), // exactly 15m before stored kickoff
         log: logs.add,
       );
       expect(frozenOps.single.attributes[dateUtcKey], '2026-06-01 10:00:00Z');
@@ -337,9 +343,7 @@ void main() {
           'HomeTeamScore': 20,
           'AwayTeamScore': 10,
         },
-        'nrl-01-002': <String, dynamic>{
-          'DateUtc': '2026-03-01 20:00:00Z',
-        },
+        'nrl-01-002': <String, dynamic>{'DateUtc': '2026-03-01 20:00:00Z'},
       };
 
       final changed = applier.recalculateRoundEndDates(
@@ -349,40 +353,46 @@ void main() {
       );
 
       expect(changed[0], '2026-03-01 18:59:59Z');
-      expect(rounds[0].lastGameKickOffUTC, DateTime.utc(2026, 3, 1, 18, 59, 59));
+      expect(
+        rounds[0].lastGameKickOffUTC,
+        DateTime.utc(2026, 3, 1, 18, 59, 59),
+      );
     });
 
-    test('keys returned changes by dAUroundNumber - 1 regardless of list order', () {
-      final round2 = DAURound(
-        dAUroundNumber: 2,
-        firstGameKickOffUTC: DateTime.utc(2026, 3, 8, 5, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
-      );
-      final round1 = DAURound(
-        dAUroundNumber: 1,
-        firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 5, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 12, 0),
-      );
-      final comp = DAUComp(
-        dbkey: 'c1',
-        name: 'Comp1',
-        aflFixtureJsonURL: Uri.parse('https://afl'),
-        nrlFixtureJsonURL: Uri.parse('https://nrl'),
-        daurounds: [round2, round1],
-      );
+    test(
+      'keys returned changes by dAUroundNumber - 1 regardless of list order',
+      () {
+        final round2 = DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 8, 5, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+        );
+        final round1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 5, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 12, 0),
+        );
+        final comp = DAUComp(
+          dbkey: 'c1',
+          name: 'Comp1',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: [round2, round1],
+        );
 
-      final changed = applier.recalculateRoundEndDates(
-        comp: comp,
-        gameUpdates: const [],
-        existingGames: <String, dynamic>{
-          'nrl-01-001': <String, dynamic>{'DateUtc': '2026-03-01 10:00:00Z'},
-          'nrl-02-001': <String, dynamic>{'DateUtc': '2026-03-08 10:00:00Z'},
-        },
-      );
+        final changed = applier.recalculateRoundEndDates(
+          comp: comp,
+          gameUpdates: const [],
+          existingGames: <String, dynamic>{
+            'nrl-01-001': <String, dynamic>{'DateUtc': '2026-03-01 10:00:00Z'},
+            'nrl-02-001': <String, dynamic>{'DateUtc': '2026-03-08 10:00:00Z'},
+          },
+        );
 
-      expect(changed.keys, containsAll([0, 1]));
-      expect(changed[0], '2026-03-01 13:00:00Z');
-      expect(changed[1], '2026-03-08 13:00:00Z');
-    });
+        expect(changed.keys, containsAll([0, 1]));
+        expect(changed[0], '2026-03-01 13:00:00Z');
+        expect(changed[1], '2026-03-08 13:00:00Z');
+      },
+    );
   });
 }

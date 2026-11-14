@@ -10,8 +10,10 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+
 class MockKickoffRefreshScheduler extends Mock
     implements KickoffRefreshScheduler {}
+
 class FakeDAURound extends Fake implements DAURound {}
 
 void main() {
@@ -200,46 +202,46 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       ).thenReturn(2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       ).thenReturn(3);
 
       expect(vm.currentRoundOutstandingTipsCount(), 5);
       verify(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round2,
-          League.nrl,
-        ),
+              round2,
+              League.nrl,
+            ),
       ).called(1);
       verify(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round2,
-          League.afl,
-        ),
+              round2,
+              League.afl,
+            ),
       ).called(1);
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round3,
-          League.nrl,
-        ),
+              round3,
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round3,
-          League.afl,
-        ),
+              round3,
+              League.afl,
+            ),
       );
     });
 
@@ -261,16 +263,16 @@ void main() {
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       );
     });
 
@@ -290,16 +292,16 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       ).thenReturn(-2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       ).thenReturn(-1);
 
       expect(vm.currentRoundOutstandingTipsCount(), 0);
@@ -327,16 +329,16 @@ void main() {
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       );
     });
 
@@ -365,25 +367,25 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          nextRound,
-          League.nrl,
-        ),
+              nextRound,
+              League.nrl,
+            ),
       ).thenReturn(2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          nextRound,
-          League.afl,
-        ),
+              nextRound,
+              League.afl,
+            ),
       ).thenReturn(3);
 
       expect(vm.appBadgeOutstandingTipsCount(now), 5);
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          previousRound,
-          League.nrl,
-        ),
+              previousRound,
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel

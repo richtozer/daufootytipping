@@ -31,11 +31,7 @@ class CombinedRoundsService {
         .map((e) {
           if (e.value.isEmpty) return null;
           final times = calculateStartEndTimes(e.value);
-          return {
-            'league-round': e.key,
-            'games': e.value,
-            ...times,
-          };
+          return {'league-round': e.key, 'games': e.value, ...times};
         })
         .where((group) => group != null)
         .toList()
@@ -69,7 +65,9 @@ class CombinedRoundsService {
 
         if (groupStartDate.isBefore(lastEndDate)) {
           // Note: behavior mirrors current implementation (subtract 1 day + 1 minute)
-          lastEndDate = groupEndDate.subtract(const Duration(days: 1, minutes: 1));
+          lastEndDate = groupEndDate.subtract(
+            const Duration(days: 1, minutes: 1),
+          );
           fixedGameGroups.last['maxStartTime'] = groupStartDate.subtract(
             const Duration(days: 1, minutes: 1),
           );
@@ -92,10 +90,10 @@ class CombinedRoundsService {
   ) {
     final combinedRounds = <DAURound>[];
     for (final group in sortedGameGroups) {
-      final DateTime groupMinStartTime =
-          (group['minStartTime'] as DateTime).toUtc();
-      final DateTime groupMaxStartTime =
-          (group['maxStartTime'] as DateTime).toUtc();
+      final DateTime groupMinStartTime = (group['minStartTime'] as DateTime)
+          .toUtc();
+      final DateTime groupMaxStartTime = (group['maxStartTime'] as DateTime)
+          .toUtc();
 
       if (combinedRounds.isEmpty) {
         combinedRounds.add(
@@ -145,8 +143,9 @@ class CombinedRoundsService {
     final groups = groupGamesByLeagueAndRound(
       rawGames.cast<Map<dynamic, dynamic>>(),
     );
-    final sorted = sortGameGroupsByStartTimeThenMatchNumber(groups)
-        .cast<Map<String, dynamic>>();
+    final sorted = sortGameGroupsByStartTimeThenMatchNumber(
+      groups,
+    ).cast<Map<String, dynamic>>();
     final fixed = fixOverlappingLeagueGameGroups(sorted);
     return combineGameGroupsIntoRounds(fixed);
   }

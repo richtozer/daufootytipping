@@ -95,44 +95,50 @@ void main() {
       );
     });
 
-    test('editing only the name skips fixture download and returns save message', () async {
-      final repo = _FakeDauCompsRepository();
-      var downloadCalled = false;
-      final vm = DAUCompsViewModel(
-        null,
-        true,
-        skipInit: true,
-        repo: repo,
-        networkFixtureDownloader: (_) async {
-          downloadCalled = true;
-          return 'should not run';
-        },
-      );
-      vm.completeInitialDAUCompLoadForTest();
+    test(
+      'editing only the name skips fixture download and returns save message',
+      () async {
+        final repo = _FakeDauCompsRepository();
+        var downloadCalled = false;
+        final vm = DAUCompsViewModel(
+          null,
+          true,
+          skipInit: true,
+          repo: repo,
+          networkFixtureDownloader: (_) async {
+            downloadCalled = true;
+            return 'should not run';
+          },
+        );
+        vm.completeInitialDAUCompLoadForTest();
 
-      final existingComp = DAUComp(
-        dbkey: 'comp-2026',
-        name: 'Old Name',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
-        daurounds: const [],
-      );
+        final existingComp = DAUComp(
+          dbkey: 'comp-2026',
+          name: 'Old Name',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
+          daurounds: const [],
+        );
 
-      final result = await vm.processAndSaveDauComp(
-        name: 'New Name',
-        aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
-        nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
-        nrlRegularCompEndDateString: null,
-        aflRegularCompEndDateString: null,
-        existingComp: existingComp,
-        currentRounds: const [],
-      );
+        final result = await vm.processAndSaveDauComp(
+          name: 'New Name',
+          aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
+          nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
+          nrlRegularCompEndDateString: null,
+          aflRegularCompEndDateString: null,
+          existingComp: existingComp,
+          currentRounds: const [],
+        );
 
-      expect(result['success'], isTrue);
-      expect(result['message'], 'DAUComp record saved');
-      expect(downloadCalled, isFalse);
-      expect(repo.capturedUpdates?['/AllDAUComps/comp-2026/name'], 'New Name');
-    });
+        expect(result['success'], isTrue);
+        expect(result['message'], 'DAUComp record saved');
+        expect(downloadCalled, isFalse);
+        expect(
+          repo.capturedUpdates?['/AllDAUComps/comp-2026/name'],
+          'New Name',
+        );
+      },
+    );
 
     test('reports failed post-save fixture download separately while preserving saved updates', () async {
       final repo = _FakeDauCompsRepository();
@@ -215,9 +221,8 @@ void main() {
         fixtureMatchNumber: 2,
         scoring: Scoring(homeTeamScore: 18, awayTeamScore: 12),
       );
-      when(() => mockGamesVm.getGames()).thenAnswer(
-        (_) async => [unscoredGame, scoredGame],
-      );
+      when(() => mockGamesVm.getGames())
+          .thenAnswer((_) async => [unscoredGame, scoredGame]);
 
       final round1 = DAURound(
         dAUroundNumber: 1,
@@ -258,7 +263,10 @@ void main() {
       );
 
       expect(startValidationFail['success'], isFalse);
-      expect(startValidationFail['message'], contains('scored game nrl-01-002'));
+      expect(
+        startValidationFail['message'],
+        contains('scored game nrl-01-002'),
+      );
       expect(repo.capturedUpdates, isNull);
       expect(downloadCalled, isFalse);
 
@@ -275,94 +283,98 @@ void main() {
       );
 
       expect(cutoffValidationFail['success'], isFalse);
-      expect(cutoffValidationFail['message'], contains('scored game nrl-01-002'));
+      expect(
+        cutoffValidationFail['message'],
+        contains('scored game nrl-01-002'),
+      );
       expect(repo.capturedUpdates, isNull);
       expect(downloadCalled, isFalse);
     });
 
     test(
-        'a comp with a scored finals game after its cutoff succeeds when saved '
-        'with cutoff unchanged and when cutoff moves later', () async {
-      final repo = _FakeDauCompsRepository();
-      final mockGamesVm = _MockGamesViewModel();
-      var downloadCalls = 0;
-      final vm = DAUCompsViewModel(
-        null,
-        true,
-        skipInit: true,
-        repo: repo,
-        networkFixtureDownloader: (_) async {
-          downloadCalls++;
-          return 'Download complete';
-        },
-      );
-      vm.gamesViewModel = mockGamesVm;
-      vm.completeInitialDAUCompLoadForTest();
+      'a comp with a scored finals game after its cutoff succeeds when saved '
+      'with cutoff unchanged and when cutoff moves later',
+      () async {
+        final repo = _FakeDauCompsRepository();
+        final mockGamesVm = _MockGamesViewModel();
+        var downloadCalls = 0;
+        final vm = DAUCompsViewModel(
+          null,
+          true,
+          skipInit: true,
+          repo: repo,
+          networkFixtureDownloader: (_) async {
+            downloadCalls++;
+            return 'Download complete';
+          },
+        );
+        vm.gamesViewModel = mockGamesVm;
+        vm.completeInitialDAUCompLoadForTest();
 
-      final nrlHome = Team(dbkey: 'nrl-h', name: 'H', league: League.nrl);
-      final nrlAway = Team(dbkey: 'nrl-a', name: 'A', league: League.nrl);
-      final scoredFinalsGame = Game(
-        dbkey: 'nrl-27-001',
-        league: League.nrl,
-        homeTeam: nrlHome,
-        awayTeam: nrlAway,
-        location: 'Stadium',
-        startTimeUTC: DateTime.utc(2026, 9, 5, 10, 0),
-        fixtureRoundNumber: 27,
-        fixtureMatchNumber: 1,
-        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 16),
-      );
-      when(() => mockGamesVm.getGames()).thenAnswer(
-        (_) async => [scoredFinalsGame],
-      );
+        final nrlHome = Team(dbkey: 'nrl-h', name: 'H', league: League.nrl);
+        final nrlAway = Team(dbkey: 'nrl-a', name: 'A', league: League.nrl);
+        final scoredFinalsGame = Game(
+          dbkey: 'nrl-27-001',
+          league: League.nrl,
+          homeTeam: nrlHome,
+          awayTeam: nrlAway,
+          location: 'Stadium',
+          startTimeUTC: DateTime.utc(2026, 9, 5, 10, 0),
+          fixtureRoundNumber: 27,
+          fixtureMatchNumber: 1,
+          scoring: Scoring(homeTeamScore: 24, awayTeamScore: 16),
+        );
+        when(() => mockGamesVm.getGames())
+            .thenAnswer((_) async => [scoredFinalsGame]);
 
-      final round1 = DAURound(
-        dAUroundNumber: 1,
-        firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 17, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 23, 0),
-      );
-      final existingComp = DAUComp(
-        dbkey: 'comp-2026',
-        name: 'Test Comp 2026',
-        aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
-        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
-        nrlRegularCompEndDateUTC: DateTime.parse('2026-08-31'),
-        daurounds: [round1],
-      );
-      when(() => mockGamesVm.selectedDAUComp).thenReturn(existingComp);
+        final round1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 17, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 23, 0),
+        );
+        final existingComp = DAUComp(
+          dbkey: 'comp-2026',
+          name: 'Test Comp 2026',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
+          nrlRegularCompEndDateUTC: DateTime.parse('2026-08-31'),
+          daurounds: [round1],
+        );
+        when(() => mockGamesVm.selectedDAUComp).thenReturn(existingComp);
 
-      // 1) Save with cutoff unchanged (e.g. a comp rename).
-      final unchangedSave = await vm.processAndSaveDauComp(
-        name: 'Renamed 2026 Comp',
-        aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
-        nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
-        nrlRegularCompEndDateString: '2026-08-31',
-        aflRegularCompEndDateString: null,
-        existingComp: existingComp,
-        currentRounds: [round1],
-        initialRoundStartOverrides: const {1: null},
-      );
+        // 1) Save with cutoff unchanged (e.g. a comp rename).
+        final unchangedSave = await vm.processAndSaveDauComp(
+          name: 'Renamed 2026 Comp',
+          aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
+          nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
+          nrlRegularCompEndDateString: '2026-08-31',
+          aflRegularCompEndDateString: null,
+          existingComp: existingComp,
+          currentRounds: [round1],
+          initialRoundStartOverrides: const {1: null},
+        );
 
-      expect(unchangedSave['success'], isTrue);
-      expect(repo.capturedUpdates, isNotNull);
-      expect(downloadCalls, 0);
+        expect(unchangedSave['success'], isTrue);
+        expect(repo.capturedUpdates, isNotNull);
+        expect(downloadCalls, 0);
 
-      // 2) Move NRL cutoff later, even though scoredFinalsGame is after it.
-      repo.capturedUpdates = null;
-      final movedLaterSave = await vm.processAndSaveDauComp(
-        name: existingComp.name,
-        aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
-        nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
-        nrlRegularCompEndDateString: '2026-09-15',
-        aflRegularCompEndDateString: null,
-        existingComp: existingComp,
-        currentRounds: [round1],
-        initialRoundStartOverrides: const {1: null},
-      );
+        // 2) Move NRL cutoff later, even though scoredFinalsGame is after it.
+        repo.capturedUpdates = null;
+        final movedLaterSave = await vm.processAndSaveDauComp(
+          name: existingComp.name,
+          aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
+          nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
+          nrlRegularCompEndDateString: '2026-09-15',
+          aflRegularCompEndDateString: null,
+          existingComp: existingComp,
+          currentRounds: [round1],
+          initialRoundStartOverrides: const {1: null},
+        );
 
-      expect(movedLaterSave['success'], isTrue);
-      expect(repo.capturedUpdates, isNotNull);
-      expect(downloadCalls, 1);
-    });
+        expect(movedLaterSave['success'], isTrue);
+        expect(repo.capturedUpdates, isNotNull);
+        expect(downloadCalls, 1);
+      },
+    );
   });
 }
