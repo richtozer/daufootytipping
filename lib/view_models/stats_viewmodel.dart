@@ -726,7 +726,8 @@ class StatsViewModel extends ChangeNotifier {
         .child(_gameStatsReadRoot)
         .child(subKey)
         .child(game.dbkey);
-    final snapshot = await gameStatsReference.get();
+    // The cohort's stats are listened to, so read the game's with readOnce.
+    final snapshot = await readOnce(gameStatsReference);
 
     return _gameStatsEntryFromSnapshot(snapshot);
   }

@@ -48,20 +48,10 @@ class DatabaseIdentityReads implements IdentityReads {
 
   final DatabaseReference Function(String path) _refFor;
 
-  /// Reads with a one-off listener, not `get()`: on iOS, while the app listens on
-  /// a parent (the tipper list, or an administrator's private records), `get()`
-  /// on a child answered with the whole parent collection. A snapshot of any
-  /// other path is refused, so it is never taken for the record asked for.
-  Future<Object?> _value(String path) async {
-    final DataSnapshot snapshot = (await _refFor(path).once()).snapshot;
-    final String expectedKey = path.split('/').last;
-    if (snapshot.key != expectedKey) {
-      throw StateError(
-        'Read of $expectedKey answered with ${snapshot.key ?? 'the root'}',
-      );
-    }
-    return snapshot.value;
-  }
+  /// The app listens on the parents of these records (the tipper list, and an
+  /// administrator's private records), so they are read with [readOnce].
+  Future<Object?> _value(String path) async =>
+      (await readOnce(_refFor(path))).value;
 
   Map<String, dynamic>? _record(Object? value) =>
       value is Map ? Map<String, dynamic>.from(value) : null;

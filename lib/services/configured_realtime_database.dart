@@ -39,6 +39,23 @@ DatabaseReference configuredDatabaseRef([String? path]) {
   return path == null ? database.ref() : database.ref(path);
 }
 
+/// Reads [reference] once, as a listener on it would see it.
+///
+/// Use this, not `get()`, to read under a path the app may be listening to: on
+/// iOS, while a listener was active on a parent, `get()` on a child answered with
+/// the whole parent. A snapshot of any other path is refused with a
+/// [StateError], so it is never taken for the value asked for.
+Future<DataSnapshot> readOnce(DatabaseReference reference) async {
+  final DataSnapshot snapshot = (await reference.once()).snapshot;
+  if (snapshot.key != reference.key) {
+    throw StateError(
+      'Read of ${reference.key ?? 'the root'} answered with '
+      '${snapshot.key ?? 'the root'}',
+    );
+  }
+  return snapshot;
+}
+
 /// Whether the database has a live connection to the server, as it changes: true
 /// or false, or null if the database reports something else.
 Stream<bool?> realtimeDatabaseConnectionStates([FirebaseDatabase? database]) {

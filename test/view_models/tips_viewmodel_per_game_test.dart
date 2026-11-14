@@ -38,12 +38,10 @@ class _FakeEvent extends Fake implements DatabaseEvent {
   final DataSnapshot snapshot;
 }
 
-DataSnapshot _snapshot(Object? value) => _FakeSnapshot(value);
-
 DatabaseEvent _event(Object? value) => _FakeEvent(value);
 
 /// A database that records which paths were listened to and lets a test push an
-/// event, an error, or a one-off read to any of them.
+/// event or an error to any of them.
 class _FakeTipsDatabase {
   _FakeTipsDatabase() {
     when(() => root.child(any())).thenAnswer((invocation) {
@@ -55,7 +53,6 @@ class _FakeTipsDatabase {
       );
       final ref = _MockDatabaseReference();
       when(() => ref.onValue).thenAnswer((_) => controller.stream);
-      when(() => ref.get()).thenAnswer((_) async => _snapshot(reads[path]));
       return ref;
     });
   }
@@ -63,7 +60,6 @@ class _FakeTipsDatabase {
   final root = _MockDatabaseReference();
   final requestedPaths = <String>[];
   final controllers = <String, StreamController<DatabaseEvent>>{};
-  final reads = <String, Object?>{};
 
   Future<void> emit(String path, Object? value) async {
     await Future<void>.delayed(Duration.zero); // wait for the auth event
@@ -109,7 +105,8 @@ void main() {
     comp,
     games,
     tipper,
-    signedIn: signedIn ?? () => Stream.value(true), database: database.root,
+    signedIn: signedIn ?? () => Stream.value(true),
+    database: database.root,
     gameReadRetryDelay: retryDelay,
   );
 
@@ -138,26 +135,33 @@ void main() {
   });
 
   group('per-game tips (the only reads R2 allows for another tipper)', () {
-    test('whole-tipper listener also closes and reopens with the session', () async {
-      final auth = StreamController<bool>.broadcast();
-      final tips = TipsViewModel.forTipper(
-        _MockTippersViewModel(), comp, games, tipper,
-        database: database.root, signedIn: () => auth.stream,
-      );
-      final path = '${p.tipsPathRoot}/${comp.dbkey}/${tipper.dbkey}';
-      expect(database.requestedPaths, isEmpty);
-      auth.add(true);
-      await database.emit(path, null);
-      await tips.initialLoadCompleted;
-      auth.add(false);
-      await Future<void>.delayed(Duration.zero);
-      expect(database.controllers[path]!.hasListener, isFalse);
-      auth.add(true);
-      await database.emit(path, null);
-      expect(database.requestedPaths, [path, path]);
-      tips.dispose();
-      await auth.close();
-    });
+    test(
+      'whole-tipper listener also closes and reopens with the session',
+      () async {
+        final auth = StreamController<bool>.broadcast();
+        final tips = TipsViewModel.forTipper(
+          _MockTippersViewModel(),
+          comp,
+          games,
+          tipper,
+          database: database.root,
+          signedIn: () => auth.stream,
+        );
+        final path = '${p.tipsPathRoot}/${comp.dbkey}/${tipper.dbkey}';
+        expect(database.requestedPaths, isEmpty);
+        auth.add(true);
+        await database.emit(path, null);
+        await tips.initialLoadCompleted;
+        auth.add(false);
+        await Future<void>.delayed(Duration.zero);
+        expect(database.controllers[path]!.hasListener, isFalse);
+        auth.add(true);
+        await database.emit(path, null);
+        expect(database.requestedPaths, [path, path]);
+        tips.dispose();
+        await auth.close();
+      },
+    );
     test('closes on sign-out and reopens after the next sign-in', () async {
       final auth = StreamController<bool>.broadcast();
       final tips = build(signedIn: () => auth.stream);
@@ -297,28 +301,6 @@ void main() {
       },
     );
 
-    test(
-      'a refresh reads each watched game once, still one game at a time',
-      () async {
-        final tips = build();
-        addTearDown(tips.dispose);
-        final loaded = tips.watchGames([started]);
-        await database.emit(tipPath(started), null);
-        await loaded;
-        when(() => games.findGame(started.dbkey))
-            .thenAnswer((_) async => started);
-        database.reads[tipPath(started)] = {'r': 'c', 't': 1700000000};
-
-        await tips.refreshFromServer();
-
-        expect((await tips.findTip(started, tipper))?.tip.name, 'c');
-        expect(
-          database.requestedPaths.every((path) => path == tipPath(started)),
-          isTrue,
-        );
-      },
-    );
-
     test('says what was submitted, and null for a game never tipped', () async {
       final tips = build();
       addTearDown(tips.dispose);
@@ -446,7 +428,8 @@ void main() {
         comp,
         games,
         tipper,
-        signedIn: () => Stream.value(true), database: database.root,
+        signedIn: () => Stream.value(true),
+        database: database.root,
         listenToTips: false,
       );
       addTearDown(tips.dispose);

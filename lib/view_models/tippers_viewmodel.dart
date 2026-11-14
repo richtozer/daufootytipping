@@ -476,10 +476,6 @@ class TippersViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshFromServer() async {
-    await _applyTippersSnapshot(await _db.child(p.tippersPath).get());
-  }
-
   /// Sets the authenticated tipper immediately after lookup, before the
   /// background DB metadata update completes, so the UI can navigate to
   /// [HomePage] without blocking on Firebase writes.

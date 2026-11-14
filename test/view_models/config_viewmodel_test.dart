@@ -138,7 +138,8 @@ void main() {
       final snapshot = MockDataSnapshot();
       when(() => mockDb.child(p.adminScoringRescoreURLKey))
           .thenReturn(childReference);
-      when(() => childReference.get()).thenAnswer((_) async => snapshot);
+      when(() => childReference.once())
+          .thenAnswer((_) async => _databaseEvent(snapshot));
       when(() => snapshot.value)
           .thenReturn('https://admin-scoring-rescore.example.com');
       final viewModel = ConfigViewModel(
@@ -150,7 +151,7 @@ void main() {
 
       expect(value, 'https://admin-scoring-rescore.example.com');
       expect(viewModel.adminScoringRescoreURL, value);
-      verify(() => childReference.get()).called(1);
+      verify(() => childReference.once()).called(1);
 
       viewModel.dispose();
     },
@@ -161,7 +162,8 @@ void main() {
     final snapshot = MockDataSnapshot();
     when(() => mockDb.child(p.adminCheckFixtureUrlURLKey))
         .thenReturn(childReference);
-    when(() => childReference.get()).thenAnswer((_) async => snapshot);
+    when(() => childReference.once())
+        .thenAnswer((_) async => _databaseEvent(snapshot));
     when(() => snapshot.value)
         .thenReturn('https://admin-check-fixture-url.example.com');
     final viewModel = ConfigViewModel(
@@ -173,7 +175,35 @@ void main() {
 
     expect(value, 'https://admin-check-fixture-url.example.com');
     expect(viewModel.adminCheckFixtureUrlURL, value);
-    verify(() => childReference.get()).called(1);
+    verify(() => childReference.once()).called(1);
+
+    viewModel.dispose();
+  });
+
+  test('loads the rescore URL itself while AppConfig is listened to', () async {
+    // On iOS, get() on a child of a listened path answered with the whole
+    // parent; a listener on the child itself saw the right value.
+    const rescoreURL = 'https://admin-scoring-rescore.example.com';
+    final childReference = MockDatabaseReference();
+    when(() => mockDb.child(p.adminScoringRescoreURLKey))
+        .thenReturn(childReference);
+    when(() => childReference.key).thenReturn(p.adminScoringRescoreURLKey);
+    final wholeConfig = MockDataSnapshot();
+    when(() => wholeConfig.key).thenReturn('AppConfig');
+    when(() => wholeConfig.value)
+        .thenReturn(<String, Object?>{p.adminScoringRescoreURLKey: rescoreURL});
+    when(() => childReference.get()).thenAnswer((_) async => wholeConfig);
+    final ownValue = MockDataSnapshot();
+    when(() => ownValue.key).thenReturn(p.adminScoringRescoreURLKey);
+    when(() => ownValue.value).thenReturn(rescoreURL);
+    when(() => childReference.once())
+        .thenAnswer((_) async => _databaseEvent(ownValue));
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    expect(await viewModel.loadAdminScoringRescoreURL(), rescoreURL);
 
     viewModel.dispose();
   });

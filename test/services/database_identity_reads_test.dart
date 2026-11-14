@@ -31,6 +31,7 @@ DatabaseReference _listenedChild({
   required String childKey,
 }) {
   final reference = _MockReference();
+  when(() => reference.key).thenReturn(childKey);
   when(reference.get).thenAnswer((_) async => _snapshot(parentKey, collection));
   when(
     reference.once,
@@ -72,6 +73,7 @@ void main() {
 
   test('refuses a snapshot of another path rather than reading it', () async {
     final reference = _MockReference();
+    when(() => reference.key).thenReturn('demo-daisy');
     when(reference.get)
         .thenAnswer((_) async => _snapshot('TipperPrivate', collection));
     when(

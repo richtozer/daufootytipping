@@ -21,6 +21,8 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+
 class MockGamesViewModel extends Mock implements GamesViewModel {}
 
 class MockTippersViewModel extends Mock implements TippersViewModel {}
@@ -85,7 +87,7 @@ void main() {
 
   test('tracks and deduplicates an in-flight game stats read', () async {
     final readStarted = Completer<void>();
-    final readResult = Completer<DataSnapshot>();
+    final readResult = Completer<DatabaseEvent>();
     final listenersNotified = Completer<void>();
     final viewModel = StatsViewModel(
       comp,
@@ -98,7 +100,7 @@ void main() {
         listenersNotified.complete();
       }
     });
-    when(() => database.get()).thenAnswer((_) {
+    when(() => database.once()).thenAnswer((_) {
       if (!readStarted.isCompleted) {
         readStarted.complete();
       }
@@ -113,119 +115,100 @@ void main() {
     viewModel.getGamesStatsEntry(game, false);
     viewModel.getGamesStatsEntry(game, false);
 
-    expect(
-      viewModel.gameStatsLoadStateFor(game),
-      GameStatsLoadState.loading,
-    );
+    expect(viewModel.gameStatsLoadStateFor(game), GameStatsLoadState.loading);
     await readStarted.future;
-    verify(() => database.get()).called(1);
+    verify(() => database.once()).called(1);
 
-    readResult.complete(_snapshot(exists: false, value: null));
+    readResult.complete(_event(exists: false, value: null));
     await listenersNotified.future;
 
-    expect(
-      viewModel.gameStatsLoadStateFor(game),
-      GameStatsLoadState.resolved,
-    );
+    expect(viewModel.gameStatsLoadStateFor(game), GameStatsLoadState.resolved);
     expect(viewModel.gameStatsEntryFor(game), isNull);
 
     viewModel.dispose();
   });
 
-  test(
-    'getGamesStatsEntry swallows transient database disconnects',
-    () async {
-      final readAttempted = Completer<void>();
-      final uncaughtErrors = <Object>[];
-      final viewModel = StatsViewModel(
-        comp,
-        null,
-        database: database,
-        autoInitialize: false,
-        gameStatsRetryDelays: const [],
-      );
+  test('getGamesStatsEntry swallows transient database disconnects', () async {
+    final readAttempted = Completer<void>();
+    final uncaughtErrors = <Object>[];
+    final viewModel = StatsViewModel(
+      comp,
+      null,
+      database: database,
+      autoInitialize: false,
+      gameStatsRetryDelays: const [],
+    );
 
-      when(() => database.get()).thenAnswer((_) async {
-        readAttempted.complete();
+    when(() => database.once()).thenAnswer((_) async {
+      readAttempted.complete();
+      throw FirebaseException(
+        plugin: 'firebase_database',
+        code: 'disconnected',
+        message: 'The operation had to be aborted due to a network disconnect.',
+      );
+    });
+
+    await runZonedGuarded(() async {
+      viewModel.getGamesStatsEntry(game, false);
+      await readAttempted.future;
+      await Future<void>.delayed(Duration.zero);
+    }, (error, _) => uncaughtErrors.add(error));
+
+    expect(uncaughtErrors, isEmpty);
+    expect(viewModel.gamesStatsEntry, isEmpty);
+    verify(() => database.once()).called(1);
+
+    viewModel.dispose();
+  });
+
+  test('getGamesStatsEntry retries a transient startup disconnect', () async {
+    final listenersNotified = Completer<void>();
+    final viewModel = StatsViewModel(
+      comp,
+      null,
+      database: database,
+      autoInitialize: false,
+      gameStatsRetryDelays: const [Duration.zero],
+    );
+    viewModel.addListener(() {
+      if (!listenersNotified.isCompleted) {
+        listenersNotified.complete();
+      }
+    });
+    var readCount = 0;
+
+    when(() => database.once()).thenAnswer((_) async {
+      readCount++;
+      if (readCount == 1) {
         throw FirebaseException(
           plugin: 'firebase_database',
           code: 'disconnected',
           message:
               'The operation had to be aborted due to a network disconnect.',
         );
-      });
-
-      await runZonedGuarded(
-        () async {
-          viewModel.getGamesStatsEntry(game, false);
-          await readAttempted.future;
-          await Future<void>.delayed(Duration.zero);
+      }
+      return _event(
+        exists: true,
+        value: <String, Object?>{
+          'pctTipA': 0.035,
+          'pctTipB': 0.772,
+          'pctTipC': 0.0,
+          'pctTipD': 0.193,
+          'pctTipE': 0.0,
+          'avgScore': 0.0,
+          'avgScoreTipCount': 1,
         },
-        (error, _) => uncaughtErrors.add(error),
       );
+    });
 
-      expect(uncaughtErrors, isEmpty);
-      expect(viewModel.gamesStatsEntry, isEmpty);
-      verify(() => database.get()).called(1);
+    viewModel.getGamesStatsEntry(game, false);
+    await listenersNotified.future;
 
-      viewModel.dispose();
-    },
-  );
+    expect(viewModel.gameStatsEntryFor(game)?.percentageTippedHome, 0.772);
+    verify(() => database.once()).called(2);
 
-  test(
-    'getGamesStatsEntry retries a transient startup disconnect',
-    () async {
-      final listenersNotified = Completer<void>();
-      final viewModel = StatsViewModel(
-        comp,
-        null,
-        database: database,
-        autoInitialize: false,
-        gameStatsRetryDelays: const [Duration.zero],
-      );
-      viewModel.addListener(() {
-        if (!listenersNotified.isCompleted) {
-          listenersNotified.complete();
-        }
-      });
-      var readCount = 0;
-
-      when(() => database.get()).thenAnswer((_) async {
-        readCount++;
-        if (readCount == 1) {
-          throw FirebaseException(
-            plugin: 'firebase_database',
-            code: 'disconnected',
-            message:
-                'The operation had to be aborted due to a network disconnect.',
-          );
-        }
-        return _snapshot(
-          exists: true,
-          value: <String, Object?>{
-            'pctTipA': 0.035,
-            'pctTipB': 0.772,
-            'pctTipC': 0.0,
-            'pctTipD': 0.193,
-            'pctTipE': 0.0,
-            'avgScore': 0.0,
-            'avgScoreTipCount': 1,
-          },
-        );
-      });
-
-      viewModel.getGamesStatsEntry(game, false);
-      await listenersNotified.future;
-
-      expect(
-        viewModel.gameStatsEntryFor(game)?.percentageTippedHome,
-        0.772,
-      );
-      verify(() => database.get()).called(2);
-
-      viewModel.dispose();
-    },
-  );
+    viewModel.dispose();
+  });
 
   test(
     'getGamesStatsEntry refreshes App Check and retries permission denial',
@@ -249,7 +232,7 @@ void main() {
       });
       var readCount = 0;
 
-      when(() => database.get()).thenAnswer((_) async {
+      when(() => database.once()).thenAnswer((_) async {
         readCount += 1;
         if (readCount == 1) {
           throw FirebaseException(
@@ -258,7 +241,7 @@ void main() {
             message: 'App Check token rejected.',
           );
         }
-        return _snapshot(
+        return _event(
           exists: true,
           value: <String, Object?>{
             'pctTipA': 0.035,
@@ -276,11 +259,8 @@ void main() {
       await listenersNotified.future;
 
       expect(protectedResourceRefreshes, 1);
-      expect(
-        viewModel.gameStatsEntryFor(game)?.percentageTippedHome,
-        0.772,
-      );
-      verify(() => database.get()).called(2);
+      expect(viewModel.gameStatsEntryFor(game)?.percentageTippedHome, 0.772);
+      verify(() => database.once()).called(2);
 
       viewModel.dispose();
     },
@@ -308,9 +288,9 @@ void main() {
         autoInitialize: false,
       );
 
-      when(() => database.get()).thenAnswer((_) async {
+      when(() => database.once()).thenAnswer((_) async {
         staleZeroRead.complete();
-        return _snapshot(
+        return _event(
           exists: true,
           value: <String, Object?>{
             'pctTipA': 0.0,
@@ -336,130 +316,118 @@ void main() {
     },
   );
 
-  test(
-    'getGamesStatsEntry trusts finalized stats while tipper count is unavailable',
-    () async {
-      final readAttempted = Completer<void>();
-      final listenersNotified = Completer<void>();
-      final completedGame = Game(
-        dbkey: 'afl-10-082',
+  test('getGamesStatsEntry trusts finalized stats while tipper count is unavailable', () async {
+    final readAttempted = Completer<void>();
+    final listenersNotified = Completer<void>();
+    final completedGame = Game(
+      dbkey: 'afl-10-082',
+      league: League.afl,
+      homeTeam: Team(
+        dbkey: 'afl-Brisbane Lions',
+        name: 'Lions',
         league: League.afl,
-        homeTeam: Team(
-          dbkey: 'afl-Brisbane Lions',
-          name: 'Lions',
-          league: League.afl,
-        ),
-        awayTeam: Team(
-          dbkey: 'afl-Geelong Cats',
-          name: 'Cats',
-          league: League.afl,
-        ),
-        location: 'Gabba',
-        startTimeUTC: DateTime.utc(2026, 5, 14, 9, 30),
-        fixtureRoundNumber: 10,
-        fixtureMatchNumber: 82,
-        scoring: Scoring(homeTeamScore: 76, awayTeamScore: 117),
+      ),
+      awayTeam: Team(
+        dbkey: 'afl-Geelong Cats',
+        name: 'Cats',
+        league: League.afl,
+      ),
+      location: 'Gabba',
+      startTimeUTC: DateTime.utc(2026, 5, 14, 9, 30),
+      fixtureRoundNumber: 10,
+      fixtureMatchNumber: 82,
+      scoring: Scoring(homeTeamScore: 76, awayTeamScore: 117),
+    );
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+    );
+    viewModel.addListener(() {
+      if (!listenersNotified.isCompleted) {
+        listenersNotified.complete();
+      }
+    });
+
+    when(() => tippersViewModel.tippers).thenReturn(<Tipper>[]);
+    when(() => database.once()).thenAnswer((_) async {
+      readAttempted.complete();
+      return _event(
+        exists: true,
+        value: <String, Object?>{
+          'pctTipA': 0.018,
+          'pctTipB': 0.895,
+          'pctTipC': 0.0,
+          'pctTipD': 0.088,
+          'pctTipE': 0.0,
+          'avgScore': 0.0,
+          'avgScoreTipCount': 57,
+        },
       );
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: database,
-        autoInitialize: false,
-      );
-      viewModel.addListener(() {
-        if (!listenersNotified.isCompleted) {
-          listenersNotified.complete();
-        }
-      });
+    });
 
-      when(() => tippersViewModel.tippers).thenReturn(<Tipper>[]);
-      when(() => database.get()).thenAnswer((_) async {
-        readAttempted.complete();
-        return _snapshot(
-          exists: true,
-          value: <String, Object?>{
-            'pctTipA': 0.018,
-            'pctTipB': 0.895,
-            'pctTipC': 0.0,
-            'pctTipD': 0.088,
-            'pctTipE': 0.0,
-            'avgScore': 0.0,
-            'avgScoreTipCount': 57,
-          },
-        );
-      });
+    viewModel.getGamesStatsEntry(completedGame, false);
 
-      viewModel.getGamesStatsEntry(completedGame, false);
+    await readAttempted.future;
+    await listenersNotified.future;
 
-      await readAttempted.future;
-      await listenersNotified.future;
+    expect(viewModel.gameStatsEntryFor(completedGame)?.averagePoints, 0.0);
+    expect(
+      viewModel.gameStatsEntryFor(completedGame)?.averagePointsTipCount,
+      57,
+    );
+    verifyNever(() => database.runTransaction(any()));
 
-      expect(
-        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
-        0.0,
-      );
-      expect(
-        viewModel.gameStatsEntryFor(completedGame)?.averagePointsTipCount,
-        57,
-      );
-      verifyNever(() => database.runTransaction(any()));
+    viewModel.dispose();
+  });
 
-      viewModel.dispose();
-    },
-  );
+  test('getGamesStatsEntry does not remove listener-loaded stats after a missing passive read', () async {
+    final readStarted = Completer<void>();
+    final completeRead = Completer<DatabaseEvent>();
+    final completedGame = Game(
+      dbkey: game.dbkey,
+      league: game.league,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: DateTime.utc(2024, 4, 1, 12),
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
+    );
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+    );
 
-  test(
-    'getGamesStatsEntry does not remove listener-loaded stats after a missing passive read',
-    () async {
-      final readStarted = Completer<void>();
-      final completeRead = Completer<DataSnapshot>();
-      final completedGame = Game(
-        dbkey: game.dbkey,
-        league: game.league,
-        homeTeam: game.homeTeam,
-        awayTeam: game.awayTeam,
-        location: game.location,
-        startTimeUTC: DateTime.utc(2024, 4, 1, 12),
-        fixtureRoundNumber: game.fixtureRoundNumber,
-        fixtureMatchNumber: game.fixtureMatchNumber,
-        scoring: Scoring(homeTeamScore: 20, awayTeamScore: 10),
-      );
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: database,
-        autoInitialize: false,
-      );
+    when(() => database.once()).thenAnswer((_) async {
+      readStarted.complete();
+      return completeRead.future;
+    });
 
-      when(() => database.get()).thenAnswer((_) async {
-        readStarted.complete();
-        return completeRead.future;
-      });
+    viewModel.getGamesStatsEntry(completedGame, false);
 
-      viewModel.getGamesStatsEntry(completedGame, false);
+    await readStarted.future;
+    viewModel.gamesStatsEntry[completedGame.dbkey] = GameStatsEntry(
+      percentageTippedHomeMargin: 0,
+      percentageTippedHome: 1,
+      percentageTippedDraw: 0,
+      percentageTippedAway: 0,
+      percentageTippedAwayMargin: 0,
+      averagePoints: 1.25,
+      averagePointsTipCount: 1,
+    );
+    completeRead.complete(_event(exists: false, value: null));
+    await Future<void>.delayed(Duration.zero);
 
-      await readStarted.future;
-      viewModel.gamesStatsEntry[completedGame.dbkey] = GameStatsEntry(
-        percentageTippedHomeMargin: 0,
-        percentageTippedHome: 1,
-        percentageTippedDraw: 0,
-        percentageTippedAway: 0,
-        percentageTippedAwayMargin: 0,
-        averagePoints: 1.25,
-        averagePointsTipCount: 1,
-      );
-      completeRead.complete(_snapshot(exists: false, value: null));
-      await Future<void>.delayed(Duration.zero);
+    expect(viewModel.gameStatsEntryFor(completedGame)?.averagePoints, 1.25);
+    verifyNever(() => database.runTransaction(any()));
 
-      expect(
-        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
-        1.25,
-      );
-      verifyNever(() => database.runTransaction(any()));
-
-      viewModel.dispose();
-    },
-  );
+    viewModel.dispose();
+  });
 
   test(
     'getGamesStatsEntry forceUpdate re-reads backend stats and replaces cache',
@@ -487,9 +455,9 @@ void main() {
         }
       });
 
-      when(() => database.get()).thenAnswer((_) async {
+      when(() => database.once()).thenAnswer((_) async {
         readAttempted.complete();
-        return _snapshot(
+        return _event(
           exists: true,
           value: <String, Object?>{
             'pctTipA': 0.0,
@@ -510,7 +478,7 @@ void main() {
 
       expect(viewModel.gameStatsEntryFor(game)?.averagePoints, 2.0);
       expect(viewModel.gameStatsEntryFor(game)?.averagePointsTipCount, 2);
-      verify(() => database.get()).called(1);
+      verify(() => database.once()).called(1);
       verifyNever(() => database.runTransaction(any()));
 
       viewModel.dispose();
@@ -545,9 +513,9 @@ void main() {
         }
       });
 
-      when(() => database.get()).thenAnswer((_) async {
+      when(() => database.once()).thenAnswer((_) async {
         readAttempted.complete();
-        return _snapshot(
+        return _event(
           exists: true,
           value: <String, Object?>{
             'pctTipA': 0.0,
@@ -566,10 +534,7 @@ void main() {
       await readAttempted.future;
       await listenersNotified.future;
 
-      expect(
-        viewModel.gameStatsEntryFor(completedGame)?.averagePoints,
-        0.0,
-      );
+      expect(viewModel.gameStatsEntryFor(completedGame)?.averagePoints, 0.0);
       verifyNever(() => database.runTransaction(any()));
 
       viewModel.dispose();
@@ -584,8 +549,8 @@ void main() {
       autoInitialize: false,
     );
     viewModel.gamesStatsEntry[game.dbkey] = GameStatsEntry();
-    when(() => database.get()).thenAnswer(
-      (_) async => _snapshot(
+    when(() => database.once()).thenAnswer(
+      (_) async => _event(
         exists: true,
         value: <String, Object?>{
           'pctTipA': 0.035,
@@ -613,18 +578,67 @@ void main() {
     expect(repaired?.percentageTippedHome, 0.772);
     expect(repaired?.averagePoints, 1.25);
     expect(viewModel.gameStatsEntryFor(game), same(repaired));
-    verify(() => database.get()).called(1);
+    verify(() => database.once()).called(1);
+
+    viewModel.dispose();
+  });
+
+  test('reads the game\'s own stats while the cohort is listened to', () async {
+    // On iOS, get() on a child of a listened path answered with the whole
+    // parent; a listener on the child itself saw the right record.
+    const gameStats = <String, Object?>{
+      'pctTipA': 0.035,
+      'pctTipB': 0.772,
+      'pctTipC': 0.0,
+      'pctTipD': 0.193,
+      'pctTipE': 0.0,
+      'avgScore': 0.0,
+      'avgScoreTipCount': 1,
+    };
+    final listenersNotified = Completer<void>();
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      database: database,
+      autoInitialize: false,
+    );
+    viewModel.addListener(() {
+      if (!listenersNotified.isCompleted) {
+        listenersNotified.complete();
+      }
+    });
+    when(() => database.key).thenReturn(game.dbkey);
+    final wholeCohort = _snapshot(
+      exists: true,
+      value: <String, Object?>{game.dbkey: gameStats, 'nrl-01-002': gameStats},
+    );
+    when(() => wholeCohort.key).thenReturn('paid');
+    when(() => database.get()).thenAnswer((_) async => wholeCohort);
+    final ownStats = _snapshot(exists: true, value: gameStats);
+    when(() => ownStats.key).thenReturn(game.dbkey);
+    final event = MockDatabaseEvent();
+    when(() => event.snapshot).thenReturn(ownStats);
+    when(() => database.once()).thenAnswer((_) async => event);
+
+    viewModel.getGamesStatsEntry(game, false);
+    await listenersNotified.future;
+
+    expect(viewModel.gameStatsEntryFor(game)?.percentageTippedHome, 0.772);
 
     viewModel.dispose();
   });
 }
 
-MockDataSnapshot _snapshot({
-  required bool exists,
-  required Object? value,
-}) {
+MockDataSnapshot _snapshot({required bool exists, required Object? value}) {
   final snapshot = MockDataSnapshot();
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);
   return snapshot;
+}
+
+MockDatabaseEvent _event({required bool exists, required Object? value}) {
+  final event = MockDatabaseEvent();
+  final snapshot = _snapshot(exists: exists, value: value);
+  when(() => event.snapshot).thenReturn(snapshot);
+  return event;
 }

@@ -64,7 +64,8 @@ class ConfigViewModel extends ChangeNotifier {
       return cachedValue;
     }
 
-    final snapshot = await _db.child(p.adminScoringRescoreURLKey).get();
+    // AppConfig is listened to, so read the key with readOnce.
+    final snapshot = await readOnce(_db.child(p.adminScoringRescoreURLKey));
     final loadedValue = _parseOptionalString(snapshot.value);
     if (loadedValue != null && loadedValue != _adminScoringRescoreURL) {
       _adminScoringRescoreURL = loadedValue;
@@ -87,7 +88,8 @@ class ConfigViewModel extends ChangeNotifier {
       return cachedValue;
     }
 
-    final snapshot = await _db.child(p.adminCheckFixtureUrlURLKey).get();
+    // AppConfig is listened to, so read the key with readOnce.
+    final snapshot = await readOnce(_db.child(p.adminCheckFixtureUrlURLKey));
     final loadedValue = _parseOptionalString(snapshot.value);
     if (loadedValue != null && loadedValue != _adminCheckFixtureUrlURL) {
       _adminCheckFixtureUrlURL = loadedValue;

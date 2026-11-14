@@ -334,28 +334,6 @@ class TipsViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshFromServer() async {
-    if (_perGame) {
-      for (final String gameKey in _gameStreams.keys.toList()) {
-        final Game? game = await _gamesViewModel.findGame(gameKey);
-        if (game == null) {
-          continue;
-        }
-        _applyGameSnapshot(
-          game,
-          await _db
-              .child(
-                '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/$gameKey',
-              )
-              .get(),
-        );
-      }
-      return;
-    }
-    final path = '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}';
-    await _applyTipsSnapshot(await _db.child(path).get());
-  }
-
   bool _matchesGame(Game cachedGame, Game lookupGame) {
     return cachedGame.dbkey == lookupGame.dbkey &&
         cachedGame.startTimeUTC == lookupGame.startTimeUTC &&
