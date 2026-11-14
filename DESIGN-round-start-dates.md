@@ -51,15 +51,26 @@ Each step is written test-first.
   date of `adminOverrideRoundStartDate ?? firstGameKickOffUTC`. Document that it
   is a date boundary, not a kickoff.
 - No caller changes: `Game.roundForKickoff`, `recalculateRoundEndDates`,
-  `OutstandingTipsCalculator`, `RoundsLinkingService` validation,
-  `DaucompsRoundsParser.applyCutoffFilter` and the kickoff refresh scheduler
-  all go through it.
+  `OutstandingTipsCalculator`, `DaucompsRoundsParser.applyCutoffFilter` and the
+  kickoff refresh scheduler all go through it.
+- `RoundsLinkingService.validateRoundStartDateEdit`: delete the check that a
+  start cannot be on or before a fully scored previous round's
+  `lastGameKickOffUTC`. That end carries +3h padding, so a late game could push
+  it past midnight and block a valid next-day start. The check is also
+  redundant: the scored-game check already stops any scored game changing
+  round, and import caps a fully scored round's end one second before the next
+  start.
 
 ### 2. Comp creation (`CombinedRoundsService`, `server.dart`)
 
 - `combineGameGroupsIntoRounds` sets `firstGameKickOffUTC` to 0:00 UTC on the
-  first kickoff's UTC date instead of subtracting 3 hours. Clustering still
-  compares the raw per-league kickoff times, as now.
+  first kickoff's UTC date instead of subtracting 3 hours.
+- Clustering compares UTC dates, not raw times: a league group joins the
+  current round when its first kickoff's UTC date is on or before the UTC date
+  of the round's last kickoff. Comparing raw times could leave two rounds on
+  one date (one group ending 02:00Z, the next starting 09:00Z the same day),
+  so both would start at the same 0:00 UTC and the later round would take the
+  earlier round's games.
 - `server.dart` writes that value as the round's `roundStartDate`.
 
 ### 3. Badge job (`functions/src/app_badge.ts`)
@@ -71,13 +82,24 @@ Each step is written test-first.
 ### 4. Admin page
 
 - Replace `DateTimePickerField` with a date-only field: `showDatePicker` only,
-  no `showTimePicker`. Seed the picker with the start's UTC date and return
-  `DateTime.utc(picked.year, picked.month, picked.day)`.
-- Replace `formatRoundDateTime` with a date-only formatter built from the UTC
-  date, for example `Thu 12/11`, so the date is right in any device time zone.
-  Delete the time formatting.
+  no `showTimePicker`. Pass `round.getRoundStartDate()` (a UTC value) as
+  `initialDate` with no `.toLocal()`, so the picker shows the UTC calendar date,
+  and return `DateTime.utc(picked.year, picked.month, picked.day)`.
+- Picking the date a round already starts on changes nothing: ignore a
+  selection equal to `round.getRoundStartDate()`, so the row does not turn bold
+  and Save does not write an override or run a download and rescore.
+- Decide whether round starts changed by comparing effective starts
+  (`getRoundStartDate()`), not raw override values, in `_updateSaveButtonState`
+  and `processAndSaveDauComp`. A legacy timed override and the same date at
+  0:00 UTC count as unchanged.
+- Replace `formatRoundDateTime` with a date-only formatter that calls
+  `.toUtc()` before formatting, for example `Thu 12/11`, so the date is right
+  in any device time zone. Delete the time formatting.
+- Show every round in the admin table, including rounds with no games (0 and 0
+  in the counts). Today rounds without games are hidden, so a whole-day edit
+  that empties a round makes its row vanish and it cannot be edited back.
 - Rename the rounds table heading from "First kickoff" to
-  "First Kickoff (UTC)", and update the information dialog to say rounds run
+  "Round Start (UTC)", and update the information dialog to say rounds run
   from one round's start date (0:00 UTC) to the next.
 - The save path is unchanged apart from writing the UTC-midnight value it is
   given.
@@ -89,12 +111,19 @@ Each step is written test-first.
 - `roundForKickoff`: a kickoff at 0:00 UTC on the start date belongs to the new
   round; 23:59:59 the day before belongs to the previous round.
 - `CombinedRoundsService`: a first kickoff at 01:30 UTC gives a start at 0:00
-  UTC that same date, not the previous date.
+  UTC that same date, not the previous date; two league groups on the same UTC
+  date join one round; generated rounds have strictly increasing
+  `getRoundStartDate()` values.
+- `validateRoundStartDateEdit`: a fully scored previous round whose padded end
+  crosses midnight does not block a next-day start; moving a start across a
+  scored game is still rejected.
+- Admin page: picking the current date leaves the round unbolded and Save
+  disabled; a round emptied by an edit stays in the table.
 - `app_badge.ts`: a start or override with a time activates 48h before 0:00 UTC
   on its date; client and server badge counts agree.
 - Admin date field (widget test): no time picker opens; picking a date saves
   0:00 UTC on that date; the table shows the UTC date under the
-  "First Kickoff (UTC)" heading.
+  "Round Start (UTC)" heading.
 - Existing tests that build rounds with timed starts: update the expected
   boundaries where a test relied on the time of day.
 
@@ -103,7 +132,11 @@ Each step is written test-first.
 1. Run the usual checks: `flutter analyze`, `flutter test`, the `dau_shared`,
    `functions_dart` and `functions` tests, `npm --prefix rules_test run test:dart`
    and `scripts/test-client-integration.sh`.
-2. Deploy both function codebases, then release the client.
+2. Deploy both function codebases, then release the client. Ship the functions
+   together with the round-boundaries change (not yet deployed), so no empty
+   round is ever stored with a timed end equal to a timed start. If they ship
+   separately, run a fixture download on each live comp after this deploy so
+   empty-round ends are rewritten at 0:00 UTC.
 
 No data change is needed. Clients on `main` keep using the stored timestamps.
 New overrides and new comps store 0:00 UTC, which old clients read the same
