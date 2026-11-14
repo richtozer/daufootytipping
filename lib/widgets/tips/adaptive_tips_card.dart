@@ -247,41 +247,18 @@ class AdaptiveTipsCard extends StatelessWidget {
       _ => ('', Colors.transparent),
     };
     if (message.isNotEmpty) {
-      // Wide cards put actions near the corner. A separate status line avoids
-      // obscuring their hit areas while standard keeps its familiar ribbon.
-      card = layout.mode == TipsCardMode.wide
-          ? Stack(
-              children: [
-                card,
-                Positioned(
-                  top: 4,
-                  right: 8,
-                  child: IgnorePointer(
-                    child: Text(
-                      message,
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: color),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Banner(
-              message: message,
-              color: color,
-              textStyle:
-                  const Banner(
-                    message: '',
-                    location: BannerLocation.topEnd,
-                  ).textStyle.copyWith(
-                    fontFamily: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.fontFamily,
-                  ),
-              location: BannerLocation.topEnd,
-              child: card,
-            );
+      // The ribbon crosses the matchup's corner, clear of the tip buttons.
+      card = Banner(
+        message: message,
+        color: color,
+        textStyle: const Banner(message: '', location: BannerLocation.topStart)
+            .textStyle
+            .copyWith(
+              fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+            ),
+        location: BannerLocation.topStart,
+        child: card,
+      );
     }
     return SizedBox(height: layout.cardExtent, child: card);
   }
