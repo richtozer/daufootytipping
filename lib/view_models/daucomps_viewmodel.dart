@@ -1223,14 +1223,14 @@ class DAUCompsViewModel extends ChangeNotifier {
           // Existing comp
           final DateTime? newNrlCutoff =
               nrlRegularCompEndDateString != null &&
-                      nrlRegularCompEndDateString.isNotEmpty
-                  ? DateTime.parse(nrlRegularCompEndDateString)
-                  : null;
+                  nrlRegularCompEndDateString.isNotEmpty
+              ? DateTime.parse(nrlRegularCompEndDateString)
+              : null;
           final DateTime? newAflCutoff =
               aflRegularCompEndDateString != null &&
-                      aflRegularCompEndDateString.isNotEmpty
-                  ? DateTime.parse(aflRegularCompEndDateString)
-                  : null;
+                  aflRegularCompEndDateString.isNotEmpty
+              ? DateTime.parse(aflRegularCompEndDateString)
+              : null;
           final Map<int, DateTime?> baselineOverrides =
               initialRoundStartOverrides ??
               <int, DateTime?>{
@@ -1413,7 +1413,8 @@ class DAUCompsViewModel extends ChangeNotifier {
             return {
               'success': false,
               'message':
-                  'DAUComp record saved, but fixture download failed: $e',
+                  'DAUComp record saved, but fixture download failed: '
+                  '${e is FirebaseFunctionsException ? e.message ?? e.code : e}',
               'newCompData': null,
             };
           }
