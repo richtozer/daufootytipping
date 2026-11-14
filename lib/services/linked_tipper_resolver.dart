@@ -9,6 +9,7 @@ import 'package:daufootytipping/services/identity_service.dart';
 import 'package:dau_shared/constants/identity_reasons.dart' as reasons;
 import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/models/identity_callables.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 /// The signed-in account, as far as linking needs to know it.
 class LinkAccount {
@@ -40,8 +41,27 @@ abstract interface class IdentityReads {
 
 /// [IdentityReads] over the configured Realtime Database.
 class DatabaseIdentityReads implements IdentityReads {
-  Future<Object?> _value(String path) async =>
-      (await configuredDatabaseRef(path).get()).value;
+  /// [refFor] names the database reference for a path; the configured database
+  /// unless a test supplies its own.
+  DatabaseIdentityReads({DatabaseReference Function(String path)? refFor})
+    : _refFor = refFor ?? configuredDatabaseRef;
+
+  final DatabaseReference Function(String path) _refFor;
+
+  /// Reads with a one-off listener, not `get()`: on iOS, while the app listens on
+  /// a parent (the tipper list, or an administrator's private records), `get()`
+  /// on a child answered with the whole parent collection. A snapshot of any
+  /// other path is refused, so it is never taken for the record asked for.
+  Future<Object?> _value(String path) async {
+    final DataSnapshot snapshot = (await _refFor(path).once()).snapshot;
+    final String expectedKey = path.split('/').last;
+    if (snapshot.key != expectedKey) {
+      throw StateError(
+        'Read of $expectedKey answered with ${snapshot.key ?? 'the root'}',
+      );
+    }
+    return snapshot.value;
+  }
 
   Map<String, dynamic>? _record(Object? value) =>
       value is Map ? Map<String, dynamic>.from(value) : null;
