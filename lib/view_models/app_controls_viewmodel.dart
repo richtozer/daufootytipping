@@ -41,6 +41,7 @@ class AppControlsViewModel extends ChangeNotifier {
   List<Route<dynamic>> _pageRoutes = const [];
   final Map<Route<dynamic>, List<AppGlassAction>> _actionsByRoute = {};
   final Set<Route<dynamic>> _fadedRoutes = {};
+  bool _overlayOnTop = false;
   bool _notifyScheduled = false;
   bool _disposed = false;
 
@@ -66,6 +67,11 @@ class AppControlsViewModel extends ChangeNotifier {
     }
     return _actionsByRoute[_pageRoutes.last] ?? const [];
   }
+
+  /// Whether a dialog or sheet is over the page on top. The controls step
+  /// aside for it, as they float above the Navigator and would otherwise cover
+  /// it, while the content keeps the room they take so nothing shifts behind.
+  bool get overlayOnTop => _overlayOnTop;
 
   /// Whether the page on top has asked for the controls to fade away, as a long
   /// table does once it is scrolled to its end so the last rows can be read.
@@ -93,6 +99,14 @@ class AppControlsViewModel extends ChangeNotifier {
     _pageRoutes = List.unmodifiable(pageRoutes);
     _actionsByRoute.removeWhere((route, _) => !_pageRoutes.contains(route));
     _fadedRoutes.removeWhere((route) => !_pageRoutes.contains(route));
+    _notify();
+  }
+
+  void setOverlayOnTop(bool overlayOnTop) {
+    if (_overlayOnTop == overlayOnTop) {
+      return;
+    }
+    _overlayOnTop = overlayOnTop;
     _notify();
   }
 

@@ -216,7 +216,9 @@ void main() {
     );
   });
 
-  testWidgets('a dialog does not summon Back', (tester) async {
+  testWidgets('the controls step aside for a dialog and come back', (
+    tester,
+  ) async {
     useView(tester, const Size(390, 844));
     await tester.pumpWidget(app(homeWithTabs()));
     await tester.pumpAndSettle();
@@ -230,7 +232,51 @@ void main() {
 
     expect(find.text('sure?'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsNothing);
+    expect(find.byType(AppGlassPill), findsNothing);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+
     expect(find.byType(AppGlassPill), findsOneWidget);
+  });
+
+  testWidgets('the controls step aside for a bottom sheet', (tester) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+    final contentPadding = MediaQuery.paddingOf(
+      tester.element(find.text('home')),
+    );
+
+    showModalBottomSheet<void>(
+      context: tester.element(find.text('home')),
+      builder: (_) => const SizedBox(height: 200, child: Text('sheet')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('sheet'), findsOneWidget);
+    expect(find.byType(AppGlassPill), findsNothing);
+    // The page behind keeps its layout, so nothing shifts under the sheet.
+    expect(
+      MediaQuery.paddingOf(tester.element(find.text('home'))),
+      contentPadding,
+    );
+  });
+
+  testWidgets('a pushed page\'s Back steps aside for a sheet', (tester) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+    await push(tester, const Scaffold(body: Text('detail')));
+    expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+
+    showModalBottomSheet<void>(
+      context: tester.element(find.text('detail')),
+      builder: (_) => const SizedBox(height: 200, child: Text('sheet')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
   });
 
   testWidgets('a sheet built on a page route does not summon Back', (
@@ -256,7 +302,7 @@ void main() {
 
     expect(find.text('sheet'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsNothing);
-    expect(find.byType(AppGlassPill), findsOneWidget);
+    expect(find.byType(AppGlassPill), findsNothing);
   });
 
   testWidgets('a page declares actions that sit beside Back', (tester) async {

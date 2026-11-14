@@ -71,12 +71,17 @@ class AppControlsHost extends StatelessWidget {
             : Axis.vertical;
         final mode = viewModel.mode;
         final keyboardUp = media.viewInsets.bottom > 0;
+        final overlayOnTop = viewModel.overlayOnTop;
         // A page with actions of its own, such as Save on a form, keeps them in
         // reach above the keyboard. Otherwise the controls step aside for it.
         final aboveKeyboard =
             keyboardUp &&
+            !overlayOnTop &&
             mode == AppControlsMode.back &&
             viewModel.pageActions.isNotEmpty;
+        // A dialog or sheet covers the page, so the controls step aside for it
+        // too, while the content keeps their room so nothing moves behind it.
+        final hidden = overlayOnTop || (keyboardUp && !aboveKeyboard);
         final contentPadding = _contentPadding(
           media.padding,
           media.size,
@@ -109,9 +114,7 @@ class AppControlsHost extends StatelessWidget {
                 viewModel: viewModel,
                 observer: observer,
                 axis: axis,
-                mode: keyboardUp && !aboveKeyboard
-                    ? AppControlsMode.none
-                    : mode,
+                mode: hidden ? AppControlsMode.none : mode,
                 alignment:
                     axis == Axis.horizontal && mode == AppControlsMode.tabs
                     ? Alignment.bottomCenter
