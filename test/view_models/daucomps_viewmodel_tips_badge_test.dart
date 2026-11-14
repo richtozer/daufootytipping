@@ -7,7 +7,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
 
@@ -106,14 +105,7 @@ void main() {
         ),
       ).captured;
       final refreshTimes = (captured.single as Iterable<DateTime> Function())();
-      expect(
-        refreshTimes,
-        contains(
-          firstKickoff.subtract(
-            OutstandingTipsCalculator.appBadgeActivationLeadTime,
-          ),
-        ),
-      );
+      expect(refreshTimes, contains(DateTime.utc(2030, 1, 3)));
     });
 
     test('schedules badge activation from an overridden round start', () {
@@ -144,24 +136,8 @@ void main() {
         ),
       ).captured;
       final refreshTimes = (captured.single as Iterable<DateTime> Function())();
-      expect(
-        refreshTimes,
-        contains(
-          overrideStart.subtract(
-            OutstandingTipsCalculator.appBadgeActivationLeadTime,
-          ),
-        ),
-      );
-      expect(
-        refreshTimes,
-        isNot(
-          contains(
-            firstKickoff.subtract(
-              OutstandingTipsCalculator.appBadgeActivationLeadTime,
-            ),
-          ),
-        ),
-      );
+      expect(refreshTimes, contains(DateTime.utc(2030, 1, 2)));
+      expect(refreshTimes, isNot(contains(DateTime.utc(2030, 1, 3))));
     });
 
     test('returns 0 when selected comp is null', () {
@@ -308,11 +284,11 @@ void main() {
     });
 
     test('app badge stays off until 48 hours before the next round', () {
-      final now = DateTime.parse('2030-01-01T12:00:00Z');
+      final now = DateTime.parse('2030-01-01T23:59:59Z');
       final nextRound = DAURound(
         dAUroundNumber: 1,
-        firstGameKickOffUTC: now.add(const Duration(hours: 49)),
-        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+        firstGameKickOffUTC: DateTime.parse('2030-01-04T12:00:00Z'),
+        lastGameKickOffUTC: DateTime.parse('2030-01-06T12:00:00Z'),
       );
       vm.setSelectedCompForTest(
         DAUComp(

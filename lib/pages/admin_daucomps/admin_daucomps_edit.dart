@@ -241,12 +241,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     return games;
   }
 
-  bool _sameInstant(DateTime? a, DateTime? b) {
-    if (a == null && b == null) return true;
-    if (a == null || b == null) return false;
-    return a.isAtSameMomentAs(b);
-  }
-
   void _updateSaveButtonState() {
     bool shouldEnableSave;
     bool originalActiveStatus = false;
@@ -267,9 +261,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           _pageDauCompsViewModel.selectedDAUComp?.daurounds ??
           widget.daucomp!.daurounds;
       final roundStartsChanged = rounds.any(
-        (r) => !_sameInstant(
-          r.adminOverrideRoundStartDate,
-          _initialRoundStartOverrides[r.dAUroundNumber],
+        (r) => !r.getRoundStartDate().isAtSameMomentAs(
+          r.roundStartDateWithOverride(
+            _initialRoundStartOverrides[r.dAUroundNumber],
+          ),
         ),
       );
       shouldEnableSave =
@@ -538,7 +533,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                                     return AlertDialog(
                                       title: const Text('Information'),
                                       content: const Text(
-                                        'This is a list of round start times. Any game kickoff times from a round start up to the next round start are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
+                                        'This is a list of round start dates (0:00 UTC). Any game kickoff times from a round\'s start date (0:00 UTC) up to the next round\'s start date are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
                                       ),
                                       actions: <Widget>[
                                         TextButton(
@@ -560,7 +555,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                               dauCompsViewModelConsumer
                                   .selectedDAUComp
                                   ?.daurounds
-                                  .where((r) => r.games.isNotEmpty)
                                   .toList() ??
                               [],
                           onRoundDateChanged:

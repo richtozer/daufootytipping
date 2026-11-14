@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// Formats a round boundary for the admin rounds table, in local time, as a
-/// short day and date followed by the time with an abbreviated meridiem, for
-/// example `Thu 5/3 7:50p`.
+/// Formats a round start date in UTC without time of day, for example
+/// `Thu 5/3` or `Thu 12/11`.
 String formatRoundDateTime(DateTime dateTime) {
-  final local = dateTime.toLocal();
-  final time = DateFormat('h:mm a')
-      .format(local)
-      .replaceAll(' AM', 'a')
-      .replaceAll(' PM', 'p');
-  return '${DateFormat('E d/M').format(local)} $time';
+  final utcDate = dateTime.toUtc();
+  return DateFormat('E d/M').format(utcDate);
 }
 
 class DateTimePickerField extends StatelessWidget {
@@ -42,31 +37,27 @@ class DateTimePickerField extends StatelessWidget {
       decoration: const InputDecoration(isDense: true),
       onTap: () async {
         FocusScope.of(context).requestFocus(FocusNode());
-        // The field shows local time, so seed both pickers with it too.
-        final localInitialDate = initialDate.toLocal();
-        DateTime? date = await showDatePicker(
+        final utcInitial = initialDate.toUtc();
+        final firstUtc = firstDate.toUtc();
+        final lastUtc = lastDate.toUtc();
+        final DateTime? picked = await showDatePicker(
           context: context,
-          initialDate: localInitialDate,
-          firstDate: firstDate,
-          lastDate: lastDate,
+          initialDate: DateTime.utc(
+            utcInitial.year,
+            utcInitial.month,
+            utcInitial.day,
+          ),
+          firstDate: DateTime.utc(firstUtc.year, firstUtc.month, firstUtc.day),
+          lastDate: DateTime.utc(lastUtc.year, lastUtc.month, lastUtc.day),
         );
-        if (date != null) {
-          if (!context.mounted) return;
-          TimeOfDay? time = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(localInitialDate),
+        if (picked != null) {
+          final selectedDate = DateTime.utc(
+            picked.year,
+            picked.month,
+            picked.day,
           );
-          if (time != null) {
-            DateTime selectedDateTime = DateTime(
-              date.year,
-              date.month,
-              date.day,
-              time.hour,
-              time.minute,
-            );
-            controller.text = formatRoundDateTime(selectedDateTime);
-            onDateTimeChanged(selectedDateTime);
-          }
+          controller.text = formatRoundDateTime(selectedDate);
+          onDateTimeChanged(selectedDate);
         }
       },
     );

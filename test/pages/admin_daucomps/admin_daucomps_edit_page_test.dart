@@ -306,10 +306,8 @@ void main() {
       final roundsTable = tester.widget<AdminDaucompsEditRoundsTable>(
         find.byType(AdminDaucompsEditRoundsTable),
       );
-      roundsTable.onRoundDateChanged(
-        viewedRound,
-        DateTime.utc(2024, 3, 14, 11),
-      );
+      // A different date from the round's current start (14 March).
+      roundsTable.onRoundDateChanged(viewedRound, DateTime.utc(2024, 3, 13));
       await tester.pump();
 
       verify(
@@ -351,10 +349,8 @@ void main() {
       final roundsTable = tester.widget<AdminDaucompsEditRoundsTable>(
         find.byType(AdminDaucompsEditRoundsTable),
       );
-      roundsTable.onRoundDateChanged(
-        viewedRound,
-        DateTime.utc(2024, 3, 14, 11),
-      );
+      // A different date from the round's current start (14 March).
+      roundsTable.onRoundDateChanged(viewedRound, DateTime.utc(2024, 3, 13));
       await tester.pumpAndSettle();
       expect(saveOnTap(), isNotNull);
 

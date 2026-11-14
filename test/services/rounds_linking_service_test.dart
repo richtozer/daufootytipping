@@ -401,12 +401,14 @@ void main() {
         expect(error, isNull);
       });
 
-      test('rejects start edit that is not strictly increasing or precedes fully scored previous round end', () {
+      test('rejects a start that is not strictly increasing, but a fully scored previous round whose padded end crosses midnight does not block a next-day start', () {
+        // Round 1's only game kicks off at 22:30Z on 2 March, so its stored
+        // end (kickoff + 3h) is 01:30Z on 3 March.
         final rounds = [
           DAURound(
             dAUroundNumber: 1,
             firstGameKickOffUTC: DateTime.utc(2026, 3, 1),
-            lastGameKickOffUTC: DateTime.utc(2026, 3, 3, 12),
+            lastGameKickOffUTC: DateTime.utc(2026, 3, 3, 1, 30),
           ),
           DAURound(
             dAUroundNumber: 2,
@@ -418,7 +420,7 @@ void main() {
         final scoredGame = makeGame(
           'nrl-01-001',
           League.nrl,
-          DateTime.utc(2026, 3, 2),
+          DateTime.utc(2026, 3, 2, 22, 30),
           scoring: Scoring(homeTeamScore: 10, awayTeamScore: 8),
         );
 
@@ -434,13 +436,25 @@ void main() {
           isNotNull,
         );
 
-        // After Round 1 game, but before fully scored Round 1's stored end (Mar 3 12:00) -> rejected
+        // The day after Round 1's last game, before its padded end -> allowed
         expect(
           svc.validateRoundStartDateEdit(
             comp: comp,
             rounds: rounds,
             editedRoundNumber: 2,
-            newStartDateUTC: DateTime.utc(2026, 3, 3, 11),
+            newStartDateUTC: DateTime.utc(2026, 3, 3),
+            allGames: [scoredGame],
+          ),
+          isNull,
+        );
+
+        // The day of Round 1's scored game -> rejected, the game would move
+        expect(
+          svc.validateRoundStartDateEdit(
+            comp: comp,
+            rounds: rounds,
+            editedRoundNumber: 2,
+            newStartDateUTC: DateTime.utc(2026, 3, 2),
             allGames: [scoredGame],
           ),
           isNotNull,

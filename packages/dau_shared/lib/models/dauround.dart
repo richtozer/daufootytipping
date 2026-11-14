@@ -45,9 +45,19 @@ class DAURound implements Comparable<DAURound> {
     );
   }
 
-  // method returns admin overridden round start data if it exists, otherwise the round start date
-  DateTime getRoundStartDate() {
-    return adminOverrideRoundStartDate ?? firstGameKickOffUTC;
+  /// Effective round start boundary: 0:00 UTC on the UTC calendar date of
+  /// [adminOverrideRoundStartDate] (if set) or [firstGameKickOffUTC]. Any
+  /// time-of-day component on either value is ignored.
+  DateTime getRoundStartDate() =>
+      roundStartDateWithOverride(adminOverrideRoundStartDate);
+
+  /// The effective start this round would have with [override] as its admin
+  /// override (or none, when null). Used to tell whether an edit changed the
+  /// round's start, since a timed override and 0:00 UTC on the same date are
+  /// the same start.
+  DateTime roundStartDateWithOverride(DateTime? override) {
+    final raw = (override ?? firstGameKickOffUTC).toUtc();
+    return DateTime.utc(raw.year, raw.month, raw.day);
   }
 
   // method to return games filtered on supplied league

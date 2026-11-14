@@ -1246,15 +1246,15 @@ class DAUCompsViewModel extends ChangeNotifier {
             existingComp.aflRegularCompEndDateUTC,
           );
           final bool cutoffsChanged = nrlCutoffChanged || aflCutoffChanged;
-          final bool roundStartsChanged = currentRounds.any((r) {
-            if (baselineOverrides.containsKey(r.dAUroundNumber)) {
-              return !_sameInstant(
-                r.adminOverrideRoundStartDate,
-                baselineOverrides[r.dAUroundNumber],
+          // Compare effective start dates: a timed override and 0:00 UTC on
+          // the same date are the same start.
+          bool startChanged(DAURound r) =>
+              !r.getRoundStartDate().isAtSameMomentAs(
+                r.roundStartDateWithOverride(
+                  baselineOverrides[r.dAUroundNumber],
+                ),
               );
-            }
-            return r.adminOverrideRoundStartDate != null;
-          });
+          final bool roundStartsChanged = currentRounds.any(startChanged);
 
           // Re-run start and cutoff validation right before writing so an
           // official result that landed after the edit cannot be bypassed.
@@ -1328,11 +1328,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             final sortedEditedRounds = [...currentRounds]
               ..sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
             for (final round in sortedEditedRounds) {
-              final initialOverride = baselineOverrides[round.dAUroundNumber];
-              if (_sameInstant(
-                round.adminOverrideRoundStartDate,
-                initialOverride,
-              )) {
+              if (!startChanged(round)) {
                 continue;
               }
               final startError = _roundsLinking.validateRoundStartDateEdit(

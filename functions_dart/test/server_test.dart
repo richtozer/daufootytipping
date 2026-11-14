@@ -520,11 +520,11 @@ void main() {
     test('returns zero before the round reaches its 48-hour badge window', () {
       final futureComp = _badgeTestComp(
         now,
-        firstKickoff: now.add(const Duration(hours: 49)),
-        lastKickoff: now.add(const Duration(days: 4)),
+        firstKickoff: DateTime.utc(2026, 8, 7, 13),
+        lastKickoff: DateTime.utc(2026, 8, 9, 16),
       );
       final futureGames = <Game>[
-        _badgeTestGame('future', now.add(const Duration(hours: 50))),
+        _badgeTestGame('future', DateTime.utc(2026, 8, 7, 14)),
       ];
 
       expect(
@@ -609,7 +609,7 @@ void main() {
     );
 
     test('ignores an empty round whose end is at or before its start', () {
-      final start = now.add(const Duration(hours: 24));
+      final start = DateTime.utc(2026, 8, 5);
       final emptyRound = DAURound(
         dAUroundNumber: 1,
         firstGameKickOffUTC: start,
@@ -1689,7 +1689,7 @@ void main() {
         final mockGameStatsRootRef = MockDatabaseReference();
         final mockTransactionResult = MockTransactionResult();
 
-        final now = DateTime.parse('2026-06-01T11:00:00Z');
+        final now = DateTime.parse('2026-06-02T11:00:00Z');
 
         final compJson = <String, dynamic>{
           'name': 'Comp 2026',
@@ -1697,13 +1697,13 @@ void main() {
           'nrlFixtureJsonURL': 'https://nrl.example.com',
           'combinedRounds2': [
             {
-              'roundStartDate': '2026-06-01T08:00:00Z',
-              'roundEndDate': '2026-06-01T13:00:00Z',
+              'roundStartDate': '2026-06-01T00:00:00Z',
+              'roundEndDate': '2026-06-02T13:00:00Z',
             },
             {
-              'roundStartDate': '2026-06-08T08:00:00Z',
-              // Admin moved round 2 start before nrl-01-001 (10:00Z).
-              'adminOverrideRoundStartDate': '2026-06-01T09:00:00Z',
+              'roundStartDate': '2026-06-08T00:00:00Z',
+              // Admin moved round 2 start to 2026-06-02 before nrl-01-001.
+              'adminOverrideRoundStartDate': '2026-06-02T00:00:00Z',
               'roundEndDate': '2026-06-08T13:00:00Z',
             },
           ],
@@ -1716,7 +1716,7 @@ void main() {
             'HomeTeam': 'Broncos',
             'AwayTeam': 'Roosters',
             'Location': 'Suncorp',
-            'DateUtc': '2026-06-01 10:00:00Z',
+            'DateUtc': '2026-06-02 10:00:00Z',
           },
         };
 
@@ -1785,7 +1785,7 @@ void main() {
                 'HomeTeam': 'Broncos',
                 'AwayTeam': 'Roosters',
                 'Location': 'Suncorp',
-                'DateUtc': '2026-06-01 10:00:00Z',
+                'DateUtc': '2026-06-02 10:00:00Z',
               },
             ];
           },
@@ -1799,12 +1799,12 @@ void main() {
         // Source round (index 0) now has no games -> end = start.
         expect(
           capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/0/roundEndDate'],
-          '2026-06-01 08:00:00Z',
+          '2026-06-01 00:00:00Z',
         );
         // Destination round (index 1) end recalculated from moved game + 3h.
         expect(
           capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/1/roundEndDate'],
-          '2026-06-01 13:00:00Z',
+          '2026-06-02 13:00:00Z',
         );
 
         // Apply recalculated end dates before running full backend rescore.
@@ -1842,14 +1842,14 @@ void main() {
             'current': {
               'crowdSourcedScores': {
                 '0': {
-                  'submittedTimeUTC': '2026-06-01T10:20:00Z',
+                  'submittedTimeUTC': '2026-06-02T10:20:00Z',
                   'scoreTeam': 'home',
                   'tipperID': 'score-tipper',
                   'interimScore': 20,
                   'gameComplete': false,
                 },
                 '1': {
-                  'submittedTimeUTC': '2026-06-01T10:21:00Z',
+                  'submittedTimeUTC': '2026-06-02T10:21:00Z',
                   'scoreTeam': 'away',
                   'tipperID': 'score-tipper',
                   'interimScore': 10,

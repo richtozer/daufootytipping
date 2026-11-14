@@ -92,7 +92,7 @@ class AdminDaucompsEditRoundsTableState
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
               child: Text(
-                'First kickoff',
+                'Round Start (UTC)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -107,47 +107,53 @@ class AdminDaucompsEditRoundsTableState
           ],
         ),
         for (DAURound round in widget.rounds)
-          if (round.games.isNotEmpty)
-            TableRow(
-              children: [
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.dAUroundNumber.toString()),
+          TableRow(
+            children: [
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.dAUroundNumber.toString()),
+              ),
+              TableCell(
+                child: Builder(
+                  builder: (context) {
+                    final controller =
+                        _startDateControllers[round.dAUroundNumber]!;
+                    final expectedText = formatRoundDateTime(
+                      round.getRoundStartDate(),
+                    );
+                    if (controller.text != expectedText) {
+                      controller.text = expectedText;
+                    }
+                    return DateTimePickerField(
+                      key: ValueKey('start-${round.dAUroundNumber}'),
+                      controller: controller,
+                      initialDate: round.getRoundStartDate(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                      isBold: round.adminOverrideRoundStartDate != null,
+                      onDateTimeChanged: (selectedDateTime) {
+                        // Re-picking the current start date is not an edit.
+                        if (selectedDateTime.isAtSameMomentAs(
+                          round.getRoundStartDate(),
+                        )) {
+                          return;
+                        }
+                        widget.onRoundDateChanged(round, selectedDateTime);
+                      },
+                    );
+                  },
                 ),
-                TableCell(
-                  child: Builder(
-                    builder: (context) {
-                      final controller =
-                          _startDateControllers[round.dAUroundNumber]!;
-                      final expectedText = formatRoundDateTime(
-                        round.getRoundStartDate(),
-                      );
-                      if (controller.text != expectedText) {
-                        controller.text = expectedText;
-                      }
-                      return DateTimePickerField(
-                        key: ValueKey('start-${round.dAUroundNumber}'),
-                        controller: controller,
-                        initialDate: round.getRoundStartDate(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                        isBold: round.adminOverrideRoundStartDate != null,
-                        onDateTimeChanged: (selectedDateTime) =>
-                            widget.onRoundDateChanged(round, selectedDateTime),
-                      );
-                    },
-                  ),
-                ),
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.nrlGameCount.toString()),
-                ),
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.aflGameCount.toString()),
-                ),
-              ],
-            ),
+              ),
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.nrlGameCount.toString()),
+              ),
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.aflGameCount.toString()),
+              ),
+            ],
+          ),
       ],
     );
   }

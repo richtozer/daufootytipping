@@ -216,7 +216,7 @@ void main() {
         homeTeam: nrlHome,
         awayTeam: nrlAway,
         location: 'X',
-        startTimeUTC: DateTime.utc(2026, 3, 1, 20, 0),
+        startTimeUTC: DateTime.utc(2026, 3, 2, 20, 0),
         fixtureRoundNumber: 1,
         fixtureMatchNumber: 2,
         scoring: Scoring(homeTeamScore: 18, awayTeamScore: 12),
@@ -227,12 +227,12 @@ void main() {
       final round1 = DAURound(
         dAUroundNumber: 1,
         firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 17, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 23, 0),
+        lastGameKickOffUTC: DateTime.utc(2026, 3, 2, 23, 0),
       );
       final round2 = DAURound(
         dAUroundNumber: 2,
-        firstGameKickOffUTC: DateTime.utc(2026, 3, 2, 10, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 2, 23, 0),
+        firstGameKickOffUTC: DateTime.utc(2026, 3, 8, 17, 0),
+        lastGameKickOffUTC: DateTime.utc(2026, 3, 9, 23, 0),
       );
       final existingComp = DAUComp(
         dbkey: 'comp-2026',
@@ -243,12 +243,12 @@ void main() {
       );
       when(() => mockGamesVm.selectedDAUComp).thenReturn(existingComp);
 
-      // Admin moved Round 2 start before 20:00 while nrl-01-002 was unscored.
+      // Admin moved Round 2 start to 2026-03-02 while nrl-01-002 was unscored.
       final editedRound2 = DAURound(
         dAUroundNumber: 2,
-        firstGameKickOffUTC: DateTime.utc(2026, 3, 2, 10, 0),
-        lastGameKickOffUTC: DateTime.utc(2026, 3, 2, 23, 0),
-        adminOverrideRoundStartDate: DateTime.utc(2026, 3, 1, 19, 0),
+        firstGameKickOffUTC: DateTime.utc(2026, 3, 8, 17, 0),
+        lastGameKickOffUTC: DateTime.utc(2026, 3, 9, 23, 0),
+        adminOverrideRoundStartDate: DateTime.utc(2026, 3, 2),
       );
 
       final startValidationFail = await vm.processAndSaveDauComp(
@@ -376,5 +376,56 @@ void main() {
         expect(downloadCalls, 1);
       },
     );
+
+    test('an override moved to 0:00 UTC on the same date is not a round start '
+        'change, so no fixture download runs', () async {
+      final repo = _FakeDauCompsRepository();
+      final mockGamesVm = _MockGamesViewModel();
+      var downloadCalls = 0;
+      final vm = DAUCompsViewModel(
+        null,
+        true,
+        skipInit: true,
+        repo: repo,
+        networkFixtureDownloader: (_) async {
+          downloadCalls++;
+          return 'Download complete';
+        },
+      );
+      vm.gamesViewModel = mockGamesVm;
+      vm.completeInitialDAUCompLoadForTest();
+      when(() => mockGamesVm.getGames()).thenAnswer((_) async => <Game>[]);
+
+      final legacyTimedOverride = DateTime.utc(2026, 3, 1, 5, 0);
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 17, 0),
+        lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 23, 0),
+        adminOverrideRoundStartDate: DateTime.utc(2026, 3, 1),
+      );
+      final existingComp = DAUComp(
+        dbkey: 'comp-2026',
+        name: 'Test Comp 2026',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
+        daurounds: [round1],
+      );
+      when(() => mockGamesVm.selectedDAUComp).thenReturn(existingComp);
+
+      final result = await vm.processAndSaveDauComp(
+        name: existingComp.name,
+        aflFixtureJsonURL: existingComp.aflFixtureJsonURL.toString(),
+        nrlFixtureJsonURL: existingComp.nrlFixtureJsonURL.toString(),
+        nrlRegularCompEndDateString: null,
+        aflRegularCompEndDateString: null,
+        existingComp: existingComp,
+        currentRounds: [round1],
+        initialRoundStartOverrides: {1: legacyTimedOverride},
+      );
+
+      expect(result['success'], isTrue);
+      expect(result['message'], 'DAUComp record saved');
+      expect(downloadCalls, 0);
+    });
   });
 }

@@ -886,14 +886,85 @@ test("minute sweep refreshes at the 48-hour round activation", async () => {
 
   await handleKickoffAppBadgeSweep({
     db,
-    now: new Date("2026-08-04T12:00:00Z"),
+    now: new Date("2026-08-03T23:59:59Z"),
     commandUrl: "https://example.com/appBadgeCount",
     commandSecret: "secret-1",
     fetchImpl: async (_url, init) => {
       requestBody = JSON.parse(init.body);
       return new Response(JSON.stringify({
         compKey: "comp-1",
-        calculatedAt: "2026-08-04T12:00:00Z",
+        calculatedAt: "2026-08-03T23:59:59Z",
+        counts: {},
+      }), {status: 200});
+    },
+    logger: silentLogger,
+  });
+
+  assert.equal(requestBody, undefined);
+
+  await handleKickoffAppBadgeSweep({
+    db,
+    now: new Date("2026-08-04T00:00:00Z"),
+    commandUrl: "https://example.com/appBadgeCount",
+    commandSecret: "secret-1",
+    fetchImpl: async (_url, init) => {
+      requestBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        compKey: "comp-1",
+        calculatedAt: "2026-08-04T00:00:00Z",
+        counts: {},
+      }), {status: 200});
+    },
+    logger: silentLogger,
+  });
+
+  assert.deepEqual(requestBody, {compKey: "comp-1"});
+});
+
+test("minute sweep floors adminOverrideRoundStartDate with time to 0:00 UTC", async () => {
+  const db = new FakeDatabase({
+    "/AppConfig/currentDAUComp": "comp-1",
+    "/AppConfig/outstandingTipsPushEnabled": true,
+    "/DAUCompsGames/comp-1": {},
+    "/AllDAUComps/comp-1/combinedRounds2": [
+      {
+        roundStartDate: "2026-08-10T12:00:00Z",
+        adminOverrideRoundStartDate: "2026-08-06T18:30:00Z",
+        roundEndDate: "2026-08-08T12:00:00Z",
+      },
+    ],
+    "/AllTippersTokens": {},
+  });
+  let requestBody: unknown;
+
+  await handleKickoffAppBadgeSweep({
+    db,
+    now: new Date("2026-08-03T23:59:59Z"),
+    commandUrl: "https://example.com/appBadgeCount",
+    commandSecret: "secret-1",
+    fetchImpl: async (_url, init) => {
+      requestBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        compKey: "comp-1",
+        calculatedAt: "2026-08-03T23:59:59Z",
+        counts: {},
+      }), {status: 200});
+    },
+    logger: silentLogger,
+  });
+
+  assert.equal(requestBody, undefined);
+
+  await handleKickoffAppBadgeSweep({
+    db,
+    now: new Date("2026-08-04T00:00:00Z"),
+    commandUrl: "https://example.com/appBadgeCount",
+    commandSecret: "secret-1",
+    fetchImpl: async (_url, init) => {
+      requestBody = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        compKey: "comp-1",
+        calculatedAt: "2026-08-04T00:00:00Z",
         counts: {},
       }), {status: 200});
     },

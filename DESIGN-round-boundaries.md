@@ -39,8 +39,9 @@ value that is always derived from the round's games, because:
 5. **A fully scored round keeps its end, capped before the next round.** Import
    does not recalculate it from its games, but still caps its stored end at one
    second before the next round's start (in case it became fully scored when an
-   admin start edit moved its last unscored game into the next round), and the
-   next round's start cannot move before an already fully scored round's end.
+   admin start edit moved its last unscored game into the next round). The
+   next round's start is no longer checked against that end: the scored-game
+   check and the cap cover it (removed with DESIGN-round-start-dates.md).
 
 Showing other tippers' tips needs no change: tips are shown after tipping
 closes, so a real kickoff running late cannot leak anything. The only leak is
@@ -103,8 +104,7 @@ code first to show they fail.
 - Remove the end-date column from `AdminDaucompsEditRoundsTable` and the
   `isStartDate` branch in `admin_daucomps_edit.dart`.
 - Validate start edits: each effective start strictly after the previous
-  round's; no scored game changes round; not before a fully scored previous
-  round's end. Round numbers are unchanged.
+  round's; no scored game changes round. Round numbers are unchanged.
 - Validate cutoff edits: not earlier than the latest scored game in that league.
 - Keep the in-memory `_recalculateGameCounts` so the NRL/AFL counts and the
   warnings update before saving.

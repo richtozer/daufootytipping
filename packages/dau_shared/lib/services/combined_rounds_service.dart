@@ -106,10 +106,12 @@ class CombinedRoundsService {
         );
       } else {
         final DAURound lastCombinedRound = combinedRounds.last;
-        if (groupMinStartTime.isBefore(lastCombinedRound.lastGameKickOffUTC) ||
-            groupMinStartTime.isAtSameMomentAs(
-              lastCombinedRound.lastGameKickOffUTC,
-            )) {
+        // Rounds start at 0:00 UTC on a date, so a group that starts on or
+        // before the UTC date of the current round's last game joins it.
+        // Otherwise two rounds could start on the same date.
+        if (!_utcDate(
+          groupMinStartTime,
+        ).isAfter(_utcDate(lastCombinedRound.lastGameKickOffUTC))) {
           lastCombinedRound.lastGameKickOffUTC =
               groupMaxStartTime.isAfter(lastCombinedRound.lastGameKickOffUTC)
               ? groupMaxStartTime
@@ -127,16 +129,20 @@ class CombinedRoundsService {
       }
     }
 
-    // Add buffer of 3 hours to start and end times (retain existing behavior)
+    // Set each round's start to 0:00 UTC on the first game's UTC date,
+    // and pad the round's end by 3 hours after the last game kickoff.
     for (final round in combinedRounds) {
-      round.firstGameKickOffUTC = round.firstGameKickOffUTC.subtract(
-        const Duration(hours: 3),
-      );
+      round.firstGameKickOffUTC = _utcDate(round.firstGameKickOffUTC);
       round.lastGameKickOffUTC = round.lastGameKickOffUTC.add(
         const Duration(hours: 3),
       );
     }
     return combinedRounds;
+  }
+
+  static DateTime _utcDate(DateTime time) {
+    final utc = time.toUtc();
+    return DateTime.utc(utc.year, utc.month, utc.day);
   }
 
   List<DAURound> buildCombinedRounds(List<dynamic> rawGames) {

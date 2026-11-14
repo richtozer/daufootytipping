@@ -180,24 +180,6 @@ class RoundsLinkingService {
       if (!newStartDateUTC.isAfter(prevRound.getRoundStartDate())) {
         return 'Round $editedRoundNumber start must be after Round ${prevRound.dAUroundNumber} start.';
       }
-      final prevGames = allGames
-          .where(
-            (g) =>
-                Game.roundForKickoff(
-                  kickoffUTC: g.startTimeUTC,
-                  league: g.league,
-                  rounds: rounds,
-                  aflCutoffUTC: comp.aflRegularCompEndDateUTC,
-                  nrlCutoffUTC: comp.nrlRegularCompEndDateUTC,
-                )?.dAUroundNumber ==
-                prevRound.dAUroundNumber,
-          )
-          .toList();
-      if (prevGames.isNotEmpty &&
-          prevGames.every((g) => g.hasOfficialScore) &&
-          !newStartDateUTC.isAfter(prevRound.lastGameKickOffUTC)) {
-        return 'Round $editedRoundNumber start cannot be before Round ${prevRound.dAUroundNumber} end because Round ${prevRound.dAUroundNumber} is fully scored.';
-      }
     }
 
     if (editedIndex + 1 < rounds.length) {

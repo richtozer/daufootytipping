@@ -141,11 +141,10 @@ void main() {
     test(
       'getDAURound respects round start boundaries and before-round-1 games',
       () {
-        final now = DateTime.now().toUtc();
         final home = nrl('nrl-a');
         final away = nrl('nrl-b');
-        final start = now;
-        final end = now.add(const Duration(hours: 2));
+        final start = DateTime.utc(2026, 3, 5);
+        final end = DateTime.utc(2026, 3, 8);
         final round = DAURound(
           dAUroundNumber: 1,
           firstGameKickOffUTC: start,
@@ -194,6 +193,53 @@ void main() {
         expect(gAtEnd.getDAURound(comp)!.dAUroundNumber, 1);
       },
     );
+
+    test('roundForKickoff assigns 23:59:59Z before start date to previous round and 00:00:00Z to new round even when stored start or override has a time', () {
+      final rounds = [
+        DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 5, 9, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+        ),
+        DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 12, 18, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 15, 12, 0),
+        ),
+        DAURound(
+          dAUroundNumber: 3,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 20, 8, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 22, 12, 0),
+          adminOverrideRoundStartDate: DateTime.utc(2026, 3, 19, 17, 30),
+        ),
+      ];
+
+      final justBeforeRound2 = Game.roundForKickoff(
+        kickoffUTC: DateTime.utc(2026, 3, 11, 23, 59, 59),
+        league: League.nrl,
+        rounds: rounds,
+      );
+      final exactRound2Start = Game.roundForKickoff(
+        kickoffUTC: DateTime.utc(2026, 3, 12, 0, 0, 0),
+        league: League.nrl,
+        rounds: rounds,
+      );
+      final justBeforeRound3Override = Game.roundForKickoff(
+        kickoffUTC: DateTime.utc(2026, 3, 18, 23, 59, 59),
+        league: League.afl,
+        rounds: rounds,
+      );
+      final exactRound3Override = Game.roundForKickoff(
+        kickoffUTC: DateTime.utc(2026, 3, 19, 0, 0, 0),
+        league: League.afl,
+        rounds: rounds,
+      );
+
+      expect(justBeforeRound2?.dAUroundNumber, 1);
+      expect(exactRound2Start?.dAUroundNumber, 2);
+      expect(justBeforeRound3Override?.dAUroundNumber, 2);
+      expect(exactRound3Override?.dAUroundNumber, 3);
+    });
 
     test('old inclusive per-round rule on raw JSON and new start-only rule agree with ends from recalculateRoundEndDates', () {
       List<int> oldInclusiveRoundsFromRawJson(
@@ -248,26 +294,26 @@ void main() {
 
       // Build raw DB JSON with:
       // - R1 overlapping R2 via a leftover adminOverrideRoundEndDate
-      // - Close rounds (< 3h gap between R1 game at 08:00 and R2 start at 10:00)
+      // - Close rounds (< 3h gap between R1 game at 22:00 and R2 start at 00:00)
       // - R3 empty
       // - R4 final round
       final rawRounds = <Map<String, dynamic>>[
         <String, dynamic>{
           'roundStartDate': '2026-03-05T06:00:00Z',
           'roundEndDate': '2026-03-05T12:00:00Z',
-          'adminOverrideRoundStartDate': '2026-03-05T05:00:00Z',
+          'adminOverrideRoundStartDate': '2026-03-05T00:00:00Z',
           'adminOverrideRoundEndDate': '2026-03-06T20:00:00Z', // leftover!
         },
         <String, dynamic>{
-          'roundStartDate': '2026-03-06T10:00:00Z',
+          'roundStartDate': '2026-03-06T00:00:00Z',
           'roundEndDate': '2026-03-07T12:00:00Z',
         },
         <String, dynamic>{
-          'roundStartDate': '2026-03-08T10:00:00Z',
+          'roundStartDate': '2026-03-08T00:00:00Z',
           'roundEndDate': '2026-03-08T20:00:00Z',
         },
         <String, dynamic>{
-          'roundStartDate': '2026-03-10T05:00:00Z',
+          'roundStartDate': '2026-03-10T00:00:00Z',
           'roundEndDate': '2026-03-10T12:00:00Z',
         },
       ];
@@ -300,7 +346,7 @@ void main() {
         comp: comp,
         gameUpdates: const [],
         existingGames: <String, dynamic>{
-          'nrl-01-001': <String, dynamic>{'DateUtc': '2026-03-06 08:00:00Z'},
+          'nrl-01-001': <String, dynamic>{'DateUtc': '2026-03-05 22:00:00Z'},
           'nrl-02-001': <String, dynamic>{'DateUtc': '2026-03-06 11:00:00Z'},
           // R3 is empty.
           'nrl-04-001': <String, dynamic>{'DateUtc': '2026-03-11 08:00:00Z'},
@@ -311,15 +357,15 @@ void main() {
       }
 
       final timestamps = [
-        DateTime.utc(2026, 3, 5, 4, 59, 59), // before R1
-        DateTime.utc(2026, 3, 5, 5, 0, 0), // exact R1 override start
-        DateTime.utc(2026, 3, 6, 8, 0, 0), // R1 game (<3h before R2)
-        DateTime.utc(2026, 3, 6, 9, 59, 59), // exact R1 capped end
-        DateTime.utc(2026, 3, 6, 10, 0, 0), // exact R2 start
+        DateTime.utc(2026, 3, 4, 23, 59, 59), // before R1
+        DateTime.utc(2026, 3, 5, 0, 0, 0), // exact R1 override start
+        DateTime.utc(2026, 3, 5, 22, 0, 0), // R1 game (<3h before R2)
+        DateTime.utc(2026, 3, 5, 23, 59, 59), // exact R1 capped end
+        DateTime.utc(2026, 3, 6, 0, 0, 0), // exact R2 start
         DateTime.utc(2026, 3, 6, 11, 0, 0), // R2 game
         DateTime.utc(2026, 3, 6, 14, 0, 0), // exact R2 calculated end
-        DateTime.utc(2026, 3, 8, 10, 0, 0), // empty R3 start == end
-        DateTime.utc(2026, 3, 10, 5, 0, 0), // exact R4 start
+        DateTime.utc(2026, 3, 8, 0, 0, 0), // empty R3 start == end
+        DateTime.utc(2026, 3, 10, 0, 0, 0), // exact R4 start
         DateTime.utc(2026, 3, 11, 11, 0, 0), // exact R4 extended end
       ];
       for (var i = 0; i < timestamps.length; i++) {
@@ -337,13 +383,13 @@ void main() {
       // game moves into Round 2 because Round 2 start moved earlier.
       final p1RawRounds = <Map<String, dynamic>>[
         <String, dynamic>{
-          'roundStartDate': '2026-04-01T17:00:00Z',
-          'roundEndDate': '2026-04-01T23:00:00Z',
+          'roundStartDate': '2026-04-01T00:00:00Z',
+          'roundEndDate': '2026-04-03T00:00:00Z',
         },
         <String, dynamic>{
-          'roundStartDate': '2026-04-02T10:00:00Z',
-          'roundEndDate': '2026-04-02T23:00:00Z',
-          'adminOverrideRoundStartDate': '2026-04-01T19:00:00Z',
+          'roundStartDate': '2026-04-03T00:00:00Z',
+          'roundEndDate': '2026-04-04T00:00:00Z',
+          'adminOverrideRoundStartDate': '2026-04-02T00:00:00Z',
         },
       ];
       final p1Rounds = [
@@ -365,7 +411,7 @@ void main() {
             'HomeTeamScore': 20,
             'AwayTeamScore': 10,
           },
-          'nrl-01-002': <String, dynamic>{'DateUtc': '2026-04-01 20:00:00Z'},
+          'nrl-01-002': <String, dynamic>{'DateUtc': '2026-04-02 20:00:00Z'},
         },
       );
       for (final entry in p1Changed.entries) {
@@ -374,7 +420,7 @@ void main() {
 
       final movedGame = makeGame(
         'nrl-01-002',
-        DateTime.utc(2026, 4, 1, 20, 0),
+        DateTime.utc(2026, 4, 2, 20, 0),
         matchNum: 2,
       );
       final scoredGame = makeGame(

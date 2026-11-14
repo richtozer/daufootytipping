@@ -492,9 +492,14 @@ async function loadBadgeSchedule(
     const overrideStartMs = typeof round.adminOverrideRoundStartDate ===
       "string" ?
       parseFirebaseUtcTimestamp(round.adminOverrideRoundStartDate) : NaN;
-    const effectiveStartMs = Number.isFinite(overrideStartMs) ?
+    const rawStartMs = Number.isFinite(overrideStartMs) ?
       overrideStartMs : storedStartMs;
+    const effectiveStartMs = startOfUtcDayMs(rawStartMs);
     const effectiveEndMs = storedEndMs;
+    if (!Number.isFinite(effectiveStartMs) ||
+        !Number.isFinite(effectiveEndMs)) {
+      continue;
+    }
     if (effectiveEndMs <= effectiveStartMs) continue;
     if (latestCutoffMs != null && effectiveStartMs > latestCutoffMs) continue;
     parsedRounds.push({
@@ -503,6 +508,15 @@ async function loadBadgeSchedule(
     });
   }
   return {rounds: parsedRounds, cutoffs};
+}
+
+function startOfUtcDayMs(timestampMs: number): number {
+  const date = new Date(timestampMs);
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
 }
 
 function isWithinBadgeSyncWindow(

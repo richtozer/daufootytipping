@@ -288,7 +288,8 @@ void main() {
           'AwayTeamScore': 10,
         },
         'nrl-02-001': <String, dynamic>{
-          'DateUtc': '2026-03-03 08:30:00Z', // +3h = 11:30 > R3 start 10:00
+          'DateUtc':
+              '2026-03-02 22:30:00Z', // +3h = Mar 3 01:30 > R3 start 00:00
         },
         'afl-04-001': <String, dynamic>{'DateUtc': '2026-03-11 08:00:00Z'},
       };
@@ -300,8 +301,8 @@ void main() {
       );
 
       expect(changed.containsKey(0), isFalse); // fully scored round skipped
-      expect(changed[1], '2026-03-03 09:59:59Z'); // R3 start (10:00:00) - 1s
-      expect(changed[2], '2026-03-03 10:00:00Z'); // empty round -> end = start
+      expect(changed[1], '2026-03-02 23:59:59Z'); // R3 start (00:00:00) - 1s
+      expect(changed[2], '2026-03-03 00:00:00Z'); // empty round -> end = start
       expect(changed[3], '2026-03-11 11:00:00Z'); // final round max + 3h
 
       // Re-running with same data yields no changed rounds.
@@ -318,15 +319,15 @@ void main() {
         DAURound(
           dAUroundNumber: 1,
           firstGameKickOffUTC: DateTime.utc(2026, 3, 1, 17, 0),
-          // Previously included the 20:00 unscored game (+3h = 23:00).
-          lastGameKickOffUTC: DateTime.utc(2026, 3, 1, 23, 0),
+          // Previously included the 2026-03-02 01:00 unscored game (+3h = 04:00).
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 2, 4, 0),
         ),
         DAURound(
           dAUroundNumber: 2,
-          firstGameKickOffUTC: DateTime.utc(2026, 3, 2, 10, 0),
-          lastGameKickOffUTC: DateTime.utc(2026, 3, 2, 23, 0),
-          // Admin moved Round 2 start back to 19:00, moving the 20:00 game out of Round 1.
-          adminOverrideRoundStartDate: DateTime.utc(2026, 3, 1, 19, 0),
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 5, 10, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 5, 23, 0),
+          // Admin moved Round 2 start back to 2026-03-02, moving the 01:00 game out of Round 1.
+          adminOverrideRoundStartDate: DateTime.utc(2026, 3, 2),
         ),
       ];
       final comp = DAUComp(
@@ -343,7 +344,7 @@ void main() {
           'HomeTeamScore': 20,
           'AwayTeamScore': 10,
         },
-        'nrl-01-002': <String, dynamic>{'DateUtc': '2026-03-01 20:00:00Z'},
+        'nrl-01-002': <String, dynamic>{'DateUtc': '2026-03-02 01:00:00Z'},
       };
 
       final changed = applier.recalculateRoundEndDates(
@@ -352,10 +353,10 @@ void main() {
         existingGames: existingGames,
       );
 
-      expect(changed[0], '2026-03-01 18:59:59Z');
+      expect(changed[0], '2026-03-01 23:59:59Z');
       expect(
         rounds[0].lastGameKickOffUTC,
-        DateTime.utc(2026, 3, 1, 18, 59, 59),
+        DateTime.utc(2026, 3, 1, 23, 59, 59),
       );
     });
 
