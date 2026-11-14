@@ -98,22 +98,26 @@ void main() {
     final noticeBottom = tester.getBottomLeft(find.text('heads up')).dy;
     final pillTop = tester.getTopLeft(find.byType(AppGlassPill)).dy;
     expect(noticeBottom, lessThanOrEqualTo(pillTop));
-    expect(tester.getTopLeft(find.text('heads up')).dx, greaterThanOrEqualTo(0));
-  });
-
-  testWidgets('a notice stays clear of the side controls on a short wide display', (
-    tester,
-  ) async {
-    useView(tester, const Size(844, 390));
-    await tester.pumpWidget(
-      app(homeWithTabs(), notice: const Text('heads up')),
+    expect(
+      tester.getTopLeft(find.text('heads up')).dx,
+      greaterThanOrEqualTo(0),
     );
-    await tester.pumpAndSettle();
-
-    final noticeRight = tester.getTopRight(find.text('heads up')).dx;
-    final pillLeft = tester.getTopLeft(find.byType(AppGlassPill)).dx;
-    expect(noticeRight, lessThanOrEqualTo(pillLeft));
   });
+
+  testWidgets(
+    'a notice stays clear of the side controls on a short wide display',
+    (tester) async {
+      useView(tester, const Size(844, 390));
+      await tester.pumpWidget(
+        app(homeWithTabs(), notice: const Text('heads up')),
+      );
+      await tester.pumpAndSettle();
+
+      final noticeRight = tester.getTopRight(find.text('heads up')).dx;
+      final pillLeft = tester.getTopLeft(find.byType(AppGlassPill)).dx;
+      expect(noticeRight, lessThanOrEqualTo(pillLeft));
+    },
+  );
 
   testWidgets('a notice rides above the keyboard', (tester) async {
     useView(tester, const Size(390, 844));
@@ -225,6 +229,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('sure?'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back), findsNothing);
+    expect(find.byType(AppGlassPill), findsOneWidget);
+  });
+
+  testWidgets('a sheet built on a page route does not summon Back', (
+    tester,
+  ) async {
+    useView(tester, const Size(390, 844));
+    await tester.pumpWidget(app(homeWithTabs()));
+    await tester.pumpAndSettle();
+
+    // A see-through page route, as some sheet packages build theirs on.
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .push(
+          PageRouteBuilder<void>(
+            opaque: false,
+            pageBuilder: (_, _, _) => const Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(height: 200, child: Text('sheet')),
+            ),
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.text('sheet'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back), findsNothing);
     expect(find.byType(AppGlassPill), findsOneWidget);
   });

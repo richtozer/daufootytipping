@@ -20,7 +20,6 @@ import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_page.dart'; // Added import
-import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -339,9 +338,9 @@ class _GameListItemState extends State<GameListItem> {
         );
         return;
       }
-      showMaterialModalBottomSheet(
-        expand: false,
+      showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
         builder: (context) => LiveScoringModal(gameTipsViewModelConsumer.tip!),
       );
       return;
