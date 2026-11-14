@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
@@ -39,7 +40,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   List<AppRow> _tableRows(BuildContext context) {
     final selected = di<TippersViewModel>().selectedTipper;
-    final highlight = Theme.of(context).highlightColor;
+    final highlight = appSelectionColor(context);
     final entries = roundLeaderboard.entries
         .where(
           (entry) =>

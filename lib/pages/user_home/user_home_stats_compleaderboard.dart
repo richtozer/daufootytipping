@@ -1,3 +1,5 @@
+import 'package:daufootytipping/theme_data.dart';
+
 import 'dart:math' as math;
 
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
@@ -256,7 +258,7 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
       child: buildScaffold(
         context,
         di<TippersViewModel>().selectedTipper.dbkey ?? '',
-        Theme.of(context).highlightColor,
+        appSelectionColor(context),
       ),
     );
   }

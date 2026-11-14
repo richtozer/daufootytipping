@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -222,7 +223,7 @@ void main() {
       expect(table().rows.first.cells[3].text, '99');
       expect(
         table().rows.first.colour,
-        Theme.of(tester.element(find.byType(AppTable))).highlightColor,
+        appSelectionColor(tester.element(find.byType(AppTable))),
       );
       expect(tester.takeException(), isNull);
     },
@@ -406,6 +407,49 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'winners band rounds in pale green and mark the tipper in selection green',
+    (tester) async {
+      final other = populateRound().keys.firstWhere(
+        (tipper) => tipper != selectedTipper,
+      );
+      RoundWinnerEntry entry(int round, Tipper tipper) => RoundWinnerEntry(
+        roundNumber: round,
+        tipper: tipper,
+        total: 54,
+        nRL: 30,
+        aFL: 24,
+        aflMargins: 2,
+        nrlMargins: 3,
+        aflUPS: 1,
+        nrlUPS: 2,
+      );
+      when(() => statsViewModel.roundWinners).thenAnswer(
+        (_) => {
+          3: [entry(3, other)],
+          2: [entry(2, selectedTipper), entry(2, other)],
+          1: [entry(1, other)],
+        },
+      );
+      await pumpRound(tester, width: 680, page: const StatRoundWinners());
+      final context = tester.element(find.byType(AppTable));
+      final band = Theme.of(context).colorScheme.surfaceContainerHigh;
+      final colours = tester
+          .widget<AppTable>(find.byType(AppTable))
+          .rows
+          .map((row) => row.colour)
+          .toList();
+      expect(colours, [
+        Colors.transparent,
+        appSelectionColor(context),
+        band,
+        Colors.transparent,
+      ]);
+      expect(band, isNot(appSelectionColor(context)));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('winners freeze two columns and expose UPS clear of scrollbar', (
     tester,

@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
@@ -259,7 +260,7 @@ void main() {
       expect(table(tester).rows.first.colour, Colors.transparent);
       expect(
         table(tester).rows[1].colour,
-        Theme.of(tester.element(find.byType(AppTable))).highlightColor,
+        appSelectionColor(tester.element(find.byType(AppTable))),
       );
       expect(tester.takeException(), isNull);
     },

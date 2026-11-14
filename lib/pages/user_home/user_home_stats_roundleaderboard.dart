@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -48,7 +49,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   // Preserve list identity through resize/rebuild so AppTable reuses metrics.
   List<AppRow> _tableRows(BuildContext context) {
     final selectedTipper = di<TippersViewModel>().selectedTipper;
-    final highlight = Theme.of(context).highlightColor;
+    final highlight = appSelectionColor(context);
     // Snapshot primitives: StatsViewModel may update existing model objects.
     final values = <Object?>[
       widget.roundNumberToDisplay,

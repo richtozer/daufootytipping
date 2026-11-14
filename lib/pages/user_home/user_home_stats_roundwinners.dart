@@ -1,3 +1,4 @@
+import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_roundwinners.dart';
@@ -42,14 +43,17 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
   List<AppRow> _rows = const [];
 
   List<AppRow> _tableRows(BuildContext context) {
-    final theme = Theme.of(context);
     final selected = di<TippersViewModel>().selectedTipper;
+    final highlight = appSelectionColor(context);
+    // Rounds alternate between the table's own pale-green surface and a
+    // deeper tone of it, so the bands stay quieter than the selection green.
+    final bandColour = Theme.of(context).colorScheme.surfaceContainerHigh;
     final winners = statsViewModel.roundWinners.values
         .expand((group) => group)
         .toList();
     final values = <Object?>[
-      theme.brightness,
-      theme.highlightColor,
+      highlight,
+      bandColour,
       selected,
       for (final winner in winners) ...[
         winner.roundNumber,
@@ -74,14 +78,10 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
         (() {
           if (lastRound != winner.roundNumber) alternate = !alternate;
           lastRound = winner.roundNumber;
-          final groupColour = theme.brightness == Brightness.dark
-              ? (alternate ? Colors.grey.shade800 : Colors.grey.shade600)
-              : (alternate ? Colors.grey.shade200 : Colors.grey.shade400);
+          final groupColour = alternate ? Colors.transparent : bandColour;
           return AppRow(
             key: ValueKey((winner.roundNumber, winner.tipper.dbkey)),
-            colour: winner.tipper == selected
-                ? theme.highlightColor
-                : groupColour,
+            colour: winner.tipper == selected ? highlight : groupColour,
             onTap: () => onRowTapped(context, winner),
             cells: [
               AppCell.text(winner.roundNumber.toString()),
