@@ -2616,9 +2616,16 @@ void main() {
       );
     });
 
-    for (final hasGraceTip in [false, true]) {
+    // fixtureCaseDiffers: the fixture names the teams in a different case from
+    // the stored team keys (e.g. 'GWS Giants' becoming 'GWS GIANTS'). Scoring
+    // must still resolve both games to the existing teams.
+    for (final (hasGraceTip, fixtureCaseDiffers) in [
+      (false, false),
+      (true, false),
+      (false, true),
+    ]) {
       test(
-        'tipWritten scores ${hasGraceTip ? 'a submitted grace-period tip' : 'default Away'} in the target round',
+        'tipWritten scores ${hasGraceTip ? 'a submitted grace-period tip' : 'default Away'} in the target round${fixtureCaseDiffers ? ' when fixture team names differ in case from team keys' : ''}',
         () async {
           final mockDb = MockDatabase();
           final mockCompRef = MockDatabaseReference();
@@ -2694,10 +2701,15 @@ void main() {
             () => mockTeamsRef.once(),
           ).thenAnswer((_) async => mockTeamsSnapshot);
           when(() => mockTeamsSnapshot.value).thenReturn({
-            'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+            fixtureCaseDiffers ? 'nrl-Broncos' : 'nrl-broncos': {
+              'name': 'Broncos',
+              'league': 'nrl',
+            },
             'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
           });
 
+          final homeTeamName = fixtureCaseDiffers ? 'BRONCOS' : 'Broncos';
+          final awayTeamName = fixtureCaseDiffers ? 'roosters' : 'Roosters';
           when(
             () => mockDb.ref('/DAUCompsGames/comp2026'),
           ).thenReturn(mockGamesRef);
@@ -2708,8 +2720,8 @@ void main() {
             'nrl-01-001': {
               'RoundNumber': 1,
               'MatchNumber': 1,
-              'HomeTeam': 'Broncos',
-              'AwayTeam': 'Roosters',
+              'HomeTeam': homeTeamName,
+              'AwayTeam': awayTeamName,
               'Location': 'Stadium One',
               'DateUtc': '2026-01-03T10:00:00Z',
               'HomeTeamScore': 30,
@@ -2718,8 +2730,8 @@ void main() {
             'nrl-02-001': {
               'RoundNumber': 2,
               'MatchNumber': 1,
-              'HomeTeam': 'Broncos',
-              'AwayTeam': 'Roosters',
+              'HomeTeam': homeTeamName,
+              'AwayTeam': awayTeamName,
               'Location': 'Stadium Two',
               'DateUtc': '2026-01-10T10:00:00Z',
               'HomeTeamScore': 20,
