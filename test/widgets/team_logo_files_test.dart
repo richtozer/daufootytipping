@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
 import 'package:flutter/material.dart';
@@ -53,6 +54,57 @@ void main() {
       );
       expect(svg.trimLeft(), startsWith('<svg'), reason: file.path);
     }
+  });
+
+  // A logo that leaves its background transparent vanishes on the background
+  // it shares a colour with: the Rabbitohs' black rabbit on dark mode did.
+  testWidgets('every logo stands out on light and dark backgrounds', (
+    tester,
+  ) async {
+    const int size = 64;
+    const backgrounds = {
+      'light': ui.Color(0xFFFFFFFF),
+      'dark': ui.Color(0xFF121212),
+    };
+    final invisible = <String>[];
+    await tester.runAsync(() async {
+      for (final file in logoFiles) {
+        final info = await vg.loadPicture(
+          SvgStringLoader(file.readAsStringSync()),
+          null,
+        );
+        for (final MapEntry(key: name, value: background)
+            in backgrounds.entries) {
+          final recorder = ui.PictureRecorder();
+          final canvas = ui.Canvas(recorder)
+            ..drawRect(
+              const ui.Rect.fromLTWH(0, 0, size + 0.0, size + 0.0),
+              ui.Paint()..color = background,
+            )
+            ..scale(size / info.size.longestSide);
+          canvas.drawPicture(info.picture);
+          final image = await recorder.endRecording().toImage(size, size);
+          final pixels = (await image.toByteData())!.buffer.asUint8List();
+          final int r = (background.r * 255).round();
+          final int g = (background.g * 255).round();
+          final int b = (background.b * 255).round();
+          var distinct = 0;
+          for (var i = 0; i < pixels.length; i += 4) {
+            final delta = [
+              (pixels[i] - r).abs(),
+              (pixels[i + 1] - g).abs(),
+              (pixels[i + 2] - b).abs(),
+            ].reduce((a, c) => a > c ? a : c);
+            if (delta > 48) distinct++;
+          }
+          if (distinct < size * size * 0.05) {
+            invisible.add('${file.uri.pathSegments.last} on $name');
+          }
+        }
+        info.picture.dispose();
+      }
+    });
+    expect(invisible, isEmpty);
   });
 
   testWidgets('every logo renders without unsupported element logs', (
