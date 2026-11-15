@@ -8,9 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 Uint8List _bytes(String text) => Uint8List.fromList(utf8.encode(text));
 
-void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+String _svg(String body) =>
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">$body</svg>';
 
+void main() {
   Future<String> rejection(Uint8List bytes) async {
     try {
       await validateTeamLogo(bytes);
@@ -20,9 +21,20 @@ void main() {
     fail('expected the logo to be rejected');
   }
 
-  test('accepts a seed logo and returns its trimmed text', () async {
-    final text = File('team_logos/afl-Fremantle.svg').readAsStringSync();
-    expect(await validateTeamLogo(_bytes('\n$text\n')), text.trim());
+  test('accepts every seed logo and returns its trimmed text', () async {
+    final files = Directory('team_logos')
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.svg'));
+    expect(files, isNotEmpty);
+    for (final file in files) {
+      final text = file.readAsStringSync();
+      expect(
+        await validateTeamLogo(_bytes('\n$text\n')),
+        text.trim(),
+        reason: file.path,
+      );
+    }
   });
 
   test('rejects empty, non-SVG and non-UTF-8 files', () async {
@@ -36,16 +48,70 @@ void main() {
 
   test('rejects a logo over the database size limit', () async {
     final padding = ' ' * maxTeamLogoSvgLength;
-    final svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1">'
-        '<desc>$padding</desc></svg>';
-    expect(await rejection(_bytes(svg)), contains('limit'));
+    expect(
+      await rejection(_bytes(_svg('<desc>$padding</desc>'))),
+      contains('limit'),
+    );
   });
 
-  test('rejects an SVG that cannot be drawn', () async {
+  test('rejects an SVG that draws nothing', () async {
+    expect(await rejection(_bytes(_svg(''))), contains('does not draw'));
     expect(
-      await rejection(_bytes('<svg xmlns="http://www.w3.org/2000/svg"><g>')),
-      contains('could not be drawn'),
+      await rejection(_bytes(_svg('<g><desc>empty group</desc></g>'))),
+      contains('does not draw'),
     );
+  });
+
+  test('rejects an element the renderer would silently skip', () async {
+    const body =
+        '<rect width="10" height="10" fill="red"/>'
+        '<foreignObject width="10" height="10"/>';
+    expect(await rejection(_bytes(_svg(body))), contains('cannot draw'));
+  });
+
+  test('rejects text and embedded bitmaps', () async {
+    expect(
+      await rejection(_bytes(_svg('<text x="1" y="9">BRI</text>'))),
+      contains('text'),
+    );
+    const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    expect(
+      await rejection(
+        _bytes(
+          _svg(
+            '<image width="10" height="10" '
+            'href="data:image/png;base64,$png"/>',
+          ),
+        ),
+      ),
+      contains('bitmap'),
+    );
+  });
+
+  test('rejects an SVG with no size', () async {
+    expect(
+      await rejection(
+        _bytes(
+          '<svg xmlns="http://www.w3.org/2000/svg">'
+          '<rect width="10" height="10"/></svg>',
+        ),
+      ),
+      anyOf(contains('no size'), contains('cannot draw')),
+    );
+  });
+
+  test('strips title, desc and metadata, which design tools add', () async {
+    const rect = '<rect width="10" height="10" fill="#123456"/>';
+    final svg = _svg(
+      '<title>Broncos</title><desc lang="en">jumper</desc>'
+      '<metadata><rdf/></metadata><desc/>$rect',
+    );
+    expect(await validateTeamLogo(_bytes(svg)), _svg(rect));
+  });
+
+  test('accepts a minimal valid logo', () async {
+    final svg = _svg('<rect width="10" height="10" fill="#123456"/>');
+    expect(await validateTeamLogo(_bytes(svg)), svg);
   });
 }

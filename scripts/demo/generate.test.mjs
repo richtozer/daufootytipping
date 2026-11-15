@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { aliasKey, logonKey, buildDemo, extractFixtures, HISTORY_SEASONS, repoRoot, writeEmulatorImport } from './generate.mjs';
+import { aliasKey, logonKey, buildDemo, extractFixtures, HISTORY_SEASONS, repoRoot, teamLogosFor, writeEmulatorImport } from './generate.mjs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { COMP, NAMESPACE, roster } from './roster.mjs';
@@ -157,4 +157,13 @@ test('the emulator import folder holds the database and matching Auth accounts',
     assert.equal(account.passwordHash, `fakeHash:salt=${account.salt}:password=Test-password-123`);
     assert.equal(account.providerUserInfo[0].providerId, 'password');
   }
+});
+
+test('team logos skip teams with no logo file instead of failing', () => {
+  const logos = teamLogosFor({ 'nrl-Broncos': {}, 'nrl-Perth Bears': {} });
+  assert.deepEqual(Object.keys(logos), ['nrl-Broncos']);
+  assert.match(logos['nrl-Broncos'].svg, /^<svg/);
+
+  const { database } = buildDemo(source, { anchor });
+  for (const teamKey of Object.keys(database.TeamLogos)) assert.ok(database.Teams[teamKey], teamKey);
 });

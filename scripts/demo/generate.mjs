@@ -103,14 +103,15 @@ function resultFor(key, game) {
   return homeMargin >= threshold ? 'a' : homeMargin > 0 ? 'b' : homeMargin === 0 ? 'c' : homeMargin <= -threshold ? 'e' : 'd';
 }
 
-// Every team's logo from team_logos/<teamKey>.svg, the same files the production
-// seed script uploads (scripts/seed_team_logos.mjs).
-export function teamLogosFor(teams) {
+// Each team's logo from team_logos/<teamKey>.svg, the same files the production
+// seed script uploads (scripts/seed_team_logos.mjs). A team with no file gets no
+// entry, and the app shows its initials, as it does for a new club.
+export function teamLogosFor(teams, logoDir = resolve(repoRoot, 'team_logos')) {
   const updatedUtc = '2026-11-15T00:00:00.000Z';
-  return Object.fromEntries(Object.keys(teams).map(teamKey => [teamKey, {
-    svg: readFileSync(resolve(repoRoot, 'team_logos', `${teamKey}.svg`), 'utf8'),
-    updatedUtc,
-  }]));
+  return Object.fromEntries(Object.keys(teams)
+    .map(teamKey => [teamKey, resolve(logoDir, `${teamKey}.svg`)])
+    .filter(([, file]) => existsSync(file))
+    .map(([teamKey, file]) => [teamKey, { svg: readFileSync(file, 'utf8'), updatedUtc }]));
 }
 
 // Past seasons as their own competitions, unshifted, so head-to-head history

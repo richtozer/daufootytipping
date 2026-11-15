@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
@@ -16,12 +17,30 @@ void main() {
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
 
-  test('there is one logo for every AFL and NRL team key', () {
-    final names = logoFiles.map((file) => file.uri.pathSegments.last).toList();
-    expect(names, isNotEmpty);
-    for (final name in names) {
-      expect(name, matches(RegExp(r'^(afl|nrl)-[^/]+\.svg$')));
+  final Set<String> logoTeamKeys = {
+    for (final file in logoFiles)
+      file.uri.pathSegments.last.replaceFirst(RegExp(r'\.svg$'), ''),
+  };
+
+  test('every logo file is named by an AFL or NRL team key', () {
+    expect(logoTeamKeys, isNotEmpty);
+    for (final teamKey in logoTeamKeys) {
+      expect(teamKey, matches(RegExp(r'^(afl|nrl)-.+$')));
     }
+  });
+
+  test('every team in the 2022-2026 fixtures has a logo file', () {
+    Iterable<String> teamKeysIn(String path) {
+      final data = jsonDecode(File(path).readAsStringSync()) as Map;
+      return (data['teams'] as Map).keys.cast<String>();
+    }
+
+    final Set<String> fixtureTeamKeys = {
+      ...teamKeysIn('demo/history.json'),
+      ...teamKeysIn('demo/fixtures-2026.json'),
+    };
+    expect(fixtureTeamKeys, hasLength(greaterThanOrEqualTo(35)));
+    expect(fixtureTeamKeys.difference(logoTeamKeys), isEmpty);
   });
 
   test('every logo fits under the database rules size limit', () {

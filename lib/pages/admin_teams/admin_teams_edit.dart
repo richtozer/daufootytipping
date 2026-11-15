@@ -7,6 +7,7 @@ import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watch_it/watch_it.dart';
 
 // this class only supports updating Team records. for referential
@@ -89,8 +90,9 @@ class _TeamEditPageState extends State<TeamEditPage> {
     }
   }
 
-  /// Picks an SVG, checks it and stores it as this team's logo. The logo
-  /// preview updates when the `/TeamLogos` listener receives the change.
+  /// Picks an SVG, checks it, shows it beside the current logo and stores it
+  /// only once the admin confirms. The logo preview on this page updates when
+  /// the `/TeamLogos` listener receives the change.
   Future<void> _uploadLogo() async {
     final PlatformFile? file = await FilePicker.pickFile(
       dialogTitle: 'Choose the ${team.name} logo',
@@ -100,11 +102,22 @@ class _TeamEditPageState extends State<TeamEditPage> {
     if (file == null || !mounted) return;
 
     setState(() => _isUploadingLogo = true);
-    String message;
+    String? message;
     try {
       final String svg = await validateTeamLogo(await file.readAsBytes());
-      await di<TeamLogosViewModel>().saveLogo(teamDbKey: team.dbkey, svg: svg);
-      message = 'Logo updated for ${team.name}.';
+      if (!mounted) return;
+      final bool confirmed = await confirmTeamLogoReplacement(
+        context: context,
+        team: team,
+        svg: svg,
+      );
+      if (confirmed) {
+        await di<TeamLogosViewModel>().saveLogo(
+          teamDbKey: team.dbkey,
+          svg: svg,
+        );
+        message = 'Logo updated for ${team.name}.';
+      }
     } on TeamLogoRejected catch (rejection) {
       message = rejection.message;
     } on Exception {
@@ -112,6 +125,7 @@ class _TeamEditPageState extends State<TeamEditPage> {
     }
     if (!mounted) return;
     setState(() => _isUploadingLogo = false);
+    if (message == null) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
@@ -220,6 +234,77 @@ class _TeamEditPageState extends State<TeamEditPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shows [team]'s current logo beside [svg] at header and list sizes, and
+/// returns whether the admin chose to replace the current logo.
+Future<bool> confirmTeamLogoReplacement({
+  required BuildContext context,
+  required Team team,
+  required String svg,
+}) async {
+  final bool? replace = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Replace the ${team.name} logo?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _LogoPreview(
+                label: 'Current',
+                logoAt: (size) => TeamLogo(
+                  teamDbKey: team.dbkey,
+                  teamName: team.name,
+                  size: size,
+                ),
+              ),
+              _LogoPreview(
+                label: 'New',
+                logoAt: (size) =>
+                    SvgPicture.string(svg, width: size, height: size),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Replace logo'),
+        ),
+      ],
+    ),
+  );
+  return replace ?? false;
+}
+
+/// A logo shown at the header size (96) and the list size (28) under a label.
+class _LogoPreview extends StatelessWidget {
+  const _LogoPreview({required this.label, required this.logoAt});
+
+  final String label;
+  final Widget Function(double size) logoAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        logoAt(96),
+        const SizedBox(height: 8),
+        logoAt(28),
+      ],
     );
   }
 }
