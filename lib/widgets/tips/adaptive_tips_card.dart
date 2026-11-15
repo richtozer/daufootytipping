@@ -5,9 +5,9 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'tips_card_layout.dart';
 import 'tips_choice_panel.dart';
@@ -21,14 +21,16 @@ enum TipsStatus { upcoming, today, live, interim, finalScore }
 class TipsTeamDisplay {
   const TipsTeamDisplay(
     this.name,
-    this.logo, {
+    this.teamDbKey, {
     this.score,
     this.rank,
     this.winner = false,
     this.heroTag,
   });
   final String name;
-  final String logo;
+
+  /// The team's database key, which locates its logo.
+  final String teamDbKey;
   final int? score;
   final String? rank;
   final bool winner;
@@ -271,10 +273,10 @@ class AdaptiveTipsCard extends StatelessWidget {
       Theme.of(context).textTheme,
     );
     Widget logo(TipsTeamDisplay team) {
-      final picture = SvgPicture.asset(
-        team.logo,
-        width: logoSize,
-        height: logoSize,
+      final picture = TeamLogo(
+        teamDbKey: team.teamDbKey,
+        teamName: team.name,
+        size: logoSize,
       );
       final tag = team.heroTag;
       return tag == null ? picture : Hero(tag: tag, child: picture);

@@ -42,7 +42,7 @@ test('each game resolves to exactly one round and two existing teams', () => {
     assert.ok(db.Teams[`${game.League}-${game.HomeTeam}`]);
     assert.ok(db.Teams[`${game.League}-${game.AwayTeam}`]);
     assert.equal(key, `${game.League}-${String(game.RoundNumber).padStart(2, '0')}-${String(game.MatchNumber).padStart(3, '0')}`);
-    for (const team of [game.HomeTeam, game.AwayTeam]) assert.ok(existsSync(resolve(repoRoot, db.Teams[`${game.League}-${team}`].logoURI)));
+    for (const team of [game.HomeTeam, game.AwayTeam]) assert.ok(existsSync(resolve(repoRoot, 'team_logos', `${game.League}-${team}.svg`)));
   }
   for (const round of rounds.slice(0, 7)) assert.ok(Date.parse(round.roundEndDate) + 6 * 3600000 < now);
   assert.ok(Date.parse(rounds[7].roundStartDate) < now && Date.parse(rounds[7].roundEndDate) > now);

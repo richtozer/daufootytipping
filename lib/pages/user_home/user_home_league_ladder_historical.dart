@@ -8,7 +8,8 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LeagueLadderHistoricalMatchups extends StatefulWidget {
@@ -59,8 +60,8 @@ class _LeagueLadderHistoricalMatchupsState
         matchup.winningTeamName,
         matchup.pastGame.scoring?.homeTeamScore,
         matchup.pastGame.scoring?.awayTeamScore,
-        matchup.pastGame.homeTeam.logoURI,
-        matchup.pastGame.awayTeam.logoURI,
+        matchup.pastGame.homeTeam.dbkey,
+        matchup.pastGame.awayTeam.dbkey,
       ],
     ];
     if (listEquals(_renderedValues, values)) return _rows;
@@ -125,9 +126,7 @@ class _LeagueLadderHistoricalMatchupsState
       leadingSize: hasWinner ? const Size(20, 20) : Size.zero,
       leading: hasWinner
           ? _buildTeamLogo(
-              home
-                  ? matchup.pastGame.homeTeam.logoURI
-                  : matchup.pastGame.awayTeam.logoURI,
+              home ? matchup.pastGame.homeTeam : matchup.pastGame.awayTeam,
             )
           : null,
     );
@@ -333,18 +332,8 @@ class _LeagueLadderHistoricalMatchupsState
     });
   }
 
-  Widget _buildTeamLogo(String? logoURI) {
-    if (logoURI != null && logoURI.isNotEmpty) {
-      return SvgPicture.asset(
-        logoURI,
-        width: 20,
-        height: 20,
-        placeholderBuilder: (context) =>
-            const Icon(Icons.shield, size: 20, color: Colors.grey),
-      );
-    }
-    return const Icon(Icons.shield, size: 20, color: Colors.grey);
-  }
+  Widget _buildTeamLogo(Team team) =>
+      TeamLogo(teamDbKey: team.dbkey, teamName: team.name, size: 20);
 
   @override
   Widget build(BuildContext context) {

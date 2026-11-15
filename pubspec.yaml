@@ -69,6 +69,7 @@ dependencies:
   universal_platform: ^1.1.0
   url_launcher: ^6.2.1
   watch_it: ^2.4.1
+  file_picker: ^13.3.3
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.2
@@ -92,8 +93,6 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/google_logo.png
-    - assets/teams/afl/
-    - assets/teams/nrl/
     - assets/afl.svg
     - assets/grass_background_blurred.webp
     - assets/nrl.svg

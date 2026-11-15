@@ -34,7 +34,7 @@ export function extractFixtures(snapshot) {
       const teamKey = Object.keys(snapshot.Teams).find(k => k.toLowerCase() === `${league}-${name}`.toLowerCase());
       if (!teamKey) throw new Error(`Missing team ${league}-${name}`);
       const t = snapshot.Teams[teamKey];
-      teams[teamKey] = { name: t.name, league, logoURI: t.logoURI };
+      teams[teamKey] = { name: t.name, league };
       return teamKey.slice(4);
     });
     if (![g.HomeTeamScore, g.AwayTeamScore].every(Number.isInteger)) throw new Error(`Missing 2026 result: ${key}`);
@@ -72,7 +72,7 @@ export function extractHistory(snapshot) {
         const teamKey = Object.keys(snapshot.Teams).find(k => k.toLowerCase() === `${league}-${name}`.toLowerCase());
         if (!teamKey) throw new Error(`Missing team ${league}-${name}`);
         const t = snapshot.Teams[teamKey];
-        teams[teamKey] = { name: t.name, league, logoURI: t.logoURI };
+        teams[teamKey] = { name: t.name, league };
         return teamKey.slice(4);
       });
       games[key] = {
@@ -101,6 +101,16 @@ function resultFor(key, game) {
   const homeMargin = game.HomeTeamScore - game.AwayTeamScore;
   const threshold = key.startsWith('afl') ? 31 : 13;
   return homeMargin >= threshold ? 'a' : homeMargin > 0 ? 'b' : homeMargin === 0 ? 'c' : homeMargin <= -threshold ? 'e' : 'd';
+}
+
+// Every team's logo from team_logos/<teamKey>.svg, the same files the production
+// seed script uploads (scripts/seed_team_logos.mjs).
+export function teamLogosFor(teams) {
+  const updatedUtc = '2026-11-15T00:00:00.000Z';
+  return Object.fromEntries(Object.keys(teams).map(teamKey => [teamKey, {
+    svg: readFileSync(resolve(repoRoot, 'team_logos', `${teamKey}.svg`), 'utf8'),
+    updatedUtc,
+  }]));
 }
 
 // Past seasons as their own competitions, unshifted, so head-to-head history
@@ -218,6 +228,7 @@ export function buildDemo(source, { anchor = new Date().toISOString(), avatarHos
     database.AllTips[COMP][person.tipperId] = tips;
   }
   if (history) addHistory(database, history);
+  database.TeamLogos = teamLogosFor(database.Teams);
   return { database, users, manifest: {
     comp: COMP, anchor: iso(now), currentRound: 8, completedRounds: 7, totalRounds: 12,
     sourceSeason: 2026, screenshotAccount: 'daisy@demo.example.test', avatarHost,

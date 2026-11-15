@@ -38,6 +38,7 @@ import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
 import '../../support/app_controls_test_app.dart';
+import '../../support/seed_team_logos.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -69,6 +70,7 @@ void main() {
   setUp(() async {
     await di.reset();
     registerAppControlsViewModel();
+    registerSeedTeamLogos();
     di.allowReassignment = true;
 
     dauCompsViewModel = MockDAUCompsViewModel();
@@ -1131,6 +1133,7 @@ void main() {
       24,
       (i) => TeamGameHistoryItem(
         opponentName: i.isEven ? 'Long Opponent Team Name' : 'Away Team',
+        opponentDbKey: i.isEven ? 'nrl-Long Opponent' : 'nrl-Away',
         teamScore: 20 + i,
         opponentScore: 10 + i,
         result: ['Won', 'Lost', 'Draw'][i % 3],
@@ -1258,6 +1261,7 @@ void main() {
   testWidgets('team game history renders its AppTable', (tester) async {
     final historyItem = TeamGameHistoryItem(
       opponentName: awayTeam.name,
+      opponentDbKey: awayTeam.dbkey,
       teamScore: 20,
       opponentScore: 10,
       result: 'Won',

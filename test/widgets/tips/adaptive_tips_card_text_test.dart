@@ -11,7 +11,7 @@ void main() {
       team.text(theme, highlight: highlight ?? kSelectionLightColor).children!;
 
   test('a winning score is a rounded badge in the highlight colour', () {
-    const team = TipsTeamDisplay('Storm', 'x.svg', score: 23, winner: true);
+    const team = TipsTeamDisplay('Storm', 'nrl-Storm', score: 23, winner: true);
     const green = Color(0xFF123456);
 
     final badge = spansOf(team, highlight: green).whereType<ScoreBadgeSpan>();
@@ -29,7 +29,7 @@ void main() {
   });
 
   test('a score that did not win stays plain bold text', () {
-    const team = TipsTeamDisplay('Eels', 'x.svg', score: 22);
+    const team = TipsTeamDisplay('Eels', 'nrl-Eels', score: 22);
 
     final spans = spansOf(team);
 
@@ -38,7 +38,7 @@ void main() {
   });
 
   test('a team with no score has no badge', () {
-    const team = TipsTeamDisplay('Eels', 'x.svg');
+    const team = TipsTeamDisplay('Eels', 'nrl-Eels');
 
     expect(spansOf(team).whereType<ScoreBadgeSpan>(), isEmpty);
   });

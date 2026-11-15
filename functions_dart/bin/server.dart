@@ -1744,7 +1744,6 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
         dbUpdates['${paths.teamsPathRoot}/$teamKey'] = {
           'name': teamName.trim(),
           'league': league,
-          'logoURI': null,
         };
       }
     }

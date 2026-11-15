@@ -31,6 +31,7 @@ const String nrlRegularCompEndDateUTCKey = 'nrlRegularCompEndDateUTC';
 const String tokensPath = '/AllTippersTokens';
 const String tippersPath = '/AllTippers';
 const String teamsPathRoot = '/Teams';
+const String teamLogosPathRoot = '/TeamLogos';
 const String gamesPathRoot = '/DAUCompsGames';
 const String configPathRoot = '/AppConfig';
 const String tipsPathRoot = '/AllTips';

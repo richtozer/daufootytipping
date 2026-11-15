@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
+import '../../support/seed_team_logos.dart';
 
 class _GameModel extends Mock implements GameTipViewModel {}
 
@@ -37,6 +38,7 @@ void main() {
   testWidgets('unchanged standard card visual baseline', (tester) async {
     await di.reset();
     addTearDown(di.reset);
+    registerSeedTeamLogos();
     final revision = ValueNotifier<int>(0);
     addTearDown(revision.dispose);
     final comps = _Comps();

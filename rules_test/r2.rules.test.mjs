@@ -51,6 +51,7 @@ const tipOf = (r = 'a') => ({ r, t: nowSeconds() });
 const seed = () => ({
   AppConfig: { minAppVersion: '1.4.0', currentDAUComp: 'c1' },
   Teams: { 'nrl-a': { name: 'A' } },
+  TeamLogos: { 'nrl-a': { svg: '<svg/>', updatedUtc: '2026-11-15T00:00:00Z' } },
   AllDAUComps: { c1: { name: '2027' } },
   DAUCompsGames: {
     c1: {
@@ -158,6 +159,7 @@ describe('r2 structure', () => {
       'AppConfig',
       'DAUCompsGames',
       'Stats/$comp/live_scores_backend_v1/$game/history/$entry',
+      'TeamLogos',
       'Teams',
     ]);
     for (const identity of [
@@ -267,7 +269,7 @@ describe('r2 against the rules engine', () => {
       await no('alice', (d) => d.ref('AppConfig/currentDAUComp').set('c2'));
     });
 
-    for (const path of ['Teams', 'AllDAUComps', 'DAUCompsGames/c1']) {
+    for (const path of ['Teams', 'TeamLogos', 'AllDAUComps', 'DAUCompsGames/c1']) {
       it(`${path} needs a session to read (an anonymous one will do)`, async () => {
         await no('unauth', (d) => d.ref(path).get());
         await ok('anon', (d) => d.ref(path).get());
@@ -283,6 +285,16 @@ describe('r2 against the rules engine', () => {
         await no(who, (d) => d.ref('Teams/nrl-b').set({ name: 'B' }));
         await no(who, (d) => d.ref('AllDAUComps/c2').set({ name: '2028' }));
         await no(who, (d) => d.ref('DAUCompsGames/c1/started/DateUtcEpochMs').set(1));
+      }
+    });
+
+    it('TeamLogos are written by an administrator only, as a bounded svg string', async () => {
+      const logo = { svg: '<svg/>', updatedUtc: '2026-11-15T00:00:00Z' };
+      await ok('admin', (d) => d.ref('TeamLogos/nrl-b').set(logo));
+      await no('admin', (d) => d.ref('TeamLogos/nrl-b').set({ ...logo, svg: 'x'.repeat(65537) }));
+      await no('admin', (d) => d.ref('TeamLogos/nrl-b').set({ ...logo, extra: 'x' }));
+      for (const who of ['alice', 'anon', 'unauth', 'allowlisted']) {
+        await no(who, (d) => d.ref('TeamLogos/nrl-b').set(logo));
       }
     });
 

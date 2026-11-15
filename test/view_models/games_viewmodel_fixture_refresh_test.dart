@@ -121,7 +121,6 @@ void main() {
     when(() => teamsViewModel.initialLoadComplete).thenAnswer((_) async {});
     when(() => teamsViewModel.findTeam('nrl-Home')).thenReturn(homeTeam);
     when(() => teamsViewModel.findTeam('nrl-Away')).thenReturn(awayTeam);
-    when(() => teamsViewModel.addTeam(any())).thenAnswer((_) async {});
   });
 
   tearDown(() async {
@@ -132,8 +131,11 @@ void main() {
   test('games listener closes on sign-out and reopens on sign-in', () async {
     final auth = StreamController<bool>.broadcast();
     final viewModel = GamesViewModel(
-      comp, dauCompsViewModel, teamsViewModel: teamsViewModel,
-      database: rootDb, signedIn: () => auth.stream,
+      comp,
+      dauCompsViewModel,
+      teamsViewModel: teamsViewModel,
+      database: rootDb,
+      signedIn: () => auth.stream,
     );
     await settleAsyncWork();
     expect(gamesController.hasListener, isFalse);
@@ -169,7 +171,8 @@ void main() {
         historicalComp,
         dauCompsViewModel,
         teamsViewModel: teamsViewModel,
-        signedIn: () => Stream.value(true), database: rootDb,
+        signedIn: () => Stream.value(true),
+        database: rootDb,
       );
 
       await settleAsyncWork();
@@ -212,7 +215,8 @@ void main() {
         comp,
         dauCompsViewModel,
         teamsViewModel: teamsViewModel,
-        signedIn: () => Stream.value(true), database: rootDb,
+        signedIn: () => Stream.value(true),
+        database: rootDb,
       );
 
       await settleAsyncWork();

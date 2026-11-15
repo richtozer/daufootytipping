@@ -53,6 +53,20 @@ seed_namespace() {
     "${base_url}/ServerConfig/identity/mode.json?ns=${ns}" >/dev/null
   echo "Identity server mode set to ${identity_mode} (ns=${ns})."
 
+  # Exports taken before /TeamLogos existed have no logos, so lay the checked-in ones over
+  # the snapshot. This is the same patch scripts/seed_team_logos.mjs builds for production.
+  local logos_patch
+  logos_patch="$(mktemp)"
+  node "$(dirname "$0")/seed_team_logos.mjs" --patch-out "${logos_patch}" >/dev/null
+  curl --fail --silent --show-error \
+    -X PATCH \
+    -H "Authorization: Bearer owner" \
+    -H "Content-Type: application/json" \
+    --data-binary @"${logos_patch}" \
+    "${base_url}/.json?ns=${ns}" >/dev/null
+  rm -f "${logos_patch}"
+  echo "Team logos seeded from team_logos/ (ns=${ns})."
+
   echo "Seeded Realtime Database emulator successfully (ns=${ns})."
   return 0
 }

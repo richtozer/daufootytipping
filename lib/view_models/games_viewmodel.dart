@@ -347,7 +347,7 @@ class GamesViewModel extends ChangeNotifier {
       historyItems.add(
         TeamGameHistoryItem(
           opponentName: opponentTeam.name,
-          opponentLogoUri: opponentTeam.logoURI,
+          opponentDbKey: opponentTeam.dbkey,
           teamScore: teamScore,
           opponentScore: opponentScore,
           result: result,
@@ -422,7 +422,7 @@ class GamesViewModel extends ChangeNotifier {
         historyItems.add(
           TeamGameHistoryItem(
             opponentName: opponentTeam.name,
-            opponentLogoUri: opponentTeam.logoURI,
+            opponentDbKey: opponentTeam.dbkey,
             teamScore: teamScore,
             opponentScore: opponentScore,
             result: result,

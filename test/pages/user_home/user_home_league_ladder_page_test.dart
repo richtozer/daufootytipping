@@ -15,6 +15,7 @@ import 'package:watch_it/watch_it.dart';
 
 import '../../support/load_tips_fonts.dart';
 import '../../support/app_controls_test_app.dart';
+import '../../support/seed_team_logos.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -59,6 +60,7 @@ void main() {
   setUp(() async {
     await di.reset();
     registerAppControlsViewModel();
+    registerSeedTeamLogos();
     di.allowReassignment = true;
 
     dauCompsViewModel = MockDAUCompsViewModel();

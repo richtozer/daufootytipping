@@ -1,8 +1,13 @@
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/team_logo_validator.dart';
+import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:watch_it/watch_it.dart';
 
 // this class only supports updating Team records. for referential
 // integrity reasons, we do not allow teams to be deleted
@@ -21,11 +26,11 @@ class _TeamEditPageState extends State<TeamEditPage> {
   late Team team;
 
   late TextEditingController _teamNameController;
-  late TextEditingController _teamLogoURIController;
 
   late bool disableBackButton = false;
   late bool disableSaves = true;
   late bool isSaving = false;
+  bool _isUploadingLogo = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -33,7 +38,6 @@ class _TeamEditPageState extends State<TeamEditPage> {
     super.initState();
     team = widget.team;
     _teamNameController = TextEditingController(text: team.name);
-    _teamLogoURIController = TextEditingController(text: team.logoURI);
   }
 
   @override
@@ -54,7 +58,6 @@ class _TeamEditPageState extends State<TeamEditPage> {
         name: _teamNameController.text,
         dbkey: oldTeam.dbkey,
         league: oldTeam.league,
-        logoURI: _teamLogoURIController.text,
       );
 
       await widget.teamsViewModel.editTeam(teamEdited);
@@ -84,6 +87,33 @@ class _TeamEditPageState extends State<TeamEditPage> {
         );
       }
     }
+  }
+
+  /// Picks an SVG, checks it and stores it as this team's logo. The logo
+  /// preview updates when the `/TeamLogos` listener receives the change.
+  Future<void> _uploadLogo() async {
+    final PlatformFile? file = await FilePicker.pickFile(
+      dialogTitle: 'Choose the ${team.name} logo',
+      type: FileType.custom,
+      allowedExtensions: const ['svg'],
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _isUploadingLogo = true);
+    String message;
+    try {
+      final String svg = await validateTeamLogo(await file.readAsBytes());
+      await di<TeamLogosViewModel>().saveLogo(teamDbKey: team.dbkey, svg: svg);
+      message = 'Logo updated for ${team.name}.';
+    } on TeamLogoRejected catch (rejection) {
+      message = rejection.message;
+    } on Exception {
+      message = 'The logo could not be saved.';
+    }
+    if (!mounted) return;
+    setState(() => _isUploadingLogo = false);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -156,38 +186,34 @@ class _TeamEditPageState extends State<TeamEditPage> {
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    const Text('Logo:'),
-                    Expanded(
-                      child: TextFormField(
-                        enabled: !disableBackButton,
-                        controller: _teamLogoURIController,
-                        onChanged: (String value) {
-                          if (team.logoURI != value) {
-                            //something has changed, allow saves
-                            setState(() {
-                              disableSaves = false;
-                            });
-                          } else {
-                            setState(() {
-                              disableSaves = true;
-                            });
-                          }
-                        },
-                        decoration: const InputDecoration(hintText: 'Logo'),
-                        onFieldSubmitted: (_) {
-                          FocusScope.of(context).nextFocus();
-                        },
-                        validator: (String? value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a team logo link';
-                          }
-                          return null;
-                        },
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Row(
+                    children: [
+                      const Text('Logo:'),
+                      const SizedBox(width: 12),
+                      TeamLogo(
+                        teamDbKey: team.dbkey,
+                        teamName: team.name,
+                        size: 48,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: (_isUploadingLogo || disableBackButton)
+                            ? null
+                            : _uploadLogo,
+                        icon: _isUploadingLogo
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file),
+                        label: const Text('Upload logo'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

@@ -8,7 +8,7 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:watch_it/watch_it.dart';
 
 class TeamGamesHistoryPage extends StatefulWidget {
@@ -64,7 +64,7 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
         game.gameDate,
         game.result,
         game.opponentName,
-        game.opponentLogoUri,
+        game.opponentDbKey,
         game.teamScore,
         game.opponentScore,
         game.roundNumber,
@@ -87,20 +87,11 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
               semanticLabel:
                   '${game.isHomeGame ? 'Home against' : 'Away at'} ${game.opponentName}',
               style: const TextStyle(fontWeight: FontWeight.w500),
-              leading:
-                  game.opponentLogoUri != null &&
-                      game.opponentLogoUri!.isNotEmpty
-                  ? SvgPicture.asset(
-                      game.opponentLogoUri!,
-                      width: 20,
-                      height: 20,
-                      placeholderBuilder: (_) => const Icon(
-                        Icons.shield,
-                        size: 20,
-                        color: Colors.grey,
-                      ),
-                    )
-                  : const Icon(Icons.shield, size: 20, color: Colors.grey),
+              leading: TeamLogo(
+                teamDbKey: game.opponentDbKey,
+                teamName: game.opponentName,
+                size: 20,
+              ),
               leadingSize: const Size(20, 20),
             ),
             AppCell.text(
@@ -235,18 +226,10 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
             heading: AppTableHeading(
               leading: Hero(
                 tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
-                child: SizedBox(
-                  width: 50,
-                  height: 50,
-                  child:
-                      widget.team.logoURI != null &&
-                          widget.team.logoURI!.isNotEmpty
-                      ? SvgPicture.asset(
-                          widget.team.logoURI!,
-                          placeholderBuilder: (context) =>
-                              const Icon(Icons.shield),
-                        )
-                      : const Icon(Icons.shield),
+                child: TeamLogo(
+                  teamDbKey: widget.team.dbkey,
+                  teamName: widget.team.name,
+                  size: 50,
                 ),
               ),
               title: '${widget.team.name} - Game History',

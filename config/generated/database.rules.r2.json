@@ -8,6 +8,22 @@
       ".read": "auth != null",
       ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')"
     },
+    "TeamLogos": {
+      ".read": "auth != null",
+      ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')",
+      "$teamKey": {
+        ".validate": "newData.hasChildren(['svg', 'updatedUtc'])",
+        "svg": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 65536"
+        },
+        "updatedUtc": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "AllDAUComps": {
       ".read": "auth != null",
       ".write": "(((auth != null && auth.token.firebase.sign_in_provider !== 'anonymous') && root.child('AuthIndex').child(auth.uid).exists() && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('authuid').val() === auth.uid) && root.child('TipperPrivate').child(root.child('AuthIndex').child(auth.uid).val()).child('tipperRole').val() === 'admin')"

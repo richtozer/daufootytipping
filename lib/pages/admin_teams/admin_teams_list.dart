@@ -3,8 +3,8 @@ import 'package:daufootytipping/pages/admin_teams/admin_teams_edit.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_admin_page.dart';
 import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 
 class TeamsListPage extends StatefulWidget {
@@ -60,13 +60,11 @@ class _TeamsListPageState extends State<TeamsListPage> {
           AppCell.text(
             team.name,
             leadingSize: const Size.square(_logoSize),
-            leading: team.logoURI != null
-                ? SvgPicture.asset(
-                    team.logoURI!,
-                    width: _logoSize,
-                    height: _logoSize,
-                  )
-                : const SizedBox.square(dimension: _logoSize),
+            leading: TeamLogo(
+              teamDbKey: team.dbkey,
+              teamName: team.name,
+              size: _logoSize,
+            ),
           ),
           AppCell.text(team.league.name.toUpperCase()),
           AppCell.navigation(),

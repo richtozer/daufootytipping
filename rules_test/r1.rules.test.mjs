@@ -52,6 +52,7 @@ const seed = () => ({
   AppConfig: { minAppVersion: '1.4.0', currentDAUComp: 'c1', createLinkedTipper: true },
   AllDAUComps: { c1: { name: '2026', aflFixtureJsonURL: 'https://x.test/afl.json' } },
   Teams: { 'nrl-broncos': { name: 'Broncos', league: 'nrl' } },
+  TeamLogos: { 'nrl-broncos': { svg: '<svg/>', updatedUtc: '2026-11-15T00:00:00Z' } },
   DAUCompsGames: { c1: { g1: { HomeTeam: 'a', AwayTeam: 'b', DateUtc: '2026-03-05 09:50:00Z' } } },
   AllTippers: {
     t1: { authuid: 'aliceUid', tipperRole: 'tipper', name: 'Alice', logon: 'alice@x.test', email: 'alice@x.test' },
@@ -117,6 +118,30 @@ describe('R1 reads', () => {
     await ok('alice', (d) => d.ref('AllTippersTokens').get());
     await no('alice', (d) => d.ref('Secret').get());
     await no('alice', (d) => d.ref().get());
+  });
+});
+
+describe('R1 TeamLogos', () => {
+  const logo = { svg: '<svg/>', updatedUtc: '2026-11-15T00:00:00Z' };
+  it('need a session to read', async () => {
+    await no('unauth', (d) => d.ref('TeamLogos').get());
+    await ok('anon', (d) => d.ref('TeamLogos').get());
+    await ok('alice', (d) => d.ref('TeamLogos').get());
+  });
+  it('are written by allowlisted admins only', async () => {
+    await ok('admin', (d) => d.ref('TeamLogos/nrl-bears').set(logo));
+    for (const who of ['alice', 'anon', 'unauth', 'fakeAdmin']) {
+      await no(who, (d) => d.ref('TeamLogos/nrl-bears').set(logo));
+    }
+  });
+  it('accept only a non-empty svg string of at most 64 KiB and its timestamp', async () => {
+    await ok('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ ...logo, svg: 'x'.repeat(65536) }));
+    await no('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ ...logo, svg: 'x'.repeat(65537) }));
+    await no('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ ...logo, svg: '' }));
+    await no('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ ...logo, svg: 42 }));
+    await no('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ svg: '<svg/>' }));
+    await no('admin', (d) => d.ref('TeamLogos/nrl-bears').set({ ...logo, extra: 'x' }));
+    await ok('admin', (d) => d.ref('TeamLogos/nrl-broncos').remove());
   });
 });
 

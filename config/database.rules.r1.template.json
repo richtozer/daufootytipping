@@ -8,6 +8,22 @@
       ".read": "true",
       ".write": "{{IS_ADMIN}}"
     },
+    "TeamLogos": {
+      ".read": "auth != null",
+      ".write": "{{IS_ADMIN}}",
+      "$teamKey": {
+        ".validate": "newData.hasChildren(['svg', 'updatedUtc'])",
+        "svg": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 65536"
+        },
+        "updatedUtc": {
+          ".validate": "newData.isString()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "AllDAUComps": {
       ".read": "true",
       ".write": "{{IS_ADMIN}}"

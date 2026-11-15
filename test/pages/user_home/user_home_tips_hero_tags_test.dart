@@ -17,7 +17,7 @@ final _theme = ThemeData.localize(
 TipsCardDisplay _card(String gameDbKey) {
   TipsTeamDisplay team(String teamDbKey, String name) => TipsTeamDisplay(
     name,
-    League.nrl.logo,
+    teamDbKey,
     heroTag: tipsCardHeroTag(gameDbKey: gameDbKey, teamDbKey: teamDbKey),
   );
   return TipsCardDisplay(

@@ -10,7 +10,6 @@ void main() {
         dbkey: 'nrl-broncos',
         name: 'Broncos',
         league: League.nrl,
-        logoURI: 'assets/teams/nrl/broncos.svg',
       );
 
       final json = team.toJson();
@@ -19,7 +18,6 @@ void main() {
       expect(from.dbkey, team.dbkey);
       expect(from.name, team.name);
       expect(from.league, team.league);
-      expect(from.logoURI, team.logoURI);
     });
 
     test('compareTo sorts by name ascending', () {
@@ -34,4 +32,3 @@ void main() {
     });
   });
 }
-

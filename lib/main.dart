@@ -29,6 +29,7 @@ import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
+import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
@@ -477,6 +478,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
 
       di<TeamsViewModel>();
+      di<TeamLogosViewModel>();
       di<TippersViewModel>();
       di<DAUCompsViewModel>();
     });
@@ -499,6 +501,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     if (!di.isRegistered<TeamsViewModel>()) {
       di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
+    }
+    if (!di.isRegistered<TeamLogosViewModel>()) {
+      di.registerLazySingleton<TeamLogosViewModel>(() => TeamLogosViewModel());
     }
 
     final bool needsRegistration =

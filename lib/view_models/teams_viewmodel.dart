@@ -98,29 +98,6 @@ class TeamsViewModel extends ChangeNotifier {
     await _db.update(updates);
   }
 
-  Future<void> addTeam(Team team) async {
-    await _initialLoadCompleter.future;
-
-    Team? foundTeam = teams.firstWhereOrNull(
-      (existingTeam) =>
-          existingTeam.dbkey.toLowerCase() == team.dbkey.toLowerCase(),
-    );
-
-    if (foundTeam == null) {
-      _addNewTeam(team);
-      log('Team: ${team.dbkey.toLowerCase()} added to the database');
-    }
-  }
-
-  Future<void> _addNewTeam(Team team) async {
-    final postData = team.toJson();
-
-    final Map<String, Map> updates = {};
-    updates['${p.teamsPathRoot}/${team.dbkey.toLowerCase()}'] = postData;
-
-    await _db.update(updates);
-  }
-
   Team? findTeam(String teamDbKey) {
     // if the initial load is not complete, throw an exception
     if (!_initialLoadCompleter.isCompleted) {

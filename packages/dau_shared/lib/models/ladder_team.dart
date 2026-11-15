@@ -1,7 +1,6 @@
 class LadderTeam {
   String dbkey;
   String teamName;
-  String? logoURI;
   int played;
   int won;
   int lost;
@@ -16,7 +15,6 @@ class LadderTeam {
   LadderTeam({
     required this.dbkey,
     required this.teamName,
-    this.logoURI,
     this.played = 0,
     this.won = 0,
     this.lost = 0,

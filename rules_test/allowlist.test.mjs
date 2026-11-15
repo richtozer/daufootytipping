@@ -110,7 +110,7 @@ describe('recovery variant (what to deploy instead of reopening the database)', 
   const recovery = buildRules(template, [UID_A], { variant: 'r1-recovery' }).rules;
 
   it('keeps every allowlist-protected area identical to R1', () => {
-    for (const area of ['AppConfig', 'AllDAUComps', 'Teams', 'DAUCompsGames']) {
+    for (const area of ['AppConfig', 'AllDAUComps', 'Teams', 'TeamLogos', 'DAUCompsGames']) {
       assert.deepEqual(recovery[area], r1[area], area);
     }
     assert.equal(recovery.AllTippers['.write'], r1.AllTippers['.write']);

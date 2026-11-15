@@ -12,6 +12,7 @@ import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -317,7 +318,6 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
       for (final team in _sortedTeams) ...[
         team.dbkey,
         team.teamName,
-        team.logoURI,
         team.originalRank,
         team.played,
         team.points,
@@ -352,7 +352,6 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     final Team teamForHistory = Team(
       dbkey: ladderTeam.dbkey,
       name: ladderTeam.teamName,
-      logoURI: ladderTeam.logoURI,
       league: widget.league,
     );
     final String heroTag =
@@ -589,22 +588,9 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
     );
   }
 
-  Widget _buildTeamLogo(LadderTeam ladderTeam) {
-    if (ladderTeam.logoURI != null &&
-        ladderTeam.logoURI!.isNotEmpty &&
-        !ladderTeam.logoURI!.contains('default_logo')) {
-      return SvgPicture.asset(
-        ladderTeam.logoURI!,
-        width: 28,
-        height: 28,
-        placeholderBuilder: (BuildContext context) => Container(
-          padding: const EdgeInsets.all(4.0),
-          child: const CircularProgressIndicator(),
-        ),
-      );
-    } else {
-      // Return a placeholder widget
-      return const Icon(Icons.shield, size: 28, color: Colors.grey);
-    }
-  }
+  Widget _buildTeamLogo(LadderTeam ladderTeam) => TeamLogo(
+    teamDbKey: ladderTeam.dbkey,
+    teamName: ladderTeam.teamName,
+    size: 28,
+  );
 }

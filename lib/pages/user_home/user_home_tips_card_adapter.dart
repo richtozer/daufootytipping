@@ -109,8 +109,7 @@ TipsTeamDisplay _team({
 }) {
   return TipsTeamDisplay(
     team.name,
-    team.logoURI ??
-        (team.league == League.nrl ? League.nrl.logo : League.afl.logo),
+    team.dbkey,
     score: score,
     rank: rank.isEmpty ? null : rank,
     winner: winner,
