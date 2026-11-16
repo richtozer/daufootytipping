@@ -323,7 +323,7 @@ Estimates are working figures for focused effort, not commitments.
 | M5 | **Live-score aggregator**, shadow first. History ordering: numeric `t`, else parsed legacy `submittedTimeUTC`, else the push key's microseconds. The `current` write is a version-guarded transaction (`basedOnCount`) that is also skipped when the game already has an official score; the audit job sweeps any `current` left behind for a completed game (the import clears the game's whole live node, so an in-flight aggregation can recreate it). `gameComplete` never set. **Activation (`active`) only after R2 rules deploy**, when no client can write `current`. | **Synthetic game-day replay** on the emulator: mixed legacy and new entries, shuffled and duplicated deliveries, an official score arriving mid-stream, compared with golden vectors from the current client algorithm. **Mixed-writer replay** (a legacy client's `current` writes interleaved with the aggregator over the same history converge to one displayed score and do not flap). Shadow canary in the test comp. | 6 d |
 | M6 | **Rulesets:** R1-compat, freeze, R2, all from templates; tests for each (R2 includes the bidirectional-check cases, multi-location updates, own-`AuthIndex` read, and **live-score `history` entries create-only for clients**, no overwrite and no delete, because the aggregator's version guard assumes the history only grows; see 6i); **rollback rehearsal** (section 9). | Every combination in section 10 passes; generated files match the build; rollback rehearsal green. | 8 d |
 | M7 | **R2 client** (`1.4.n+1`), section 10 scope. | Tests; real-client smoke harness green against R1-compat and R2 using the real callable code; **reference-data checks (section 6b)**; soak on the owner's devices. | 12 to 15 d |
-| M8 | **Cutover step A, verification window, step B, cleanup.** | Section 8 checklists green; allowlist and legacy paths removed; docs updated. | 4 d |
+| M8 | **Cutover step A, verification window, step B, cleanup.** | Section 8 checklists green; allowlist and legacy paths removed (the list is section 13); docs updated. | 4 d |
 
 ### 6a. Progress: M1 and M2 (2026-10-20, local only, not deployed)
 
@@ -2259,3 +2259,115 @@ The owner concurred on 2026-10-20 with the reviewer's recommendations on each po
     flag, block and scheduled reconcile are not built. A rare operation with an unknown outcome is found in the log
     and the drain tool's list, and the owner repairs the tipper manually, accepting a brief disruption to that
     tipper's profile changes. Accepted limitations and what blocks a release are in the scope reset in section 6f.
+
+## 13. Cleanup: what is deleted once the rollback is retired
+
+Added 16 November 2026. Everything listed here exists only to get from R1 to R2, or to get back. It is the
+part of this phase that is finished when the cutover is finished, and the cutover is not done until it is
+gone. Nothing below has been deleted yet.
+
+**Why not at the cutover itself.** The rollback in section 9 uses most of it: after the purge, a rollback
+restores the public fields with the restore tool, deploys R1-compat and sets mode `coexist`, which writes
+the legacy public shape again. So the list waits for the rollback to be retired, not for step B.
+
+**The trigger.** All four are true:
+1. Step B is done and verified, and the identity mode is `final`.
+2. The snapshot's retention has run (at least one season month after the purge, section 8).
+3. `AppConfig/minAppVersion` excludes every 1.4.x client.
+4. The owner says the rollback to R1-compat is retired. From then on a fault is fixed forward under R2.
+
+**Two batches.** Deleting tools, rulesets and tests needs no deploy and can be done as soon as the trigger
+is met. Deleting code from the functions needs a Dart functions deploy, which is a production deploy and
+waits for the off-season and the owner's go like any other. Before that deploy the production mode must
+already read `final`: a server that no longer knows `coexist` or `pilot` reads them as `off` and refuses
+every identity callable.
+
+### 13a. Functions code (needs a deploy)
+
+| What | Where | Why it can go |
+|---|---|---|
+| Mode `pilot`, `pilotUids` and their parsing and checks | `functions_dart/lib/identity/server_mode.dart`, `mode_control.dart`, `mode_cli.dart` | Only the pre-release pilot used it. |
+| Mode `coexist` and `writesLegacyPublicShape` | `server_mode.dart` | No 1.4.x client is left to scan the public list. |
+| The legacy-shape branches the callables take in those modes | `link_or_create.dart` (`legacyShape`), `tipper_shapes.dart` (the `legacyShape` fields of `newPublicRecord`), `claim_moves.dart`, `admin_update_tipper.dart`, `admin_merge_tippers.dart` | They copy private fields into the public record, which the purge has emptied. |
+| Mode `freeze` | `server_mode.dart` | Its only users are the cutover steps and the purge and restore tools, which go in 13b. |
+| Removal of the public `email` and `logon`, and blanking of the public `authuid`, on account deletion | `unlink_account.dart` | Those public fields no longer exist. |
+| "A public field wins" when the backend joins a tipper's two records | `mergeTipperRecords` in `backend_tippers.dart` | Identity fields live only in the private record, so it answers alone. |
+| Live-score aggregator mode `compat` | `functions_dart/lib/live_scores/live_score_aggregation.dart` | It exists for 1.4.x clients that could still write `current`. |
+| Ordering a history entry by `submittedTimeUTC` text or by the push key | `live_score_aggregate.dart` | Every R2 entry carries the numeric `t`. Delete only once no game that could still be aggregated holds a 1.4.x entry. |
+
+### 13b. One-off tools (no deploy)
+
+| What | Where |
+|---|---|
+| Identity backfill | `functions_dart/bin/identity_backfill.dart`, `lib/identity/backfill_plan.dart`, `lib/identity/backfill_cli.dart`, `scripts/apply-identity-backfill.sh`, `scripts/slim_auth_export.mjs` |
+| Purge | `functions_dart/bin/identity_purge.dart`, `lib/identity/purge_public.dart`, `lib/identity/purge_cli.dart` |
+| Restore | `functions_dart/bin/identity_restore.dart`, `lib/identity/restore_public.dart`, `lib/identity/restore_cli.dart` |
+| The store both tools share | `lib/identity/identity_records_store.dart` |
+| What only the purge and restore read | `tipperLegacyFieldNames` and `placeholderTipperName` in `packages/dau_shared/lib/models/tipper_private.dart` |
+| The pre-R1 identity audit and the allowlist check, which read identity from the public record | `scripts/audit_identity.mjs`, `scripts/verify_admin_auth_uids.mjs` |
+| Kickoff number backfill (applied and verified 20 October 2026, section 6c) | `scripts/backfill_kickoff_epoch.mjs` |
+
+`scripts/test-client-integration.sh` compiles the purge and restore tools for the rehearsal; that goes with
+them. `scripts/seed_rtdb_emulator.sh` seeds mode `coexist` by default and changes to `final`.
+
+### 13c. Rulesets and the allowlist (no deploy)
+
+| What | Where |
+|---|---|
+| The R1 template | `config/database.rules.r1.template.json` |
+| Generated R1, R1-recovery, R1-compat and freeze rules | `config/generated/database.rules.{r1,r1-recovery,r1-compat,freeze}.json` |
+| The admin allowlist | `config/admin-auth-uids.json` |
+| Every variant but `r2`, and the allowlist substitution and revision | `scripts/build_admin_allowlist.mjs`, which then only generates R2 and should be renamed for what it does |
+| The cutover order check, `--out-of-order`, and the R1-family variants and rollback ladder | `scripts/deploy-database-rules.sh` |
+| Validation of the freeze ruleset | `scripts/validate-database-rules.sh` |
+
+The deployment log `config/deployments/allowlist-deployments.jsonl` is a record and stays.
+
+### 13d. Tests (no deploy)
+
+| What | Where |
+|---|---|
+| Tests of the tools in 13b | `functions_dart/test/identity/`: `backfill_cli_test.dart`, `backfill_emulator_test.dart`, `backfill_plan_test.dart`, `purge_cli_test.dart`, `purge_public_test.dart`, `restore_cli_test.dart`, `restore_public_test.dart`, `restore_rehearsal_test.dart`; `rules_test/`: `apply_identity_backfill.test.mjs`, `slim_auth_export.test.mjs`, `audit_identity.test.mjs`, `verify_admin.test.mjs`, `live_cli.test.mjs`, `backfill_kickoff_epoch.test.mjs` |
+| The stand-in for the production pilot | `functions_dart/test/identity/replay_snapshot_test.dart` |
+| The cutover and rollback rehearsal | `test/integration/cutover_rehearsal_test.dart` |
+| Tests of the rulesets in 13c | `rules_test/`: `r1.rules.test.mjs`, `r1_compat.rules.test.mjs`, `r1_recovery.rules.test.mjs`, `freeze.rules.test.mjs`, `allowlist.test.mjs` |
+| The 1.4.x and R2 client against all four rulesets | `rules_test/client_matrix.rules.test.mjs`. First confirm `r2.rules.test.mjs` covers every R2-client cell. |
+| The released 1.4.0 app driven against the R1 rules | `rules_test/smoke/` |
+| The 1.4.x live-score algorithm kept as a reference | `functions_dart/test/support/client_live_score_oracle.dart`. Replace the comparisons that use it with fixed expected values first. |
+| The cases for the modes and legacy shape removed in 13a | within `server_mode_test.dart`, `mode_control_test.dart`, `mode_cli_test.dart`, `admission_test.dart`, `callables_test.dart` and the callable handler tests |
+| The cases for the removed variants and the order check | within `rules_test/deploy_scripts.test.mjs` and `deploy_functions.test.mjs`, and the `test:unit`, `test:dart` and `test:live` lists in `rules_test/package.json` |
+
+`test/integration/r2_cutover_test.dart` stays, but it builds its starting data with the callables under
+R1-compat. Its setup changes to start under R2.
+
+`rules_test/dart_spike/` is not waiting on the trigger: M1 ported the CAS spike and the primitive parts of
+the identity spike to `functions_dart/test/identity/` (section 6, M1). Confirm that what was not ported is
+covered by the callable tests written since, then delete it and its line in `test:dart`.
+
+### 13e. Outside the repository (the owner)
+
+- `/ServerConfig/identity/pilotUids` in production.
+- The git-ignored exports under `test/data/` on the Mac: the backfill patch, rollback patch and decisions
+  file, the database dry-run export, the replay snapshot and the purge snapshot. They hold personal data
+  and have no use once the rollback is retired.
+
+### 13f. What stays, on purpose
+
+- Modes `off` and `final`, the admission wrapper, the in-flight markers, the drain and
+  `bin/identity_mode.dart`: `off` is the emergency stop for a callable defect (section 9), and decision 10
+  relies on the drain's list to find an operation whose outcome is unknown.
+- The claims, leases, claim moves and create intents: they are how the callables work, not how the
+  migration works.
+- The R2 template, its generated rules, `r2.rules.test.mjs`, the deploy and validation scripts, and
+  `scripts/test-client-integration.sh` with the tests under `test/integration/` not named above.
+- Aggregator modes `shadow` and `active`. `shadow` is what a missing or unreadable mode means.
+- `BACKUP-database.rules.json` is not on this list. It reopens every path, which after the purge is a
+  different trade from the one it was written for, so whether to keep it is a separate owner decision.
+
+### 13g. Done means
+
+The analyzer and every suite pass (the app, `dau_shared`, both function codebases with the emulator-backed
+tests, the rules tests and the client integration harness); the ratchet baseline is lowered
+(`node scripts/ratchet.mjs --update`); the identity row is removed from `docs/temporary-mechanisms.md`;
+`functions.yaml` is unchanged, since no callable is added or removed; and this document, with the phase 1
+and phase 3 documents, is marked historical.
