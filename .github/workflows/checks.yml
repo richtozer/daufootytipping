@@ -42,7 +42,9 @@ jobs:
 
   dart:
     name: Flutter app, shared package and Dart functions
-    runs-on: ubuntu-latest
+    # macOS, because the golden images are rendered on a Mac and do not match
+    # pixel for pixel on Linux.
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
