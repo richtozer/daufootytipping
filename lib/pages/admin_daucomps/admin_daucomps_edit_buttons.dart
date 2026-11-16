@@ -10,15 +10,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
-
-/// Whether a fixture download or a scoring run is already under way, so a
-/// second one must wait.
-bool adminUpdatesBusy(
-  DAUCompsViewModel dauCompsViewModel,
-  StatsViewModel statsViewModel,
-) => dauCompsViewModel.isDownloading || statsViewModel.isUpdateScoringRunning;
 
 /// Asks which manual repair steps to run, then runs them with a progress dialog.
 ///
@@ -27,7 +19,6 @@ bool adminUpdatesBusy(
 Future<void> runAdminUpdates({
   required BuildContext context,
   required DAUCompsViewModel dauCompsViewModel,
-  required StatsViewModel statsViewModel,
   required DAUComp daucomp,
   required ValueChanged<bool> onDisableBack,
 }) async {
@@ -36,15 +27,6 @@ Future<void> runAdminUpdates({
       SnackBar(
         backgroundColor: League.afl.colour,
         content: const Text('Fixture download already in progress'),
-      ),
-    );
-    return;
-  }
-  if (statsViewModel.isUpdateScoringRunning) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        backgroundColor: Colors.red,
-        content: Text('Scoring already in progress'),
       ),
     );
     return;
@@ -86,10 +68,8 @@ Future<void> runAdminUpdates({
       progressDialogClosed = showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _AdminUpdateProgressDialog(
-          adminProgress: adminProgress,
-          statsViewModel: statsViewModel,
-        ),
+        builder: (_) =>
+            _AdminUpdateProgressDialog(adminProgress: adminProgress),
       );
       unawaited(progressDialogClosed);
     }
@@ -515,35 +495,23 @@ Future<AdminUpdateStepSelection?> _showAdminUpdateStepsDialog(
 
 class _AdminUpdateProgressDialog extends StatelessWidget {
   final ValueListenable<AdminUpdateProgress> adminProgress;
-  final StatsViewModel statsViewModel;
 
-  const _AdminUpdateProgressDialog({
-    required this.adminProgress,
-    required this.statsViewModel,
-  });
+  const _AdminUpdateProgressDialog({required this.adminProgress});
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Running updates'),
-      content: AnimatedBuilder(
-        animation: Listenable.merge(<Listenable>[
-          adminProgress,
-          statsViewModel,
-        ]),
-        builder: (context, _) {
-          final progressValue =
-              statsViewModel.scoringProgressValue ?? adminProgress.value.value;
-          final progressMessage =
-              statsViewModel.scoringProgressMessage ??
-              adminProgress.value.message;
+      content: ValueListenableBuilder<AdminUpdateProgress>(
+        valueListenable: adminProgress,
+        builder: (context, progress, _) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              LinearProgressIndicator(value: progressValue),
+              LinearProgressIndicator(value: progress.value),
               const SizedBox(height: 16),
-              Text(progressMessage),
+              Text(progress.message),
               const SizedBox(height: 8),
               const Text('Keep this screen open until the update completes.'),
             ],

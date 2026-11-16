@@ -3,15 +3,12 @@ import 'dart:async';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
-
-class MockStatsViewModel extends Mock implements StatsViewModel {}
 
 class MockDatabaseReference extends Mock implements DatabaseReference {}
 
@@ -24,13 +21,11 @@ class MockDataSnapshot extends Mock implements DataSnapshot {}
 class _RunUpdatesHarness extends StatelessWidget {
   const _RunUpdatesHarness({
     required this.dauCompsViewModel,
-    required this.statsViewModel,
     required this.daucomp,
     required this.onDisableBack,
   });
 
   final DAUCompsViewModel dauCompsViewModel;
-  final StatsViewModel statsViewModel;
   final DAUComp daucomp;
   final ValueChanged<bool> onDisableBack;
 
@@ -40,7 +35,6 @@ class _RunUpdatesHarness extends StatelessWidget {
       onPressed: () => runAdminUpdates(
         context: context,
         dauCompsViewModel: dauCompsViewModel,
-        statsViewModel: statsViewModel,
         daucomp: daucomp,
         onDisableBack: onDisableBack,
       ),
@@ -51,12 +45,10 @@ class _RunUpdatesHarness extends StatelessWidget {
 
 void main() {
   late MockDAUCompsViewModel dauCompsViewModel;
-  late MockStatsViewModel statsViewModel;
   late DAUComp comp;
 
   setUp(() {
     dauCompsViewModel = MockDAUCompsViewModel();
-    statsViewModel = MockStatsViewModel();
 
     comp = DAUComp(
       dbkey: 'comp-1',
@@ -66,7 +58,6 @@ void main() {
       daurounds: const [],
     );
 
-    when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
     when(() => dauCompsViewModel.isDownloading).thenReturn(false);
     when(() => dauCompsViewModel.lastFixtureDownloadRanViaCloudFunction)
         .thenReturn(false);
@@ -74,11 +65,6 @@ void main() {
         .thenAnswer((_) async => 'Fixture download complete.');
     when(() => dauCompsViewModel.rescoreWithBackend(comp))
         .thenAnswer((_) async => 'Backend rescore complete.');
-    when(() => statsViewModel.isUpdateScoringRunning).thenReturn(false);
-    when(() => statsViewModel.scoringProgressMessage).thenReturn(null);
-    when(() => statsViewModel.scoringProgressValue).thenReturn(null);
-    when(() => statsViewModel.addListener(any())).thenReturn(null);
-    when(() => statsViewModel.removeListener(any())).thenReturn(null);
   });
 
   testWidgets(
@@ -89,7 +75,6 @@ void main() {
           home: Scaffold(
             body: _RunUpdatesHarness(
               dauCompsViewModel: dauCompsViewModel,
-              statsViewModel: statsViewModel,
               daucomp: comp,
               onDisableBack: (_) {},
             ),
@@ -137,7 +122,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: disableBackStates.add,
           ),
@@ -168,7 +152,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: (_) {},
           ),
@@ -202,7 +185,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: (_) {},
           ),
@@ -230,9 +212,6 @@ void main() {
     tester,
   ) async {
     final reportCompleter = Completer<String>();
-    when(() => statsViewModel.scoringProgressMessage)
-        .thenReturn('Rebuilding game averages 3/10...');
-    when(() => statsViewModel.scoringProgressValue).thenReturn(0.3);
     when(() => dauCompsViewModel.rescoreWithBackend(comp))
         .thenAnswer((_) => reportCompleter.future);
 
@@ -241,7 +220,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: (_) {},
           ),
@@ -257,7 +235,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Running updates'), findsOneWidget);
-    expect(find.text('Rebuilding game averages 3/10...'), findsOneWidget);
+    expect(find.text('Updating scores...'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
     reportCompleter.complete('Backend rescore complete.');
@@ -276,7 +254,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: (_) {},
           ),
@@ -301,7 +278,6 @@ void main() {
         home: Scaffold(
           body: _RunUpdatesHarness(
             dauCompsViewModel: dauCompsViewModel,
-            statsViewModel: statsViewModel,
             daucomp: comp,
             onDisableBack: (_) {},
           ),

@@ -608,7 +608,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   /// update starts and ends, which is when the busy state changes.
   AppGlassAction? _runUpdatesAction() {
     final daucomp = widget.daucomp;
-    final statsViewModel = _pageDauCompsViewModel.statsViewModel;
     if (daucomp == null) {
       return null;
     }
@@ -616,12 +615,11 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     return AppGlassAction(
       icon: Icons.sync,
       label: state.busy ? 'Updating' : 'Run updates',
-      onPressed: statsViewModel == null || state.busy
+      onPressed: !state.ready || state.busy
           ? null
           : () => runAdminUpdates(
               context: context,
               dauCompsViewModel: _pageDauCompsViewModel,
-              statsViewModel: statsViewModel,
               daucomp: daucomp,
               onDisableBack: (bool disabled) =>
                   setState(() => disableBack = disabled),
@@ -632,14 +630,10 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   /// Whether Run updates has anything to run against yet, and whether an
   /// update is already under way.
   ({bool ready, bool busy}) _runUpdatesState() {
-    final statsViewModel = _pageDauCompsViewModel.statsViewModel;
-    if (statsViewModel == null) {
+    if (_pageDauCompsViewModel.statsViewModel == null) {
       return (ready: false, busy: false);
     }
-    return (
-      ready: true,
-      busy: adminUpdatesBusy(_pageDauCompsViewModel, statsViewModel),
-    );
+    return (ready: true, busy: _pageDauCompsViewModel.isDownloading);
   }
 
   /// The action sits in the app bar, outside the page's Consumer, so nothing

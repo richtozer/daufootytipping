@@ -585,10 +585,6 @@ class StatsViewModel extends ChangeNotifier {
     return _handleEventGameStats(event);
   }
 
-  bool get isUpdateScoringRunning => false;
-  String? get scoringProgressMessage => null;
-  double? get scoringProgressValue => null;
-
   Map<Tipper, RoundStats> getRoundLeaderBoard(int roundNumber) {
     if (_allTipperRoundStats.isEmpty) {
       return {};

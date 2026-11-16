@@ -116,7 +116,6 @@ void main() {
         .thenReturn(pageStatsViewModel);
     when(() => pageDauCompsViewModel.linkGamesWithRounds(any()))
         .thenAnswer((_) async {});
-    when(() => pageStatsViewModel.isUpdateScoringRunning).thenReturn(false);
     when(() => pageStatsViewModel.addListener(any())).thenAnswer((_) {});
     when(() => pageStatsViewModel.removeListener(any())).thenAnswer((_) {});
 
