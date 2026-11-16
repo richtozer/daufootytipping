@@ -37,11 +37,15 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Location: Service tests live under `test/services/`; ViewModel tests under `test/view_models/`.
 - Gate: Treat a clean analyzer run and a green test suite as gates before merging further refactors.
 
+## Drift Guards
+- The "Drift Guards" section of `CLAUDE.md` applies to every agent working in this repository. Read it before changing code.
+- Run `node scripts/ratchet.mjs` before declaring a change done; it must pass. Never raise a number in `config/ratchet-baseline.json`: only the maintainer does that.
+
 ## Flutter/Dart Specifics
 - Formatting: See the Formatting rule under Workflow Conventions.
 - Analysis: Honor `analysis_options.yaml`. Avoid introducing new warnings.
 - UI tests: Avoid unless asked. Focus on unit and ViewModel logic tests.
-- State: Current DI via `watch_it/get_it`, Provider + ChangeNotifier.
+- State: ChangeNotifier view models located with `watch_it/get_it`. Older screens rebuild through Provider; new code follows Drift Guards.
 - Architecture: Database-first with reactive listeners (Firebase streams as source of truth).
 
 ## Refactors

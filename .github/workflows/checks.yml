@@ -1,0 +1,108 @@
+name: Checks
+
+# Runs on every push to development, before anything is promoted to testing.
+# Builds nothing and deploys nothing.
+#
+# Not run here: rules_test (its safety boundary is macOS sandbox-exec and it
+# fails closed on Linux) and the functions_dart tests that need the Database
+# emulator, which skip themselves when FIREBASE_DATABASE_EMULATOR_HOST is unset.
+# Run those locally: see rules_test/README.md.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - development
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ratchet:
+    name: Ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Test the ratchet script
+        run: node --test scripts/ratchet.test.mjs
+
+      - name: Run the ratchet
+        run: node scripts/ratchet.mjs
+
+  dart:
+    name: Flutter app, shared package and Dart functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Flutter SDK
+        env:
+          FLUTTER_VERSION: "3.50.0"
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$HOME/flutter"
+          echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/flutter/bin:$PATH"
+          flutter config --no-analytics
+          flutter --version
+
+      - name: Get dependencies
+        run: |
+          flutter pub get
+          (cd packages/dau_shared && dart pub get)
+          (cd functions_dart && dart pub get)
+
+      - name: Analyze the app
+        run: flutter analyze
+
+      # The network tag marks tests that reach real websites.
+      - name: Test the app
+        run: flutter test --exclude-tags network
+
+      - name: Test the shared package
+        working-directory: packages/dau_shared
+        run: dart test
+
+      - name: Analyze the Dart functions
+        working-directory: functions_dart
+        run: dart analyze
+
+      - name: Test the Dart functions
+        working-directory: functions_dart
+        run: dart test
+
+  typescript:
+    name: TypeScript functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install dependencies
+        run: npm --prefix functions ci
+
+      - name: Lint
+        run: npm --prefix functions run lint
+
+      # Builds first, then runs the compiled tests.
+      - name: Test
+        run: npm --prefix functions test

@@ -42,7 +42,7 @@ When a hook reports issues (exit code 2) — formatting, `flutter analyze`, forb
 ### Technology Stack
 - **Frontend**: Flutter/Dart (SDK >=3.14.0)
 - **Backend**: Firebase (Realtime Database, Firestore, Cloud Functions, Auth, Analytics, Crashlytics)
-- **State Management**: Provider pattern with ChangeNotifier
+- **State Management**: ChangeNotifier view models. Older screens rebuild through Provider; new code follows Drift Guards below
 - **Dependency Injection**: watch_it/get_it service locator pattern
 
 ### Core Architecture Pattern
@@ -82,6 +82,7 @@ flutter analyze                          # MANDATORY - must pass
 flutter test                             # MANDATORY - must pass
 flutter test test/path/to/test_file.dart # Run a single test file
 dart format <changed files>              # MANDATORY - the files you changed, never a directory
+node scripts/ratchet.mjs                 # MANDATORY - must pass (see Drift Guards)
 
 # Backend tests
 npm --prefix functions test              # TypeScript functions (node:test)
@@ -156,12 +157,50 @@ with the client version currently on `main`.
 - **Implement proper dispose()** in StatefulWidgets for cleanup
 - **Expensive Build methods** Make sure build methods do not wait on expensive methods
 
+## Drift Guards
+
+This app has about 200 tippers and one maintainer who does not review every change. Code that only
+ever gets added to becomes a machine nobody can follow, so these rules exist to make each change leave
+the codebase no more complicated than it found it.
+
+### The ratchet
+`node scripts/ratchet.mjs` compares the code with `config/ratchet-baseline.json` and runs in CI on
+every push to `development`. Each number may fall but not rise:
+- the length of every source file over 600 lines (a new file may not pass 600)
+- `dynamic` in `lib`
+- service locator calls (`di<...>`, `di.register...`) in `lib/view_models`
+- Provider widgets (`ChangeNotifierProvider`, `MultiProvider`, `Consumer`, `Selector`) in `lib`
+
+When it fails, put the new behaviour in a new service or widget, or shrink something first. When your
+change lowers a number, run `node scripts/ratchet.mjs --update` and commit the baseline with it.
+**Never raise a number in the baseline or change what the script counts. Only the maintainer does
+that: stop and ask.**
+
+### Rules
+- **Size the solution to the app.** For a one-off operation such as a migration step or a data repair,
+  prefer a short runbook step the maintainer performs over new modes, tools or automation.
+- **Temporary means listed.** Anything built for a migration, a coexistence period, a platform limit or
+  a deferred upgrade gets a row in `docs/temporary-mechanisms.md`, with the condition that removes it,
+  in the same change.
+- **Moving behaviour deletes the old path.** When behaviour moves to the backend or to another class,
+  delete the old code and every branch that depended on it in the same change. Leave no stub that
+  returns a constant.
+- **Do not patch a patch.** If a fix needs another flag, timer or retry added to logic that already has
+  some, stop and propose a simpler design instead.
+- **One way to wire state.** A view model or service receives what it depends on through its
+  constructor. A widget finds a view model with `di<...>()` and rebuilds with `ListenableBuilder`; do
+  not add `addListener` with `setState`, and do not add Provider widgets.
+- **Docs change with the code.** If a change makes a statement in a `.md` file false, fix that file in
+  the same commit. Do not write line, file or test counts into docs.
+- **Scratch output goes in `.tmp/`**, which is ignored. Do not leave logs or reports in the repo root.
+
 ## Implementation Standards
 Use the "Database-First with Reactive Listeners" pattern for all state changes that need to persist in the database
 
 ### Our code is complete when:
 - ✅ All linters pass with zero issues (`flutter analyze`)
 - ✅ All tests pass (`flutter test`)
+- ✅ The ratchet passes (`node scripts/ratchet.mjs`)
 - ✅ Feature works end-to-end on multiple platforms
 - ✅ Old code is deleted
 - ✅ Proper documentation on all public APIs
@@ -216,7 +255,7 @@ My insights on better approaches are valued - please ask for them!
 ### **Flutter Performance**:
 - No premature optimization
 - Use `const` constructors liberally
-- Implement proper widget rebuilding strategies (`Consumer`, `Selector`)
+- Rebuild only what changed: wrap the smallest subtree in a `ListenableBuilder` or `ValueListenableBuilder`
 - Use `ListView.builder` for large lists
 - Implement proper image caching and loading
 - Profile with Flutter DevTools before claiming performance improvements
