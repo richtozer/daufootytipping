@@ -89,7 +89,11 @@ jobs:
       - name: Run analyzer
         run: flutter analyze
 
+      # Golden images are not compared on a runner: see
+      # test/flutter_test_config.dart.
       - name: Run tests
+        env:
+          SKIP_GOLDEN_COMPARISON: "true"
         run: flutter test
 
       - name: Read app version from pubspec

@@ -3,6 +3,7 @@ name: Checks
 # Runs on every push to development, before anything is promoted to testing.
 # Builds nothing and deploys nothing.
 #
+# Not checked here: golden image pixels (see test/flutter_test_config.dart).
 # Not run here: rules_test (its safety boundary is macOS sandbox-exec and it
 # fails closed on Linux) and the functions_dart tests that need the Database
 # emulator, which skip themselves when FIREBASE_DATABASE_EMULATOR_HOST is unset.
@@ -42,9 +43,7 @@ jobs:
 
   dart:
     name: Flutter app, shared package and Dart functions
-    # macOS, because the golden images are rendered on a Mac and do not match
-    # pixel for pixel on Linux.
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -71,8 +70,12 @@ jobs:
       - name: Analyze the app
         run: flutter analyze
 
-      # The network tag marks tests that reach real websites.
+      # The network tag marks tests that reach real websites. Golden images are
+      # rendered on a Mac and never match a runner pixel for pixel, so they are
+      # not compared here: see test/flutter_test_config.dart.
       - name: Test the app
+        env:
+          SKIP_GOLDEN_COMPARISON: "true"
         run: flutter test --exclude-tags network
 
       - name: Test the shared package
