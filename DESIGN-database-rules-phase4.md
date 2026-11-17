@@ -2292,8 +2292,12 @@ every identity callable.
 | Mode `freeze` | `server_mode.dart` | Its only users are the cutover steps and the purge and restore tools, which go in 13b. |
 | Removal of the public `email` and `logon`, and blanking of the public `authuid`, on account deletion | `unlink_account.dart` | Those public fields no longer exist. |
 | "A public field wins" when the backend joins a tipper's two records | `mergeTipperRecords` in `backend_tippers.dart` | Identity fields live only in the private record, so it answers alone. |
+| The scan of the public records for the caller's `authuid` on account deletion | `_recordsAttachedTo` in `unlink_account.dart` | No public record carries an `authuid`. The index entry and the private records remain. |
+| The fall-back to the public `logon` when finding a tipper's login claim | `currentClaimKey` in `claim_moves.dart` | No public record carries a `logon`. |
+| Ordering for a token entry a 1.4.x client wrote directly (a local time with no `Z`) | `_entrySeq` and the directly-written-token allowances in `device_tokens.dart` | Every entry comes from the callable. Delete only once the 30-day stale-token cleanup has removed the last 1.4.x entry. |
 | Live-score aggregator mode `compat` | `functions_dart/lib/live_scores/live_score_aggregation.dart` | It exists for 1.4.x clients that could still write `current`. |
 | Ordering a history entry by `submittedTimeUTC` text or by the push key | `live_score_aggregate.dart` | Every R2 entry carries the numeric `t`. Delete only once no game that could still be aggregated holds a 1.4.x entry. |
+| The `isAnonymous` half of the badge trigger's eligibility check (**TypeScript deploy**, not Dart) | `anonymityChanged` and its use in `tipperEligibilityChanged`, `functions/src/app_badge.ts` | It was written so the purge would not recalculate every badge (M3b). After the purge the flag is never on the public record the trigger watches, so the check can never be true. |
 
 ### 13b. One-off tools (no deploy)
 
@@ -2310,6 +2314,11 @@ every identity callable.
 `scripts/test-client-integration.sh` compiles the purge and restore tools for the rehearsal; that goes with
 them. `scripts/seed_rtdb_emulator.sh` seeds mode `coexist` by default and changes to `final`.
 
+`Tipper.toJson` in `packages/dau_shared/lib/models/tipper.dart` writes a whole record in the legacy shape,
+private fields beside public ones. It is not waiting on the trigger: the R2 client writes single fields, and
+the one use found is `TippersViewModel` reading a field's old value out of the map
+(`lib/view_models/tippers_viewmodel.dart`). Replace that lookup, then delete the method and its test.
+
 ### 13c. Rulesets and the allowlist (no deploy)
 
 | What | Where |
@@ -2323,12 +2332,23 @@ them. `scripts/seed_rtdb_emulator.sh` seeds mode `coexist` by default and change
 
 The deployment log `config/deployments/allowlist-deployments.jsonl` is a record and stays.
 
+**Two things in the R2 rules themselves, which need a rules deploy** (`config/database.rules.r2.template.json`):
+- The `.indexOn` for `authuid`, `email` and `logon` on `/AllTippers`. The purge removes those fields, and no
+  code in the repository queries the public list by them any more.
+- The second half of the tip `.validate`, with the `gameResult`, `submittedTimeUTC` and `legacyTip` children,
+  which lets a tip be written in the old verbose shape. First confirm that nothing still writes that shape
+  (the client writes `r` and `t`; the merge callable moves tips with Admin credentials, which rules do not
+  bind). Reading old tips is unaffected: `.validate` applies to writes, and `Tip.fromJson` keeps reading both.
+
 ### 13d. Tests (no deploy)
 
 | What | Where |
 |---|---|
 | Tests of the tools in 13b | `functions_dart/test/identity/`: `backfill_cli_test.dart`, `backfill_emulator_test.dart`, `backfill_plan_test.dart`, `purge_cli_test.dart`, `purge_public_test.dart`, `restore_cli_test.dart`, `restore_public_test.dart`, `restore_rehearsal_test.dart`; `rules_test/`: `apply_identity_backfill.test.mjs`, `slim_auth_export.test.mjs`, `audit_identity.test.mjs`, `verify_admin.test.mjs`, `live_cli.test.mjs`, `backfill_kickoff_epoch.test.mjs` |
 | The stand-in for the production pilot | `functions_dart/test/identity/replay_snapshot_test.dart` |
+| The purge dry run on a production export | `functions_dart/test/identity/backend_tippers_export_test.dart` |
+| The coexisting-shape and "public field wins" cases for the backend's tipper reader | within `functions_dart/test/identity/backend_tippers_test.dart` |
+| The cases for the 1.4.x token entries and the public-record fall-backs removed in 13a | within `device_tokens_test.dart`, `unlink_account_test.dart` and `claim_moves_test.dart`, and the `isAnonymous` cases of `tipperEligibilityChanged` in `functions/src/app_badge.test.ts` |
 | The cutover and rollback rehearsal | `test/integration/cutover_rehearsal_test.dart` |
 | Tests of the rulesets in 13c | `rules_test/`: `r1.rules.test.mjs`, `r1_compat.rules.test.mjs`, `r1_recovery.rules.test.mjs`, `freeze.rules.test.mjs`, `allowlist.test.mjs` |
 | The 1.4.x and R2 client against all four rulesets | `rules_test/client_matrix.rules.test.mjs`. First confirm `r2.rules.test.mjs` covers every R2-client cell. |
@@ -2340,9 +2360,13 @@ The deployment log `config/deployments/allowlist-deployments.jsonl` is a record 
 `test/integration/r2_cutover_test.dart` stays, but it builds its starting data with the callables under
 R1-compat. Its setup changes to start under R2.
 
-`rules_test/dart_spike/` is not waiting on the trigger: M1 ported the CAS spike and the primitive parts of
-the identity spike to `functions_dart/test/identity/` (section 6, M1). Confirm that what was not ported is
-covered by the callable tests written since, then delete it and its line in `test:dart`.
+`rules_test/dart_spike/` was deleted on 17 November 2026, ahead of the trigger. It tested its own model of
+the protocol on `firebase_dart` transactions, not the shipped code, which uses the REST handle in production.
+Each of its checks on a mechanism that was built has a test on the real implementation: claims and the
+placeholder contract in `claims_test.dart`, leases in `leases_test.dart`, contention on the handle in
+`rest_database_test.dart`, link and create with their races and crash-and-retry cases in
+`link_or_create_test.dart`, and the aggregator's version guard in `live_score_aggregation_test.dart`. Its
+one group with no counterpart tested a reaper for abandoned creates, which was never built (section 6h).
 
 ### 13e. Outside the repository (the owner)
 

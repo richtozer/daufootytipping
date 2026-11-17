@@ -80,8 +80,6 @@ jobs:
         run: |
           flutter pub get
           (cd functions_dart && dart pub get)
-          # flutter analyze covers this nested package too.
-          (cd rules_test/dart_spike && dart pub get)
 
       - name: Verify installation
         run: flutter doctor -v

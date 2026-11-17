@@ -64,8 +64,6 @@ jobs:
           flutter pub get
           (cd packages/dau_shared && dart pub get)
           (cd functions_dart && dart pub get)
-          # flutter analyze covers this nested package too.
-          (cd rules_test/dart_spike && dart pub get)
 
       - name: Analyze the app
         run: flutter analyze

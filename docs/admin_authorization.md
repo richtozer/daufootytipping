@@ -1,5 +1,10 @@
 # Admin Authorization Strategy
 
+> **Status: historical.** This was the proposal written before the functions checked administrators. It is
+> not how they do it now: an administrator is a tipper whose `AuthIndex` entry and private record name each
+> other and whose private role is `admin` (`functions_dart/lib/identity/admin_gate.dart`,
+> `DESIGN-database-rules-phase4.md` section 6l). Custom claims were not adopted.
+
 This document outlines the recommended authorization strategy for Firebase Cloud Functions (Dart) that require admin-level privileges (e.g., triggering fixture downloads or forcing full rescores).
 
 Since Cloud Functions execute on the server, security must be enforced server-side. Client-side state (such as checking `user.isAdmin` in the UI) is easily bypassed and must never be the sole gatekeeper for privileged operations.
