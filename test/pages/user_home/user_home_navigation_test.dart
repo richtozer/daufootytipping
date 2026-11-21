@@ -12,6 +12,7 @@ import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -187,40 +188,103 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     // Three frames is what startup placement takes, and it is stable from
     // there: the first compares the list height against the previous frame's,
-    // the second jumps, and the third corrects for the shrink that showing
-    // the sticky header causes. pumpAndSettle is no use here -- this page
-    // does not quiesce its frame loop during startup.
+    // the second jumps, and the third confirms the height held. pumpAndSettle
+    // is no use here -- this page does not quiesce its frame loop during
+    // startup.
     await tester.pump();
     await tester.pump();
     await tester.pump();
     return tester.state<TipsTabState>(find.byType(TipsTab));
   }
 
+  /// Tips loaded, with the first untipped game at [nrl] in the NRL games and
+  /// [afl] in the AFL ones (-1 for none).
+  void tipsWithFirstUntipped({required int nrl, required int afl}) {
+    final tipsViewModel = _MockTipsViewModel();
+    when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+    when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+        .thenAnswer((invocation) {
+          final games = invocation.positionalArguments.first as List<Game>;
+          return games.first.league == League.nrl ? nrl : afl;
+        });
+    when(
+      () =>
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            any(),
+            any(),
+          ),
+    ).thenReturn(0);
+    when(
+      () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
+        any(),
+        any(),
+      ),
+    ).thenReturn(0);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+        .thenReturn(tipsViewModel);
+  }
+
+  /// Where a game card sits on screen: a round's games start below its own
+  /// header in the list, one card extent apart. The tests build no cards (the
+  /// games view model is absent), so this reads the real header's position.
+  double gameTop(WidgetTester tester, League league, int index) {
+    // A header just above the screen is in the viewport's cache, which
+    // finders skip by default; its position is still the one to read.
+    final header = find.descendant(
+      of: find.byType(CustomScrollView),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is RoundLeagueHeaderListTile && widget.league == league,
+        skipOffstage: false,
+      ),
+      skipOffstage: false,
+    );
+    final tipsState = tester.state<TipsTabState>(find.byType(TipsTab));
+    return tester.getRect(header).bottom + index * tipsState.cardExtent;
+  }
+
+  /// The bottom of the sticky header, below which a game is in view.
+  double stickyBottom(WidgetTester tester) =>
+      tester.getRect(find.byType(TipsStickyHeader)).bottom;
+
+  League stickyLeague(WidgetTester tester) => tester
+      .widget<TipsStickyHeader>(find.byType(TipsStickyHeader))
+      .section
+      .league;
+
+  /// The league's first game just below the sticky header, which shows it.
+  void expectLeagueAtTop(WidgetTester tester, League league) {
+    expect(stickyLeague(tester), league);
+    expect(gameTop(tester, league, 0), closeTo(stickyBottom(tester), 1));
+  }
+
   Future<void> tapTips(WidgetTester tester) async {
     await tester.tap(find.text('TIPS'));
+    // The jump runs after the tap's frame; the next lays the list out there.
+    await tester.pump();
     await tester.pump();
   }
 
-  testWidgets('cycles NRL and AFL when default is the first NRL game', (
+  testWidgets('cycles the welcome header, NRL and AFL for a new comp', (
     tester,
   ) async {
     final tipsState = await pumpHome(tester);
-    // Round 1 opens on the welcome header, which is also its NRL stop.
-    const nrlOffset = 0.0;
-    expect(tipsState.scrollController.offset, nrlOffset);
-    final aflOffset = WelcomeHeader.height + 10 * tipsState.cardExtent;
+    // Round 1, nothing tipped: the list opens on the welcome header.
+    expect(tipsState.scrollController.offset, 0);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    expectLeagueAtTop(tester, League.nrl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
-
-    tipsState.scrollController.jumpTo(nrlOffset + 400);
-    expect(tipsState.scrollController.offset, greaterThan(nrlOffset));
+    expectLeagueAtTop(tester, League.afl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
+    expect(tipsState.scrollController.offset, 0);
+
+    // Off the cycle, a tap rejoins it at its first stop.
+    tipsState.scrollController.jumpTo(400);
+    await tapTips(tester);
+    expect(tipsState.scrollController.offset, 0);
   });
 
   testWidgets('cycles dynamic position, NRL, AFL, then repeats', (
@@ -259,6 +323,10 @@ void main() {
     await tapTips(tester);
     final third = offset();
     expect({first, second, third}.length, 3, reason: 'three distinct stops');
+    // The third stop is where startup put the list: the second NRL game, the
+    // first untipped, just below the sticky header.
+    expect(stickyLeague(tester), League.nrl);
+    expect(gameTop(tester, League.nrl, 1), closeTo(stickyBottom(tester), 1));
 
     await tapTips(tester);
     expect(offset(), closeTo(first, 0.1), reason: 'and then it repeats');
@@ -307,14 +375,8 @@ void main() {
 
     expect(stickyHeader().section.league, League.afl);
 
-    // NRL's stop in round 1 is the top of the list, where the round's own
-    // header shows in place of the sticky one.
     await tapTips(tester);
-    expect(find.byType(TipsStickyHeader), findsNothing);
-    expect(
-      tester.state<TipsTabState>(find.byType(TipsTab)).scrollController.offset,
-      0,
-    );
+    expectLeagueAtTop(tester, League.nrl);
   });
 
   testWidgets('includes a league section when that league has no games', (
@@ -323,26 +385,21 @@ void main() {
     round.games.removeWhere((game) => game.league == League.nrl);
 
     final tipsState = await pumpHome(tester);
-    const nrlEmptySectionOffset = 0.0;
-    expect(tipsState.scrollController.offset, nrlEmptySectionOffset);
-    final aflOffset = WelcomeHeader.height + DAURound.noGamesCardHeight;
+    expect(tipsState.scrollController.offset, 0);
+
+    // The empty NRL section is a stop of its own, its no-games card in view.
+    await tapTips(tester);
+    expectLeagueAtTop(tester, League.nrl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    expectLeagueAtTop(tester, League.afl);
 
     await tapTips(tester);
-    expect(
-      tipsState.scrollController.offset,
-      closeTo(nrlEmptySectionOffset, 0.1),
-    );
+    expect(tipsState.scrollController.offset, 0);
 
-    tipsState.scrollController.jumpTo(aflOffset + 400);
-
+    tipsState.scrollController.jumpTo(400);
     await tapTips(tester);
-    expect(
-      tipsState.scrollController.offset,
-      closeTo(nrlEmptySectionOffset, 0.1),
-    );
+    expect(tipsState.scrollController.offset, 0);
   });
 
   testWidgets('cycles end of competition, final NRL, and final AFL', (
@@ -356,14 +413,12 @@ void main() {
 
     final tipsState = await pumpHome(tester);
     final endOfCompetitionOffset = tipsState.scrollController.offset;
-    const nrlOffset = 0.0;
-    final aflOffset = WelcomeHeader.height + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
+    expectLeagueAtTop(tester, League.nrl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
+    expectLeagueAtTop(tester, League.afl);
 
     await tapTips(tester);
     expect(
@@ -371,7 +426,6 @@ void main() {
       closeTo(endOfCompetitionOffset, 0.1),
     );
 
-    // Off the cycle: the top of the list is NRL's stop now.
     tipsState.scrollController.jumpTo(400);
 
     await tapTips(tester);
@@ -454,12 +508,17 @@ void main() {
           listeners.add(invocation.positionalArguments.first as VoidCallback),
     );
     final tipsState = await pumpHome(tester);
-    // Below the welcome header the NRL games start, one card each. The reader
-    // has scrolled from the welcome header to half way through the fifth.
-    const nrlOffset = 175.0;
+    // From the NRL games' start, the reader has scrolled half way through the
+    // fifth: half of it is under the sticky header.
+    await tapTips(tester);
     final beforeExtent = tipsState.cardExtent;
-    tipsState.scrollController.jumpTo(nrlOffset + 4.5 * beforeExtent);
+    tipsState.scrollController.jumpTo(
+      tipsState.scrollController.offset + 4.5 * beforeExtent,
+    );
     await tester.pump();
+    double fifthGameUnderSticky() =>
+        stickyBottom(tester) - gameTop(tester, League.nrl, 4);
+    expect(fifthGameUnderSticky(), closeTo(0.5 * beforeExtent, 1));
 
     // Rotating or folding narrows the pane, which remeasures the cards. The
     // device also resumes, and the view model notifies while the list is
@@ -480,8 +539,8 @@ void main() {
       reason: 'the narrower pane must actually change the layout',
     );
     expect(
-      tipsState.scrollController.offset,
-      closeTo(nrlOffset + 4.5 * tipsState.cardExtent, 0.5),
+      fifthGameUnderSticky(),
+      closeTo(0.5 * tipsState.cardExtent, 1),
       reason: 'the same game, the same way through it, not the current round',
     );
 
@@ -493,8 +552,8 @@ void main() {
       await tester.pump();
     }
     expect(
-      tipsState.scrollController.offset,
-      closeTo(nrlOffset + 4.5 * tipsState.cardExtent, 0.5),
+      fifthGameUnderSticky(),
+      closeTo(0.5 * tipsState.cardExtent, 1),
       reason: 'a notification after the remeasure must not undo it',
     );
   });
@@ -502,28 +561,16 @@ void main() {
   testWidgets('keeps a league at the top under a notch when remeasured', (
     tester,
   ) async {
-    // Below a notch, a league is placed with its first card under the sticky
-    // header, which sits below the inset: the offset is the league's start
-    // less the inset, inside the end of the league before it.
-    const topInset = 50.0;
+    // Below a notch the sticky header is pinned under the inset, and a league
+    // placed at the top has its first game just below it.
     final tipsState = await pumpHome(
       tester,
-      padding: const EdgeInsets.only(top: topInset),
+      padding: const EdgeInsets.only(top: 50),
     );
-    // AFL's header sits below the welcome header and its inset, then ten
-    // NRL games; placed under the inset, the inset comes off again.
-    const aflBase = WelcomeHeader.height + topInset - topInset;
     expect(tipsState.scrollController.offset, 0);
     await tapTips(tester);
-    expect(
-      tipsState.scrollController.offset,
-      closeTo(aflBase + 10 * tipsState.cardExtent, 0.1),
-      reason: 'the AFL league is placed under the inset',
-    );
-
-    TipsStickyHeader stickyHeader() =>
-        tester.widget<TipsStickyHeader>(find.byType(TipsStickyHeader));
-    expect(stickyHeader().section.league, League.afl);
+    await tapTips(tester);
+    expectLeagueAtTop(tester, League.afl);
 
     final beforeExtent = tipsState.cardExtent;
     tester.view.physicalSize = const Size(320, 844);
@@ -536,12 +583,8 @@ void main() {
       isNot(beforeExtent),
       reason: 'the narrower pane must actually change the layout',
     );
-    expect(
-      tipsState.scrollController.offset,
-      closeTo(aflBase + 10 * tipsState.cardExtent, 0.5),
-      reason: 'the AFL league stays at the top, not scaled with the NRL one',
-    );
-    expect(stickyHeader().section.league, League.afl);
+    // Still AFL's first game, not scaled with the NRL games above it.
+    expectLeagueAtTop(tester, League.afl);
   });
 
   testWidgets(
@@ -617,6 +660,27 @@ void main() {
       0,
       reason: 'not a fraction of a section that held other games',
     );
+  });
+
+  group('under a notch, startup puts the first game to tip just below the '
+      'sticky header', () {
+    const notch = EdgeInsets.only(top: 62);
+
+    testWidgets('a later game in round 1', (tester) async {
+      tipsWithFirstUntipped(nrl: 2, afl: -1);
+      await pumpHome(tester, padding: notch);
+
+      expect(stickyLeague(tester), League.nrl);
+      expect(gameTop(tester, League.nrl, 2), closeTo(stickyBottom(tester), 1));
+    });
+
+    testWidgets('the first AFL game in round 1', (tester) async {
+      tipsWithFirstUntipped(nrl: -1, afl: 0);
+      await pumpHome(tester, padding: notch);
+
+      expect(stickyLeague(tester), League.afl);
+      expect(gameTop(tester, League.afl, 0), closeTo(stickyBottom(tester), 1));
+    });
   });
 
   testWidgets('re-places the list when a fold remeasures the cards', (

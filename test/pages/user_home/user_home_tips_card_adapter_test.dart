@@ -321,7 +321,12 @@ void main() {
   });
 
   group('measurement cards', () {
-    DAURound roundOf(int number, List<(String, String)> matchups) {
+    DAURound roundOf(
+      int number,
+      List<(String, String)> matchups, {
+      League league = League.afl,
+      List<(String, String)> nrlMatchups = const [],
+    }) {
       final kickoff = DateTime.utc(2027, 3, number);
       return DAURound(
           dAUroundNumber: number,
@@ -329,25 +334,29 @@ void main() {
           lastGameKickOffUTC: kickoff,
         )
         ..games = [
-          for (final (home, away) in matchups)
-            Game(
-              dbkey: 'afl-$number-$home',
-              league: League.afl,
-              homeTeam: Team(
-                dbkey: 'afl-$home',
-                name: home,
-                league: League.afl,
+          for (final (league, pairs) in [
+            (league, matchups),
+            (League.nrl, nrlMatchups),
+          ])
+            for (final (home, away) in pairs)
+              Game(
+                dbkey: '${league.name}-$number-$home',
+                league: league,
+                homeTeam: Team(
+                  dbkey: '${league.name}-$home',
+                  name: home,
+                  league: league,
+                ),
+                awayTeam: Team(
+                  dbkey: '${league.name}-$away',
+                  name: away,
+                  league: league,
+                ),
+                location: 'Oval',
+                startTimeUTC: kickoff,
+                fixtureRoundNumber: number,
+                fixtureMatchNumber: 1,
               ),
-              awayTeam: Team(
-                dbkey: 'afl-$away',
-                name: away,
-                league: League.afl,
-              ),
-              location: 'Oval',
-              startTimeUTC: kickoff,
-              fixtureRoundNumber: number,
-              fixtureMatchNumber: 1,
-            ),
         ];
     }
 
@@ -366,6 +375,22 @@ void main() {
         roundOf(3, [('Highest-ranked WF Winner', 'Lowest-ranked WF Winner')]),
       ];
       expect(measuredNames(rounds), {'Bulldogs'});
+    });
+
+    test('use every team of a league none of whose teams plays twice yet', () {
+      // NRL has two rounds loaded, AFL so far only one: the AFL teams are
+      // still the ones to measure, not left out for not having played twice.
+      expect(
+        measuredNames([
+          roundOf(
+            1,
+            [('Swans', 'Western Bulldogs')],
+            nrlMatchups: [('Storm', 'Eels')],
+          ),
+          roundOf(2, [], nrlMatchups: [('Eels', 'Storm')]),
+        ]),
+        {'Western Bulldogs'},
+      );
     });
 
     test('use every team when none plays more than one round', () {

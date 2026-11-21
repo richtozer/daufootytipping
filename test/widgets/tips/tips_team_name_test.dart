@@ -58,4 +58,44 @@ void main() {
     );
     expect(text.maxLines, 1);
   });
+
+  testWidgets('a two-line name beside a one-line one keeps its two lines', (
+    tester,
+  ) async {
+    const twoLines = TextSpan(text: 'Western Bulldogs', style: style);
+    const oneLine = TextSpan(text: 'Swans', style: style);
+    // Each name has the column's width less its 4 either side.
+    double needed(TextSpan text) {
+      final painter = TextPainter(
+        text: text,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: 120 - 8);
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    expect(needed(twoLines), greaterThan(needed(oneLine) * 1.5));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: 120,
+            // Just what the two names need, as the card is measured.
+            height: needed(twoLines) + needed(oneLine) + 1,
+            child: TipsNamesColumn(
+              home: TipsNameLine.padded(twoLines),
+              away: TipsNameLine.padded(oneLine),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final names = tester.widgetList<Text>(find.byType(Text)).toList();
+    expect(names.map((text) => text.maxLines), [null, null]);
+    expect(tester.takeException(), isNull);
+  });
 }

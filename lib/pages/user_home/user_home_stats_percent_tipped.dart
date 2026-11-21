@@ -305,7 +305,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                               .selectedTipper,
                                           isPercentStatsPage: true,
                                           layout: cardLayout,
-                                          showInlineHeader: true,
                                           hideInlineHeaderVisual: false,
                                         ),
                                       SliverToBoxAdapter(

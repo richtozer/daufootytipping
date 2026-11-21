@@ -726,7 +726,6 @@ void main() {
           headerExtent: DAURound.leagueHeaderHeight,
         );
         final nrlSection = sections[0];
-        final aflSection = sections[1];
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
@@ -736,8 +735,9 @@ void main() {
           firstUntippedGameIndex: (_) => -1, // all tipped
         );
 
-        // Should scroll past NRL body + AFL header to reach the AFL live game
-        final expectedOffset = nrlSection.bodyExtent + aflSection.headerExtent;
+        // From the NRL section's start, past its header and games, to the AFL
+        // section's start, where the live AFL game is first.
+        final expectedOffset = nrlSection.headerExtent + nrlSection.bodyExtent;
         expect(
           offset,
           expectedOffset,
@@ -801,7 +801,6 @@ void main() {
           headerExtent: DAURound.leagueHeaderHeight,
         );
         final nrlSection = sections[0];
-        final aflSection = sections[1];
 
         final offset = intraRoundScrollRefinement(
           selectedComp: comp,
@@ -811,8 +810,9 @@ void main() {
           firstUntippedGameIndex: (_) => -1, // all tipped
         );
 
-        // Should scroll past NRL body + AFL header to reach the AFL live game
-        final expectedOffset = nrlSection.bodyExtent + aflSection.headerExtent;
+        // From the NRL section's start, past its header and games, to the AFL
+        // section's start, where the live AFL game is first.
+        final expectedOffset = nrlSection.headerExtent + nrlSection.bodyExtent;
         expect(
           offset,
           expectedOffset,
@@ -897,18 +897,30 @@ void main() {
         headerExtent: DAURound.leagueHeaderHeight,
       );
       const leadingExtent = 200.0;
-      final startupOffset =
-          leadingExtent + sections.first.bodyExtent + sections[1].headerExtent;
-
-      final activeIndex = activeStickyTipsLeagueSectionIndex(
+      const topSafeInset = 24.0;
+      final aflStart = tipsSectionStartOffset(
         sections: sections,
-        scrollOffset: startupOffset,
+        targetSectionIndex: 1,
         leadingExtent: leadingExtent,
-        topSafeInset: 24,
+        topSafeInset: topSafeInset,
+      );
+      int activeAt(double offset) => activeStickyTipsLeagueSectionIndex(
+        sections: sections,
+        scrollOffset: offset,
+        leadingExtent: leadingExtent,
+        topSafeInset: topSafeInset,
       );
 
-      expect(activeIndex, 1);
-      expect(sections[activeIndex].league, League.afl);
+      // AFL's header on the sticky header's line, below the inset.
+      expect(
+        aflStart,
+        leadingExtent +
+            sections.first.headerExtent +
+            sections.first.bodyExtent -
+            topSafeInset,
+      );
+      expect(sections[activeAt(aflStart)].league, League.afl);
+      expect(sections[activeAt(aflStart - 1)].league, League.nrl);
     });
   });
 
@@ -996,52 +1008,52 @@ void main() {
       scrollOffset: offset,
     );
 
+    // The list: the inset, the welcome header, then each section's header and
+    // its games. Before: 200, 60, 400, 60, 400. After: 200, 80, 600, 80, 600.
+    // Past the welcome header the reader's games start below the sticky
+    // header, 60 before and 80 after.
     test('keeps a game and the fraction through it', () {
-      // Half way through the third NRL card.
+      // Half way through the third NRL card, below the sticky header.
       expect(anchored(200 + 250), 200 + 375);
       // A quarter of the way through the second AFL card.
-      expect(anchored(200 + 400 + 60 + 125), 200 + 600 + 80 + 187.5);
+      expect(anchored(200 + 60 + 400 + 125), 200 + 80 + 600 + 187.5);
     });
 
-    test('keeps a place on a round header', () {
+    test('keeps a place on the next round header as it pushes up', () {
+      // The AFL header 30 into the NRL sticky header's 60, pushing it up.
       expect(anchored(200 + 400 + 30), 200 + 600 + 40);
     });
 
     test('stays the same distance into the end footer', () {
-      expect(anchored(200 + 400 + 60 + 400 + 30), 200 + 600 + 80 + 600 + 30);
+      expect(anchored(200 + 60 + 400 + 400 + 30), 200 + 80 + 600 + 600 + 30);
     });
 
-    test('keeps a section placed under the inset at the top', () {
-      // Under a 50 inset the welcome header is 250, and AFL placed at the top
-      // leaves the offset 50 short of its header, inside the end of the NRL
-      // body.
+    test('keeps every section placed under the inset where it is', () {
+      // A section's start puts its header on the sticky header's line, the
+      // inset below the offset: the first at the welcome header's height.
+      expect(anchored(200, beforeInset: 50, afterInset: 50), 200);
       expect(
-        anchored(250 + 400 - 50, welcome: 200, beforeInset: 50, afterInset: 50),
-        250 + 600 - 50,
+        anchored(200 + 60 + 400, beforeInset: 50, afterInset: 50),
+        200 + 80 + 600,
       );
     });
 
     test('follows an inset that a rotation took away', () {
-      // The welcome header shrinks with the inset, the reader inside it keeps
-      // their fraction, and a section at the top stays there.
-      expect(anchored(100, welcome: 150, beforeInset: 50), 75);
-      expect(
-        anchored(200 + 400 - 50, welcome: 150, beforeInset: 50),
-        150 + 600,
-      );
+      expect(anchored(0, beforeInset: 50), 0);
+      expect(anchored(100, beforeInset: 50), 100);
+      expect(anchored(200 + 60 + 400, beforeInset: 50), 200 + 80 + 600);
     });
 
-    test('keeps the sticky header up when the line maps near the top', () {
-      expect(
-        anchored(210, welcome: 200, beforeInset: 10, afterInset: 50),
-        greaterThanOrEqualTo(250),
-      );
+    test('stays at the top when an inset arrives', () {
+      expect(anchored(0, afterInset: 50), 0);
     });
 
-    test('keeps the first game at the top under the inset', () {
-      // Startup places the first section at the welcome header's height, with
-      // no inset taken off: that is where it stays.
-      expect(anchored(250, welcome: 200, beforeInset: 50, afterInset: 50), 250);
+    test('moves smoothly past the welcome header', () {
+      final below = anchored(199.9, beforeInset: 50, afterInset: 50);
+      final above = anchored(200.1, beforeInset: 50, afterInset: 50);
+      expect(below, isNotNull);
+      expect(above, isNotNull);
+      expect((above ?? 0) - (below ?? 0), lessThan(1));
     });
 
     test('gives up when a section holds other games', () {

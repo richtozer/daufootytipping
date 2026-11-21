@@ -53,8 +53,8 @@ class TipsTabState extends State<TipsTab> {
 
   /// Height seen on the previous held frame. Separate from
   /// [_lastStartupMaxScrollExtent], which the post-jump settle check owns:
-  /// writing that one here would tell it the height had already settled and
-  /// stop it correcting for the shrink the first jump itself causes.
+  /// writing that one here would tell it the height had already settled
+  /// before the jump had been checked against it.
   double _holdPreviousMaxScrollExtent = -1;
   int _activeSectionIndex = 0;
   bool _showLoadingPlaceholder = true;
@@ -464,7 +464,12 @@ class TipsTabState extends State<TipsTab> {
       sections: sections,
       targetSectionIndex: targetSectionIndex,
     );
-    return (offset: base + refinement, sectionIndex: targetSectionIndex);
+    // A first round with its first game still to tip opens on the welcome.
+    final welcome = targetSectionIndex == 0 && refinement == 0;
+    return (
+      offset: welcome ? 0.0 : base + refinement,
+      sectionIndex: targetSectionIndex,
+    );
   }
 
   void _handleScrollChanged() {
@@ -504,7 +509,9 @@ class TipsTabState extends State<TipsTab> {
     final scrollOffset =
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
-    final nextVisibility = scrollOffset >= _welcomeSliverHeight;
+    // Once the first section's header reaches the line the sticky header is
+    // pinned to, the inset below the top.
+    final nextVisibility = scrollOffset >= WelcomeHeader.height;
     if (_stickyHeaderVisible == nextVisibility) {
       return false;
     }
@@ -549,26 +556,6 @@ class TipsTabState extends State<TipsTab> {
     }
   }
 
-  bool _showsInlineHeaderForSection(int index, {required bool stickyVisible}) {
-    return index != 0 || !stickyVisible;
-  }
-
-  double _sectionHeaderTopOffset(
-    int targetSectionIndex, {
-    required bool stickyVisible,
-    List<TipsLeagueSection>? sections,
-  }) {
-    final activeSections = sections ?? _cachedSections;
-    var offset = _welcomeSliverHeight;
-    for (var index = 0; index < targetSectionIndex; index++) {
-      if (_showsInlineHeaderForSection(index, stickyVisible: stickyVisible)) {
-        offset += activeSections[index].headerExtent;
-      }
-      offset += activeSections[index].bodyExtent;
-    }
-    return offset;
-  }
-
   bool _updateStickyHeaderPushUp({double? scrollOffsetOverride}) {
     final sections = _cachedSections;
     if (!_stickyHeaderVisible ||
@@ -585,10 +572,10 @@ class TipsTabState extends State<TipsTab> {
         scrollOffsetOverride ??
         (scrollController.hasClients ? scrollController.offset : 0);
     final stickyHeight = sections[_activeSectionIndex].headerExtent;
-    final nextHeaderTop = _sectionHeaderTopOffset(
-      _activeSectionIndex + 1,
-      stickyVisible: true,
+    final nextHeaderTop = tipsSectionHeaderTop(
       sections: sections,
+      sectionIndex: _activeSectionIndex + 1,
+      leadingExtent: _welcomeSliverHeight,
     );
     final distanceToNextHeader = nextHeaderTop - (scrollOffset + _topSafeInset);
     final nextPushUp = (stickyHeight - distanceToNextHeader).clamp(
@@ -738,8 +725,6 @@ class TipsTabState extends State<TipsTab> {
                                 currentTipper:
                                     di<TippersViewModel>().selectedTipper,
                                 isPercentStatsPage: false,
-                                showInlineHeader:
-                                    sectionIndex != 0 || !_stickyHeaderVisible,
                                 hideInlineHeaderVisual:
                                     _stickyHeaderVisible &&
                                     sectionIndex == _activeSectionIndex,

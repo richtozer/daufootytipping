@@ -235,7 +235,8 @@ const String _widestFixture = 'Fixture: round 88, match 88';
 /// its finals before anyone has qualified, as placeholders such as "Highest-
 /// ranked WF Winner" that each play one week; sized for those, every card in
 /// the season carried their extra lines. A finals card fits its names to the
-/// height instead. A comp where no team plays twice measures every team.
+/// height instead. A league none of whose teams plays twice yet, such as one
+/// with a single round loaded, measures every one of its teams.
 List<TipsCardDisplay> tipsMeasurementCards(Iterable<DAURound> daurounds) {
   final roundsByTeam = <String, Set<int>>{};
   var widestLocation = '';
@@ -253,11 +254,19 @@ List<TipsCardDisplay> tipsMeasurementCards(Iterable<DAURound> daurounds) {
     for (final key in roundsByTeam.keys)
       if ((roundsByTeam[key]?.length ?? 0) > 1) key,
   };
+  final leaguesWithSeasonTeams = {
+    for (final dauRound in daurounds)
+      for (final game in dauRound.games)
+        if (seasonTeams.contains(game.homeTeam.dbkey) ||
+            seasonTeams.contains(game.awayTeam.dbkey))
+          game.league,
+  };
   final widestName = <League, String>{};
   for (final dauRound in daurounds) {
     for (final game in dauRound.games) {
       for (final team in [game.homeTeam, game.awayTeam]) {
-        if (seasonTeams.isNotEmpty && !seasonTeams.contains(team.dbkey)) {
+        if (leaguesWithSeasonTeams.contains(team.league) &&
+            !seasonTeams.contains(team.dbkey)) {
           continue;
         }
         final current = widestName[team.league];

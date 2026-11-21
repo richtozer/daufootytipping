@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
@@ -53,6 +55,95 @@ class TipsTeamName extends StatelessWidget {
   }
 }
 
+/// One of the two names in a [TipsNamesColumn]: what it shows, and the text
+/// that sets how much height it needs.
+class TipsNameLine {
+  const TipsNameLine({
+    required this.text,
+    required this.child,
+    this.besideWidth = 0,
+    this.minHeight = 0,
+  });
+
+  /// A name alone on its line, with the card's 4 either side of it.
+  TipsNameLine.padded(this.text)
+    : besideWidth = 8,
+      minHeight = 0,
+      child = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: TipsTeamName(text),
+      );
+
+  /// The name as the card styles it, measured to find the height it needs.
+  final TextSpan text;
+
+  /// The line itself: the name, and anything beside it.
+  final Widget child;
+
+  /// Width the line gives to other things beside the name: padding, a logo,
+  /// the "V".
+  final double besideWidth;
+
+  /// Height the line needs whatever the name, such as a logo's.
+  final double minHeight;
+}
+
+/// The two names of a matchup, one above the other, with [between] (the logos
+/// and "V") between them if given.
+///
+/// Each name gets a share of the height in proportion to what it needs at
+/// this width. Cards are measured to hold both of the season's teams' names,
+/// so a real name always gets all it needs; only a name past that, a finals
+/// placeholder, is cut short. An even split instead gave a two-line name half
+/// the room beside a one-line one, and cut it short in a card sized for it.
+class TipsNamesColumn extends StatelessWidget {
+  const TipsNamesColumn({
+    super.key,
+    required this.home,
+    required this.away,
+    this.between,
+  });
+
+  final TipsNameLine home;
+  final TipsNameLine away;
+  final Widget? between;
+
+  @override
+  Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int share(TipsNameLine line) {
+          final painter = TextPainter(
+            text: line.text,
+            textAlign: TextAlign.center,
+            textScaler: scaler,
+            textDirection: direction,
+          );
+          setBadgeDimensions(painter);
+          painter.layout(
+            maxWidth: math.max(1.0, constraints.maxWidth - line.besideWidth),
+          );
+          final height = math.max(painter.height, line.minHeight);
+          painter.dispose();
+          return math.max(1, (height * 100).round());
+        }
+
+        final between = this.between;
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(flex: share(home), child: home.child),
+            ?between,
+            Flexible(flex: share(away), child: away.child),
+          ],
+        );
+      },
+    );
+  }
+}
+
 /// Two lines, each a logo beside its team's name, with the "V" on the shorter
 /// name's line rather than a row of its own. A live card has no logos and its
 /// edit pencil takes the "V"'s place.
@@ -79,9 +170,9 @@ class TipsStackedTeams extends StatelessWidget {
     final theme = appPanelTextTheme(context);
     final scaler = MediaQuery.textScalerOf(context);
     final direction = Directionality.of(context);
-    double nameWidth(TipsTeamDisplay team) {
+    double textWidth(InlineSpan text) {
       final painter = TextPainter(
-        text: team.text(theme),
+        text: text,
         textScaler: scaler,
         textDirection: direction,
       );
@@ -93,49 +184,61 @@ class TipsStackedTeams extends StatelessWidget {
     }
 
     final markOnHome = TipsCardLayout.markOnHomeLine(
-      homeNameWidth: nameWidth(home),
-      awayNameWidth: nameWidth(away),
+      homeNameWidth: textWidth(home.text(theme)),
+      awayNameWidth: textWidth(away.text(theme)),
     );
-    final mark = editable
-        ? Icon(Icons.edit, size: TipsCardLayout.scaledIconSize(scaler, theme))
-        : const Text('V');
-    Widget line(
+    final iconSize = TipsCardLayout.scaledIconSize(scaler, theme);
+    final mark = editable ? Icon(Icons.edit, size: iconSize) : const Text('V');
+    final markWidth =
+        (editable
+            ? iconSize
+            : textWidth(
+                TextSpan(text: 'V', style: DefaultTextStyle.of(context).style),
+              )) +
+        kStackedMarkGap;
+    final logoSize = TipsCardLayout.teamLogoSize(
+      scaler,
+      Theme.of(context).textTheme,
+    );
+    TipsNameLine line(
       TipsTeamDisplay team, {
       required bool markBefore,
       required bool markAfter,
     }) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (markBefore) ...[mark, const SizedBox(width: kStackedMarkGap)],
-            if (!editable) ...[
-              logo(team),
-              const SizedBox(width: kStackedLogoGap),
+      final text = team.text(
+        theme,
+        highlight: appSelectionColor(context),
+        onHighlight: appOnSelectionColor(context),
+      );
+      return TipsNameLine(
+        text: text,
+        besideWidth:
+            8 +
+            (editable ? 0 : logoSize + kStackedLogoGap) +
+            (markBefore || markAfter ? markWidth : 0),
+        minHeight: editable ? 0 : logoSize,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (markBefore) ...[mark, const SizedBox(width: kStackedMarkGap)],
+              if (!editable) ...[
+                logo(team),
+                const SizedBox(width: kStackedLogoGap),
+              ],
+              Flexible(child: TipsTeamName(text)),
+              if (markAfter) ...[const SizedBox(width: kStackedMarkGap), mark],
             ],
-            Flexible(
-              child: TipsTeamName(
-                team.text(
-                  theme,
-                  highlight: appSelectionColor(context),
-                  onHighlight: appOnSelectionColor(context),
-                ),
-              ),
-            ),
-            if (markAfter) ...[const SizedBox(width: kStackedMarkGap), mark],
-          ],
+          ),
         ),
       );
     }
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(child: line(home, markBefore: false, markAfter: markOnHome)),
-        Flexible(child: line(away, markBefore: !markOnHome, markAfter: false)),
-      ],
+    return TipsNamesColumn(
+      home: line(home, markBefore: false, markAfter: markOnHome),
+      away: line(away, markBefore: !markOnHome, markAfter: false),
     );
   }
 }

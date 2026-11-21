@@ -179,10 +179,10 @@ int targetStartupSectionIndex(
 /// Callback type for finding the first untipped game index within a game list.
 typedef FirstUntippedGameIndexFn = int Function(List<Game> games);
 
-/// Returns an additional scroll offset within the target round to position
-/// at the first upcoming untipped game, or the first live game
-/// ([GameState.startedResultNotKnown]) if there are no upcoming untipped games.
-/// Returns 0 if neither condition applies.
+/// Returns an additional scroll offset from the target round's start (see
+/// [tipsSectionStartOffset]) to its first upcoming untipped game, or the first
+/// live game ([GameState.startedResultNotKnown]) if there are no upcoming
+/// untipped games. Returns 0 if neither condition applies.
 double intraRoundScrollRefinement({
   required DAUComp selectedComp,
   required List<TipsLeagueSection> sections,
@@ -215,9 +215,8 @@ double intraRoundScrollRefinement({
     firstUntippedGameIndex,
   );
   if (aflUntippedIndex >= 0 && aflSectionIndex >= 0) {
-    final aflSection = sections[aflSectionIndex];
-    return section.bodyExtent +
-        aflSection.headerExtent +
+    return section.headerExtent +
+        section.bodyExtent +
         aflUntippedIndex * cardExtent;
   }
 
@@ -230,9 +229,8 @@ double intraRoundScrollRefinement({
         return i * cardExtent;
       }
       if (aflSectionIndex >= 0) {
-        final aflSection = sections[aflSectionIndex];
-        return section.bodyExtent +
-            aflSection.headerExtent +
+        return section.headerExtent +
+            section.bodyExtent +
             (i - nrlGames.length) * cardExtent;
       }
     }
@@ -263,60 +261,58 @@ int _firstUpcomingUntippedGameIndex(
   return originalIndexes[upcomingIndex];
 }
 
+/// Where the header of the section at [sectionIndex] starts in the list: the
+/// welcome header ([leadingExtent], its inset included), then every section
+/// before it, header and games. Every section keeps its header's space, with
+/// the sticky header showing over it, so this holds wherever the list is.
+double tipsSectionHeaderTop({
+  required List<TipsLeagueSection> sections,
+  required int sectionIndex,
+  required double leadingExtent,
+}) {
+  var top = leadingExtent;
+  for (var index = 0; index < sectionIndex; index++) {
+    top += sections[index].headerExtent + sections[index].bodyExtent;
+  }
+  return top;
+}
+
+/// The section the sticky header shows: the last whose header has reached the
+/// line it is pinned to, [topSafeInset] below the top of the list's viewport.
 int activeStickyTipsLeagueSectionIndex({
   required List<TipsLeagueSection> sections,
   required double scrollOffset,
   required double leadingExtent,
   required double topSafeInset,
 }) {
-  if (sections.isEmpty) {
-    return 0;
-  }
-
-  final stickyVisible = scrollOffset >= leadingExtent;
-  final referenceOffset = scrollOffset + (stickyVisible ? topSafeInset : 0);
-  var nextIndex = 0;
-  var nextHeaderTop = leadingExtent + sections.first.bodyExtent;
-
-  for (var index = 1; index < sections.length; index++) {
-    if (!stickyVisible) {
-      nextHeaderTop += sections[index - 1].headerExtent;
-    }
-    if (nextHeaderTop > referenceOffset) {
+  final pinnedLine = scrollOffset + topSafeInset;
+  var activeIndex = 0;
+  var headerTop = leadingExtent;
+  for (var index = 0; index < sections.length; index++) {
+    if (headerTop > pinnedLine) {
       break;
     }
-    nextIndex = index;
-    nextHeaderTop += sections[index].headerExtent + sections[index].bodyExtent;
+    activeIndex = index;
+    headerTop += sections[index].headerExtent + sections[index].bodyExtent;
   }
-
-  return nextIndex;
+  return activeIndex;
 }
 
-/// The offset that puts the section at [targetSectionIndex] at the top, under
-/// the sticky header: the welcome header, then each section's body, with every
-/// header after the first between them.
-///
-/// The first section starts at the top of the list, on the welcome header with
-/// its own header and first game below it. Scrolled to its first game, that
-/// game would sit under the inset and the sticky header, which has no
-/// inline header above it to push it clear.
+/// The offset that puts the header of the section at [targetSectionIndex] on
+/// the sticky header's line, so its first game shows just below the sticky
+/// header. The same for every section, the first included.
 double tipsSectionStartOffset({
   required List<TipsLeagueSection> sections,
   required int targetSectionIndex,
   required double leadingExtent,
   required double topSafeInset,
 }) {
-  if (targetSectionIndex == 0) {
-    return 0;
-  }
-  var offset = leadingExtent;
-  for (var index = 0; index < targetSectionIndex; index++) {
-    if (index != 0) {
-      offset += sections[index].headerExtent;
-    }
-    offset += sections[index].bodyExtent;
-  }
-  return (offset - topSafeInset).clamp(0.0, double.infinity);
+  final headerTop = tipsSectionHeaderTop(
+    sections: sections,
+    sectionIndex: targetSectionIndex,
+    leadingExtent: leadingExtent,
+  );
+  return math.max(headerTop - topSafeInset, 0.0);
 }
 
 /// The offset that shows the end of a finished competition: the last section
@@ -329,12 +325,13 @@ double tipsEndFooterOffset({
   if (sections.isEmpty) {
     return 0;
   }
-  var offset = leadingExtent + sections.first.bodyExtent;
-  for (var index = 1; index < sections.length; index++) {
-    offset += sections[index].headerExtent + sections[index].bodyExtent;
-  }
+  final lastBodyEnd = tipsSectionHeaderTop(
+    sections: sections,
+    sectionIndex: sections.length,
+    leadingExtent: leadingExtent,
+  );
   final stickyOverlayExtent = sections.last.headerExtent + topSafeInset;
-  return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
+  return math.max(lastBodyEnd - stickyOverlayExtent, 0.0);
 }
 
 /// Where [scrollOffset], measured against [before] and [beforeTopSafeInset],
@@ -342,20 +339,19 @@ double tipsEndFooterOffset({
 /// same fraction of the way through it.
 ///
 /// Remeasuring the cards moves every section while the offset stays put in
-/// pixels, which leaves a different game on screen. The list is the welcome
-/// header ([welcomeHeaderExtent] plus the inset), then each section's body,
-/// with every header after the first between them -- the same arithmetic as
-/// startup placement. A card's share of its section is the same in both, so
-/// the reader keeps their game and their place in it.
+/// pixels, which leaves a different game on screen. The list is the inset, the
+/// welcome header ([welcomeHeaderExtent]), then each section's header and
+/// games. A card's share of its section is the same in both, so the reader
+/// keeps their game and their place in it.
 ///
-/// Past the first game, the reader's line is the inset below the offset, as in
-/// [activeStickyTipsLeagueSectionIndex]: a later section placed at the top
-/// sits [beforeTopSafeInset] past the offset, so that line is what is carried
-/// across, and the new inset taken off again. The first section is placed at
-/// the welcome header's end with no inset taken off, so a list resting there
-/// stays there. Null when the two lists do not describe the same sections
-/// holding the same games: games that arrived or left are no fraction of what
-/// was there.
+/// What the reader sees starts below the sticky header, which is pinned the
+/// inset below the offset and shows once the welcome header has gone; above
+/// that, it starts at the inset. That line is carried across, and the new
+/// inset and sticky header taken off again: the header does not grow with the
+/// cards, so carrying the offset itself would move the reader by the header's
+/// share. A list resting at the top stays there. Null when the two lists do
+/// not describe the same sections holding the same games: games that arrived
+/// or left are no fraction of what was there.
 double? anchoredTipsScrollOffset({
   required List<TipsLeagueSection> before,
   required List<TipsLeagueSection> after,
@@ -364,8 +360,6 @@ double? anchoredTipsScrollOffset({
   required double afterTopSafeInset,
   required double scrollOffset,
 }) {
-  final beforeLeadingExtent = welcomeHeaderExtent + beforeTopSafeInset;
-  final afterLeadingExtent = welcomeHeaderExtent + afterTopSafeInset;
   if (before.length != after.length) {
     return null;
   }
@@ -376,42 +370,45 @@ double? anchoredTipsScrollOffset({
       return null;
     }
   }
-  List<double> pieces(List<TipsLeagueSection> sections, double leading) => [
-    leading,
-    for (var index = 0; index < sections.length; index++) ...[
-      if (index != 0) sections[index].headerExtent,
-      sections[index].bodyExtent,
+  List<double> pieces(List<TipsLeagueSection> sections, double inset) => [
+    inset,
+    welcomeHeaderExtent,
+    for (final section in sections) ...[
+      section.headerExtent,
+      section.bodyExtent,
     ],
   ];
-  final from = pieces(before, beforeLeadingExtent);
-  final to = pieces(after, afterLeadingExtent);
-  final pastFirstGame = scrollOffset > beforeLeadingExtent;
+  final from = pieces(before, beforeTopSafeInset);
+  final to = pieces(after, afterTopSafeInset);
   // An overscroll above the top is still the top.
-  final line = pastFirstGame
-      ? scrollOffset + beforeTopSafeInset
-      : math.max(scrollOffset, 0.0);
-
-  double mapLine() {
-    var fromStart = 0.0;
-    var toStart = 0.0;
-    for (var index = 0; index < from.length; index++) {
-      if (line < fromStart + from[index]) {
-        final fraction = (line - fromStart) / from[index];
-        return toStart + fraction * to[index];
-      }
-      fromStart += from[index];
-      toStart += to[index];
+  final offset = math.max(scrollOffset, 0.0);
+  final stickyIndex = offset < welcomeHeaderExtent || before.isEmpty
+      ? null
+      : activeStickyTipsLeagueSectionIndex(
+          sections: before,
+          scrollOffset: offset,
+          leadingExtent: welcomeHeaderExtent + beforeTopSafeInset,
+          topSafeInset: beforeTopSafeInset,
+        );
+  final beforeTop =
+      beforeTopSafeInset +
+      (stickyIndex == null ? 0.0 : before[stickyIndex].headerExtent);
+  final afterTop =
+      afterTopSafeInset +
+      (stickyIndex == null ? 0.0 : after[stickyIndex].headerExtent);
+  final line = offset + beforeTop;
+  var fromStart = 0.0;
+  var toStart = 0.0;
+  for (var index = 0; index < from.length; index++) {
+    if (line < fromStart + from[index]) {
+      final fraction = (line - fromStart) / from[index];
+      return math.max(toStart + fraction * to[index] - afterTop, 0.0);
     }
-    // Past the last section, in the end footer, which does not change height.
-    return toStart + line - fromStart;
+    fromStart += from[index];
+    toStart += to[index];
   }
-
-  final mapped = mapLine();
-  if (!pastFirstGame) {
-    return mapped;
-  }
-  // Still below the welcome header, so the sticky header stays up.
-  return math.max(mapped - afterTopSafeInset, afterLeadingExtent);
+  // Past the last section, in the end footer, which does not change height.
+  return math.max(toStart + line - fromStart - afterTop, 0.0);
 }
 
 List<Widget> buildRoundLeagueSectionSlivers({
@@ -422,7 +419,6 @@ List<Widget> buildRoundLeagueSectionSlivers({
   required DAUCompsViewModel dauCompsViewModel,
   required Tipper currentTipper,
   required bool isPercentStatsPage,
-  required bool showInlineHeader,
   required bool hideInlineHeaderVisual,
 }) {
   final selectedComp = dauCompsViewModel.selectedDAUComp!;
@@ -436,32 +432,31 @@ List<Widget> buildRoundLeagueSectionSlivers({
   final bodyExtent = section.bodyExtent;
 
   return [
-    if (showInlineHeader)
-      SliverToBoxAdapter(
-        child: IgnorePointer(
-          ignoring: hideInlineHeaderVisual,
-          child: SizedBox(
-            height: section.headerExtent,
-            child: Visibility(
-              visible: !hideInlineHeaderVisual,
-              maintainSize: true,
-              maintainAnimation: true,
-              maintainState: true,
-              child: RepaintBoundary(
-                child: RoundLeagueHeaderListTile(
-                  inlineRoundLabel: layout.inlineRoundLabel,
-                  league: league,
-                  logoWidth: 50,
-                  logoHeight: 50,
-                  dauRound: dauRound,
-                  dauCompsViewModel: dauCompsViewModel,
-                  selectedTipper: currentTipper,
-                ),
+    SliverToBoxAdapter(
+      child: IgnorePointer(
+        ignoring: hideInlineHeaderVisual,
+        child: SizedBox(
+          height: section.headerExtent,
+          child: Visibility(
+            visible: !hideInlineHeaderVisual,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: RepaintBoundary(
+              child: RoundLeagueHeaderListTile(
+                inlineRoundLabel: layout.inlineRoundLabel,
+                league: league,
+                logoWidth: 50,
+                logoHeight: 50,
+                dauRound: dauRound,
+                dauCompsViewModel: dauCompsViewModel,
+                selectedTipper: currentTipper,
               ),
             ),
           ),
         ),
       ),
+    ),
     if (dauCompsViewModel.gamesViewModel == null ||
         dauCompsViewModel.isLinkingGames ||
         tipsViewModel == null)

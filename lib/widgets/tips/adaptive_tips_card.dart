@@ -283,17 +283,13 @@ class AdaptiveTipsCard extends StatelessWidget {
       return tag == null ? picture : Hero(tag: tag, child: picture);
     }
 
-    Widget team(TipsTeamDisplay team, {bool rankAfterName = false}) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: TipsTeamName(
+    TextSpan name(TipsTeamDisplay team, {bool rankAfterName = false}) =>
         team.text(
           appPanelTextTheme(context),
           rankAfterName: rankAfterName,
           highlight: appSelectionColor(context),
           onHighlight: appOnSelectionColor(context),
-        ),
-      ),
-    );
+        );
     final middle = editable
         ? Icon(
             Icons.edit,
@@ -322,15 +318,19 @@ class AdaptiveTipsCard extends StatelessWidget {
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Flexible(child: team(data.home)),
+                        Flexible(
+                          child: TipsNameLine.padded(name(data.home)).child,
+                        ),
                         middle,
                         Flexible(
-                          child: team(
-                            data.away,
-                            rankAfterName:
-                                data.status == TipsStatus.upcoming ||
-                                data.status == TipsStatus.today,
-                          ),
+                          child: TipsNameLine.padded(
+                            name(
+                              data.away,
+                              rankAfterName:
+                                  data.status == TipsStatus.upcoming ||
+                                  data.status == TipsStatus.today,
+                            ),
+                          ).child,
                         ),
                       ],
                     )
@@ -342,12 +342,10 @@ class AdaptiveTipsCard extends StatelessWidget {
                       editable: editable,
                       logo: logo,
                     )
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final side in [data.home, null, data.away])
-                          side == null ? middle : Flexible(child: team(side)),
-                      ],
+                  : TipsNamesColumn(
+                      home: TipsNameLine.padded(name(data.home)),
+                      away: TipsNameLine.padded(name(data.away)),
+                      between: middle,
                     ),
             ),
           ),
