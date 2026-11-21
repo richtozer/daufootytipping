@@ -145,6 +145,7 @@ void main() {
     ).thenAnswer((_) async => currentLadder);
     when(() => mockDauCompsViewModel.leagueLadderRevision)
         .thenReturn(ladderRevision);
+    when(() => mockDauCompsViewModel.statsViewModel).thenReturn(null);
 
     when(() => mockGameTipViewModel.game).thenReturn(game);
     when(() => mockGameTipViewModel.tip).thenReturn(null);
@@ -191,6 +192,9 @@ void main() {
       ),
     ).called(1);
     verify(() => mockDauCompsViewModel.leagueLadderRevision).called(1);
+    // The tips tab reads its stats from here too.
+    verify(() => mockDauCompsViewModel.statsViewModel)
+        .called(greaterThanOrEqualTo(1));
     verifyNoMoreInteractions(mockDauCompsViewModel);
   });
 
@@ -748,22 +752,21 @@ void main() {
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
       when(() => statsViewModel.gameStatsEntryFor(finishedGame))
           .thenAnswer((_) => gameStatsEntry);
+      when(() => mockDauCompsViewModel.statsViewModel)
+          .thenReturn(statsViewModel);
     });
 
     Widget buildSubject() {
       return MaterialApp(
-        home: ChangeNotifierProvider<StatsViewModel?>.value(
-          value: statsViewModel,
-          child: Scaffold(
-            body: GameListItem(
-              layout: testTipsCardLayout(),
-              game: finishedGame,
-              currentTipper: currentTipper,
-              currentDAUComp: currentComp,
-              allTipsViewModel: mockTipsViewModel,
-              isPercentStatsPage: false,
-              gameTipViewModel: mockGameTipViewModel,
-            ),
+        home: Scaffold(
+          body: GameListItem(
+            layout: testTipsCardLayout(),
+            game: finishedGame,
+            currentTipper: currentTipper,
+            currentDAUComp: currentComp,
+            allTipsViewModel: mockTipsViewModel,
+            isPercentStatsPage: false,
+            gameTipViewModel: mockGameTipViewModel,
           ),
         ),
       );

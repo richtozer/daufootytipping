@@ -5,8 +5,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -864,7 +863,7 @@ void main() {
       });
     });
 
-    test('startup offset into AFL activates its sticky header immediately', () {
+    test('a section start pins its header, with its first game below', () {
       final now = DateTime.now().toUtc();
       final round = DAURound(
         dAUroundNumber: 1,
@@ -897,130 +896,131 @@ void main() {
         headerExtent: DAURound.leagueHeaderHeight,
       );
       const leadingExtent = 200.0;
-      const topSafeInset = 24.0;
-      final aflStart = tipsSectionStartOffset(
+      final aflStart = tipsSectionHeaderTop(
         sections: sections,
-        targetSectionIndex: 1,
+        sectionIndex: 1,
         leadingExtent: leadingExtent,
-        topSafeInset: topSafeInset,
       );
-      int activeAt(double offset) => activeStickyTipsLeagueSectionIndex(
+      int pinnedAt(double offset) => pinnedTipsSectionIndex(
         sections: sections,
         scrollOffset: offset,
         leadingExtent: leadingExtent,
-        topSafeInset: topSafeInset,
       );
 
-      // AFL's header on the sticky header's line, below the inset.
       expect(
         aflStart,
-        leadingExtent +
-            sections.first.headerExtent +
-            sections.first.bodyExtent -
-            topSafeInset,
+        leadingExtent + sections.first.headerExtent + sections.first.bodyExtent,
       );
-      expect(sections[activeAt(aflStart)].league, League.afl);
-      expect(sections[activeAt(aflStart - 1)].league, League.nrl);
+      expect(sections[pinnedAt(aflStart)].league, League.afl);
+      expect(sections[pinnedAt(aflStart - 1)].league, League.nrl);
+      expect(pinnedAt(leadingExtent - 1), -1, reason: 'the welcome header');
     });
   });
 
-  group('Holding the first startup jump', () {
-    bool hold({
-      bool hasJumped = false,
-      double previous = -1,
-      required double max,
-      int heldFrames = 0,
-    }) => TipsTabState.shouldHoldStartupJump(
-      hasJumped: hasJumped,
-      previousMaxScrollExtent: previous,
-      maxScrollExtent: max,
-      heldFrames: heldFrames,
-    );
-
-    test('holds while the list is still growing', () {
-      // Measured on a folded phone: the list was 9942 tall on the frame the
-      // old code jumped, and 65688 once the game data had arrived.
-      expect(hold(previous: 9942, max: 65688), isTrue);
-    });
-
-    test('holds on the very first frame, before any height is known', () {
-      expect(hold(max: 9942), isTrue);
-    });
-
-    test('goes once the height has settled', () {
-      expect(hold(previous: 65688, max: 65688), isFalse);
-      // Sub-pixel drift is not growth.
-      expect(hold(previous: 65688, max: 65692), isFalse);
-    });
-
-    test('never holds a correction once the first jump has landed', () {
-      expect(hold(hasJumped: true, previous: 9942, max: 65688), isFalse);
-    });
-
-    test('goes anyway rather than waiting forever on trickling data', () {
-      expect(
-        hold(
-          previous: 100,
-          max: 65688,
-          heldFrames: TipsTabState.maxStartupHoldFrames,
-        ),
-        isFalse,
-      );
-      expect(
-        hold(
-          previous: 100,
-          max: 65688,
-          heldFrames: TipsTabState.maxStartupHoldFrames - 1,
-        ),
-        isTrue,
-      );
-    });
-  });
-
-  group('Keeping the reader in place across a relayout', () {
-    // Two sections of four games: welcome, NRL body, AFL header, AFL body.
-    List<TipsLeagueSection> sections(double card, double header) => [
+  group('The list\'s extents', () {
+    // Welcome 200; NRL 60 + 400; AFL 60 + 400; footer 100.
+    final sections = [
       for (final league in const [League.nrl, League.afl])
         TipsLeagueSection(
           roundIndex: 0,
           league: league,
-          headerExtent: header,
-          bodyExtent: 4 * card,
-          gameCount: 4,
+          headerExtent: 60,
+          bodyExtent: 400,
+          gameKeys: [for (var i = 0; i < 4; i++) '${league.name}-$i'],
         ),
+    ];
+
+    test('scrolls as far as the list is taller than its viewport', () {
+      double max(double viewport) => tipsMaxScrollExtent(
+        sections: sections,
+        leadingExtent: 200,
+        footerExtent: 100,
+        viewportExtent: viewport,
+      );
+      expect(max(500), 1220 - 500);
+      expect(max(2000), 0);
+    });
+
+    test("ends with the last section's header pinned above the footer", () {
+      expect(tipsEndFooterOffset(sections: sections, leadingExtent: 200), 1060);
+    });
+
+    test('tells a remeasure or a changed game from the same layout', () {
+      expect(sameTipsLayout(sections, List.of(sections)), isTrue);
+      final remeasured = [
+        sections.first,
+        TipsLeagueSection(
+          roundIndex: 0,
+          league: League.afl,
+          headerExtent: 60,
+          bodyExtent: 480,
+          gameKeys: sections.last.gameKeys,
+        ),
+      ];
+      expect(sameTipsLayout(sections, remeasured), isFalse);
+      final swapped = [
+        sections.first,
+        TipsLeagueSection(
+          roundIndex: 0,
+          league: League.afl,
+          headerExtent: 60,
+          bodyExtent: 400,
+          gameKeys: const ['afl-0', 'afl-1', 'afl-2', 'afl-new'],
+        ),
+      ];
+      expect(sameTipsLayout(sections, swapped), isFalse);
+    });
+  });
+
+  group('Keeping the reader in place across a relayout', () {
+    // Two sections of four games: welcome, NRL header and games, AFL header
+    // and games.
+    List<TipsLeagueSection> sections(
+      double card,
+      double header, {
+      List<String>? nrlGames,
+    }) => [
+      for (final league in const [League.nrl, League.afl])
+        if ((league == League.nrl ? nrlGames : null) ??
+                [for (var i = 0; i < 4; i++) '${league.name}-$i']
+            case final games)
+          TipsLeagueSection(
+            roundIndex: 0,
+            league: league,
+            headerExtent: header,
+            bodyExtent: games.isEmpty
+                ? DAURound.noGamesCardHeight
+                : games.length * card,
+            gameKeys: games,
+          ),
     ];
     final before = sections(100, 60);
     final after = sections(150, 80);
 
-    // The welcome header is 200 tall with no inset.
+    // The welcome header is 200 tall.
     double? anchored(
       double offset, {
-      double welcome = 200,
-      double beforeInset = 0,
-      double afterInset = 0,
-      List<TipsLeagueSection>? changed,
+      List<TipsLeagueSection>? from,
+      List<TipsLeagueSection>? to,
     }) => anchoredTipsScrollOffset(
-      before: before,
-      after: changed ?? after,
-      welcomeHeaderExtent: welcome,
-      beforeTopSafeInset: beforeInset,
-      afterTopSafeInset: afterInset,
+      before: from ?? before,
+      after: to ?? after,
+      leadingExtent: 200,
       scrollOffset: offset,
     );
 
-    // The list: the inset, the welcome header, then each section's header and
-    // its games. Before: 200, 60, 400, 60, 400. After: 200, 80, 600, 80, 600.
-    // Past the welcome header the reader's games start below the sticky
-    // header, 60 before and 80 after.
+    // Before: 200, 60, 400, 60, 400. After: 200, 80, 600, 80, 600. Past the
+    // welcome header the reader's games start below the pinned header, 60
+    // before and 80 after.
     test('keeps a game and the fraction through it', () {
-      // Half way through the third NRL card, below the sticky header.
+      // Half way through the third NRL card, below the pinned header.
       expect(anchored(200 + 250), 200 + 375);
       // A quarter of the way through the second AFL card.
       expect(anchored(200 + 60 + 400 + 125), 200 + 80 + 600 + 187.5);
     });
 
     test('keeps a place on the next round header as it pushes up', () {
-      // The AFL header 30 into the NRL sticky header's 60, pushing it up.
+      // The AFL header 30 into the NRL pinned header's 60, pushing it up.
       expect(anchored(200 + 400 + 30), 200 + 600 + 40);
     });
 
@@ -1028,55 +1028,48 @@ void main() {
       expect(anchored(200 + 60 + 400 + 400 + 30), 200 + 80 + 600 + 600 + 30);
     });
 
-    test('keeps every section placed under the inset where it is', () {
-      // A section's start puts its header on the sticky header's line, the
-      // inset below the offset: the first at the welcome header's height.
-      expect(anchored(200, beforeInset: 50, afterInset: 50), 200);
-      expect(
-        anchored(200 + 60 + 400, beforeInset: 50, afterInset: 50),
-        200 + 80 + 600,
-      );
-    });
-
-    test('follows an inset that a rotation took away', () {
-      expect(anchored(0, beforeInset: 50), 0);
-      expect(anchored(100, beforeInset: 50), 100);
-      expect(anchored(200 + 60 + 400, beforeInset: 50), 200 + 80 + 600);
-    });
-
-    test('stays at the top when an inset arrives', () {
-      expect(anchored(0, afterInset: 50), 0);
+    test('keeps the welcome header where it is', () {
+      expect(anchored(0), 0);
+      expect(anchored(100), 100);
     });
 
     test('moves smoothly past the welcome header', () {
-      final below = anchored(199.9, beforeInset: 50, afterInset: 50);
-      final above = anchored(200.1, beforeInset: 50, afterInset: 50);
+      final below = anchored(199.9);
+      final above = anchored(200.1);
       expect(below, isNotNull);
       expect(above, isNotNull);
       expect((above ?? 0) - (below ?? 0), lessThan(1));
     });
 
-    test('gives up when a section holds other games', () {
-      final grown = [
-        TipsLeagueSection(
-          roundIndex: 0,
-          league: League.nrl,
-          headerExtent: 80,
-          bodyExtent: 6 * 150,
-          gameCount: 6,
-        ),
-        after.last,
-      ];
-      expect(anchored(300, changed: grown), isNull);
+    test('keeps a game when another arrives above it', () {
+      final grown = sections(
+        150,
+        80,
+        nrlGames: ['nrl-new', for (var i = 0; i < 4; i++) 'nrl-$i'],
+      );
+      // The second AFL card, a quarter through, below one more NRL card.
+      expect(anchored(200 + 60 + 400 + 125, to: grown), 200 + 80 + 750 + 187.5);
+    });
+
+    test('goes to the start of the section when its game has gone', () {
+      final shrunk = sections(150, 80, nrlGames: ['nrl-0', 'nrl-1']);
+      // Half way through the third NRL card, which is no longer there.
+      expect(anchored(200 + 250, to: shrunk), 200);
+    });
+
+    test('goes to the start of a section whose games replace its no-games '
+        'card', () {
+      final empty = sections(100, 60, nrlGames: const []);
+      // Into the no-games card, below the pinned NRL header.
+      expect(anchored(200 + 10, from: empty), 200);
     });
 
     test('treats an overscroll above the top as the top', () {
-      expect(anchored(-20, welcome: 0), 0);
+      expect(anchored(-20), 0);
     });
 
-    test('gives up when the sections differ', () {
-      expect(anchored(300, changed: after.sublist(1)), isNull);
-      expect(anchored(300, changed: after.reversed.toList()), isNull);
+    test('gives up when the section itself has gone', () {
+      expect(anchored(300, to: after.sublist(1)), isNull);
     });
   });
 }

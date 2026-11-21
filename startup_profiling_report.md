@@ -24,7 +24,7 @@ Changes:
 - Start profiling spans at app launch:
   - `startup.tips_page_stable`
   - `startup.tips_content_ready`
-- End `startup.tips_page_stable` when the Tips startup scroll first settles.
+- End `startup.tips_page_stable` when the Tips list is first built, at its target: once the games are in their rounds and the tips have loaded.
 - End `startup.tips_content_ready` when both:
   - `gamesViewModel.initialLoadComplete`
   - `selectedTipperTipsViewModel.initialLoadCompleted`

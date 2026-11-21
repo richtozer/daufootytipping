@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:daufootytipping/models/daucomp.dart';
@@ -11,7 +12,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_round_leagueheader_listtile.dart';
 import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
@@ -19,7 +19,9 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_pill.dart';
+import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +37,8 @@ class _MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 class _MockTippersViewModel extends Mock implements TippersViewModel {}
 
 class _MockTipsViewModel extends Mock implements TipsViewModel {}
+
+class _MockStatsViewModel extends Mock implements StatsViewModel {}
 
 class _FakeTip extends Fake implements Tip {
   _FakeTip(this.tip, this.submittedTimeUTC);
@@ -53,6 +57,34 @@ void main() {
   late AppControlsViewModel appControlsViewModel;
   late DAURound round;
   late Tipper tipper;
+
+  /// Tips loaded, with the first untipped game at [nrl] in the NRL games and
+  /// [afl] in the AFL ones (-1 for none).
+  void tipsWithFirstUntipped({required int nrl, required int afl}) {
+    final tipsViewModel = _MockTipsViewModel();
+    when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
+    when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
+        .thenAnswer((invocation) {
+          final games = invocation.positionalArguments.first as List<Game>;
+          if (games.isEmpty) return -1;
+          return games.first.league == League.nrl ? nrl : afl;
+        });
+    when(
+      () =>
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            any(),
+            any(),
+          ),
+    ).thenReturn(0);
+    when(
+      () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
+        any(),
+        any(),
+      ),
+    ).thenReturn(0);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel)
+        .thenReturn(tipsViewModel);
+  }
 
   setUp(() async {
     await di.reset();
@@ -134,7 +166,9 @@ void main() {
 
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(comp);
     when(() => dauCompsViewModel.gamesViewModel).thenReturn(null);
-    when(() => dauCompsViewModel.selectedTipperTipsViewModel).thenReturn(null);
+    when(() => dauCompsViewModel.gamesLinked).thenReturn(true);
+    // Loaded, with nothing tipped.
+    tipsWithFirstUntipped(nrl: 0, afl: 0);
     when(() => dauCompsViewModel.statsViewModel).thenReturn(null);
     when(() => dauCompsViewModel.currentRoundOutstandingTipsCount())
         .thenReturn(0);
@@ -186,73 +220,71 @@ void main() {
     // tapped.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    // Three frames is what startup placement takes, and it is stable from
-    // there: the first compares the list height against the previous frame's,
-    // the second jumps, and the third confirms the height held. pumpAndSettle
-    // is no use here -- this page does not quiesce its frame loop during
-    // startup.
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
     return tester.state<TipsTabState>(find.byType(TipsTab));
   }
 
-  /// Tips loaded, with the first untipped game at [nrl] in the NRL games and
-  /// [afl] in the AFL ones (-1 for none).
-  void tipsWithFirstUntipped({required int nrl, required int afl}) {
-    final tipsViewModel = _MockTipsViewModel();
-    when(() => tipsViewModel.isInitialLoadComplete).thenReturn(true);
-    when(() => tipsViewModel.firstUntippedGameIndex(any(), any()))
-        .thenAnswer((invocation) {
-          final games = invocation.positionalArguments.first as List<Game>;
-          return games.first.league == League.nrl ? nrl : afl;
-        });
-    when(
-      () =>
-          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-            any(),
-            any(),
-          ),
-    ).thenReturn(0);
-    when(
-      () => tipsViewModel.numberOfMarginTipsSubmittedForRoundAndLeague(
-        any(),
-        any(),
-      ),
-    ).thenReturn(0);
-    when(() => dauCompsViewModel.selectedTipperTipsViewModel)
-        .thenReturn(tipsViewModel);
-  }
-
-  /// Where a game card sits on screen: a round's games start below its own
-  /// header in the list, one card extent apart. The tests build no cards (the
-  /// games view model is absent), so this reads the real header's position.
+  /// Where a game card sits on screen. The tests build no cards (there is no
+  /// games view model), so a section's body is a spinner in the league's
+  /// colour, one card extent per game. A body just off screen is in the
+  /// viewport's cache, which finders skip by default; its position still holds.
   double gameTop(WidgetTester tester, League league, int index) {
-    // A header just above the screen is in the viewport's cache, which
-    // finders skip by default; its position is still the one to read.
-    final header = find.descendant(
+    final spinner = find.descendant(
       of: find.byType(CustomScrollView),
       matching: find.byWidgetPredicate(
         (widget) =>
-            widget is RoundLeagueHeaderListTile && widget.league == league,
+            widget is CircularProgressIndicator &&
+            widget.color == league.colour,
         skipOffstage: false,
       ),
       skipOffstage: false,
     );
+    final body = find
+        .ancestor(of: spinner, matching: find.byType(SizedBox))
+        .first;
     final tipsState = tester.state<TipsTabState>(find.byType(TipsTab));
-    return tester.getRect(header).bottom + index * tipsState.cardExtent;
+    return tester.getRect(body).top + index * tipsState.cardExtent;
   }
 
-  /// The bottom of the sticky header, below which a game is in view.
-  double stickyBottom(WidgetTester tester) =>
-      tester.getRect(find.byType(TipsStickyHeader)).bottom;
+  /// Collects the comps view model's listeners, so a test can notify them.
+  List<VoidCallback> captureListeners() {
+    final listeners = <VoidCallback>[];
+    registerFallbackValue(() {});
+    when(() => dauCompsViewModel.addListener(any())).thenAnswer(
+      (invocation) =>
+          listeners.add(invocation.positionalArguments.first as VoidCallback),
+    );
+    return listeners;
+  }
 
-  League stickyLeague(WidgetTester tester) => tester
-      .widget<TipsStickyHeader>(find.byType(TipsStickyHeader))
-      .section
-      .league;
+  void notifyAll(List<VoidCallback> listeners) {
+    for (final listener in List.of(listeners)) {
+      listener();
+    }
+  }
 
-  /// The league's first game just below the sticky header, which shows it.
+  /// The header pinned at the top of the list: its tile sits inside 4 of
+  /// padding at the list's top. Null while the welcome header is there.
+  Element? pinnedHeader(WidgetTester tester) {
+    final listTop = tester.getTopLeft(find.byType(CustomScrollView)).dy;
+    for (final element in find.byType(RoundLeagueHeaderListTile).evaluate()) {
+      final top = (element.renderObject! as RenderBox).localToGlobal(
+        Offset.zero,
+      );
+      if ((top.dy - listTop - 4).abs() < 0.5) return element;
+    }
+    return null;
+  }
+
+  /// The bottom of the pinned header, below which a game is in view.
+  double stickyBottom(WidgetTester tester) {
+    final header = pinnedHeader(tester)!.renderObject! as RenderBox;
+    return header.localToGlobal(Offset(0, header.size.height)).dy + 4;
+  }
+
+  League? stickyLeague(WidgetTester tester) =>
+      (pinnedHeader(tester)?.widget as RoundLeagueHeaderListTile?)?.league;
+
+  /// The league's first game just below the pinned header, which shows it.
   void expectLeagueAtTop(WidgetTester tester, League league) {
     expect(stickyLeague(tester), league);
     expect(gameTop(tester, league, 0), closeTo(stickyBottom(tester), 1));
@@ -260,8 +292,6 @@ void main() {
 
   Future<void> tapTips(WidgetTester tester) async {
     await tester.tap(find.text('TIPS'));
-    // The jump runs after the tap's frame; the next lays the list out there.
-    await tester.pump();
     await tester.pump();
   }
 
@@ -270,7 +300,7 @@ void main() {
   ) async {
     final tipsState = await pumpHome(tester);
     // Round 1, nothing tipped: the list opens on the welcome header.
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
 
     await tapTips(tester);
     expectLeagueAtTop(tester, League.nrl);
@@ -279,12 +309,12 @@ void main() {
     expectLeagueAtTop(tester, League.afl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
 
     // Off the cycle, a tap rejoins it at its first stop.
-    tipsState.scrollController.jumpTo(400);
+    tipsState.scrollController!.jumpTo(400);
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
   });
 
   testWidgets('cycles dynamic position, NRL, AFL, then repeats', (
@@ -311,7 +341,7 @@ void main() {
         .thenReturn(tipsViewModel);
 
     final tipsState = await pumpHome(tester);
-    double offset() => tipsState.scrollController.offset;
+    double offset() => tipsState.scrollController!.offset;
 
     // Asserts the cycle, not the arithmetic between its stops: deriving the
     // stops from the card extent assumed a spacing that any change to the
@@ -333,7 +363,7 @@ void main() {
 
     // Somewhere off the cycle altogether rejoins it. Which stop depends on
     // where startup left the list, so the test does not name one.
-    tipsState.scrollController.jumpTo(first + 400);
+    tipsState.scrollController!.jumpTo(first + 400);
     await tapTips(tester);
     expect(
       [first, second, third].any((stop) => (stop - offset()).abs() < 0.1),
@@ -370,10 +400,7 @@ void main() {
 
     await pumpHome(tester);
 
-    TipsStickyHeader stickyHeader() =>
-        tester.widget<TipsStickyHeader>(find.byType(TipsStickyHeader));
-
-    expect(stickyHeader().section.league, League.afl);
+    expect(stickyLeague(tester), League.afl);
 
     await tapTips(tester);
     expectLeagueAtTop(tester, League.nrl);
@@ -383,9 +410,11 @@ void main() {
     tester,
   ) async {
     round.games.removeWhere((game) => game.league == League.nrl);
+    // Nothing to tip, so startup has no game to go to.
+    tipsWithFirstUntipped(nrl: -1, afl: -1);
 
     final tipsState = await pumpHome(tester);
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
 
     // The empty NRL section is a stop of its own, its no-games card in view.
     await tapTips(tester);
@@ -395,11 +424,11 @@ void main() {
     expectLeagueAtTop(tester, League.afl);
 
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
 
-    tipsState.scrollController.jumpTo(400);
+    tipsState.scrollController!.jumpTo(400);
     await tapTips(tester);
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
   });
 
   testWidgets('cycles end of competition, final NRL, and final AFL', (
@@ -412,7 +441,7 @@ void main() {
       ..lastGameKickOffUTC = now.subtract(const Duration(days: 1));
 
     final tipsState = await pumpHome(tester);
-    final endOfCompetitionOffset = tipsState.scrollController.offset;
+    final endOfCompetitionOffset = tipsState.scrollController!.offset;
 
     await tapTips(tester);
     expectLeagueAtTop(tester, League.nrl);
@@ -422,15 +451,15 @@ void main() {
 
     await tapTips(tester);
     expect(
-      tipsState.scrollController.offset,
+      tipsState.scrollController!.offset,
       closeTo(endOfCompetitionOffset, 0.1),
     );
 
-    tipsState.scrollController.jumpTo(400);
+    tipsState.scrollController!.jumpTo(400);
 
     await tapTips(tester);
     expect(
-      tipsState.scrollController.offset,
+      tipsState.scrollController!.offset,
       closeTo(endOfCompetitionOffset, 0.1),
     );
   });
@@ -474,30 +503,6 @@ void main() {
     expect(pill.center.dx, 420 - 40, reason: 'inside the 80pt strip');
   });
 
-  testWidgets('hides the list until it has been placed', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    double veilOpacity() => tester
-        .widget<Opacity>(find.byKey(const Key('tipsPlacementVeil')))
-        .opacity;
-
-    await tester.pumpWidget(appHosting());
-    await tester.pump();
-    // Placement lands a few frames in. Until it does the list is built -- its
-    // controller has to attach for placement to run at all -- but hidden, so
-    // the reader does not watch it travel from round one.
-    expect(veilOpacity(), 0);
-
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
-
-    expect(veilOpacity(), 1);
-  });
-
   testWidgets('keeps the reader on their game when the cards are remeasured', (
     tester,
   ) async {
@@ -512,8 +517,8 @@ void main() {
     // fifth: half of it is under the sticky header.
     await tapTips(tester);
     final beforeExtent = tipsState.cardExtent;
-    tipsState.scrollController.jumpTo(
-      tipsState.scrollController.offset + 4.5 * beforeExtent,
+    tipsState.scrollController!.jumpTo(
+      tipsState.scrollController!.offset + 4.5 * beforeExtent,
     );
     await tester.pump();
     double fifthGameUnderSticky() =>
@@ -567,7 +572,7 @@ void main() {
       tester,
       padding: const EdgeInsets.only(top: 50),
     );
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
     await tapTips(tester);
     await tapTips(tester);
     expectLeagueAtTop(tester, League.afl);
@@ -601,7 +606,7 @@ void main() {
         await tester.pump();
       }
       final tipsState = tester.state<TipsTabState>(find.byType(TipsTab));
-      expect(tipsState.scrollController.position.maxScrollExtent, 0);
+      expect(tipsState.scrollController!.position.maxScrollExtent, 0);
 
       // A short, narrow pane makes the list scroll, with the reader still at
       // the top of it.
@@ -611,15 +616,158 @@ void main() {
       }
 
       expect(
-        tipsState.scrollController.position.maxScrollExtent,
+        tipsState.scrollController!.position.maxScrollExtent,
         greaterThan(0),
         reason: 'the smaller pane must actually make the list scroll',
       );
       expect(
-        tipsState.scrollController.offset,
-        lessThan(tipsState.scrollController.position.maxScrollExtent),
+        tipsState.scrollController!.offset,
+        lessThan(tipsState.scrollController!.position.maxScrollExtent),
         reason: 'a reader who was not at an end of anything stays off the end',
       );
+    },
+  );
+
+  testWidgets('draws no list until the games are in their rounds', (
+    tester,
+  ) async {
+    final listeners = captureListeners();
+    when(() => dauCompsViewModel.gamesLinked).thenReturn(false);
+    tipsWithFirstUntipped(nrl: -1, afl: 2);
+    final tipsState = await pumpHome(tester);
+    // Every round reads as empty until then, so a list drawn now would be
+    // placed against games it does not have.
+    expect(find.byType(CustomScrollView), findsNothing);
+
+    when(() => dauCompsViewModel.gamesLinked).thenReturn(true);
+    notifyAll(listeners);
+    await tester.pump();
+    // The first frame that draws the list draws it in place.
+    final first = tipsState.scrollController!.offset;
+    expect(first, greaterThan(0));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(tipsState.scrollController!.offset, first);
+  });
+
+  testWidgets('keeps the reader on their game when a game arrives above it', (
+    tester,
+  ) async {
+    final listeners = captureListeners();
+    tipsWithFirstUntipped(nrl: -1, afl: 0);
+    final tipsState = await pumpHome(tester);
+    // The reader scrolls on into the AFL games.
+    final controller = tipsState.scrollController!;
+    controller.jumpTo(controller.offset + 2.5 * tipsState.cardExtent);
+    await tester.pump();
+    final before = gameTop(tester, League.afl, 3);
+
+    // A game is added to the NRL above them.
+    final nrlGame = round.games.first;
+    round.games = [
+      Game(
+        dbkey: 'nrl-added',
+        league: League.nrl,
+        homeTeam: nrlGame.homeTeam,
+        awayTeam: nrlGame.awayTeam,
+        location: nrlGame.location,
+        startTimeUTC: nrlGame.startTimeUTC.add(const Duration(hours: 20)),
+        fixtureRoundNumber: 1,
+        fixtureMatchNumber: 11,
+      ),
+      ...round.games,
+    ];
+    notifyAll(listeners);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(
+      gameTop(tester, League.afl, 3),
+      closeTo(before, 1),
+      reason: 'the same game where it was, not pushed down or re-placed',
+    );
+  });
+
+  testWidgets("shows a started round's points from the stats", (tester) async {
+    // The round's first NRL game is under way.
+    final first = round.games.first;
+    round.games[0] = Game(
+      dbkey: first.dbkey,
+      league: League.nrl,
+      homeTeam: first.homeTeam,
+      awayTeam: first.awayTeam,
+      location: first.location,
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+      fixtureRoundNumber: 1,
+      fixtureMatchNumber: 1,
+    );
+    final statsViewModel = _MockStatsViewModel();
+    when(() => statsViewModel.getScoringRoundStats(any(), any())).thenReturn(
+      RoundStats(
+        roundNumber: 1,
+        aflPoints: 0,
+        aflMaxPoints: 0,
+        aflMarginTips: 0,
+        aflMarginUPS: 0,
+        nrlPoints: 7,
+        nrlMaxPoints: 9,
+        nrlMarginTips: 0,
+        nrlMarginUPS: 0,
+        rank: 3,
+        rankChange: 0,
+        nrlTipsOutstanding: 0,
+        aflTipsOutstanding: 0,
+      ),
+    );
+    when(() => dauCompsViewModel.statsViewModel).thenReturn(statsViewModel);
+
+    await pumpHome(tester);
+
+    expect(find.text('Points: 7 / 9', skipOffstage: false), findsOneWidget);
+  });
+
+  testWidgets(
+    'a game arriving mid-animation stops it where it put the reader',
+    (tester) async {
+      final listeners = captureListeners();
+      tipsWithFirstUntipped(nrl: -1, afl: 0);
+      final tipsState = await pumpHome(tester);
+      final controller = tipsState.scrollController!;
+      // Page Down, say.
+      unawaited(
+        controller.animateTo(
+          controller.offset + 2 * tipsState.cardExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.linear,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // A game is added to the NRL above the reader.
+      final nrlGame = round.games.first;
+      round.games = [
+        Game(
+          dbkey: 'nrl-added',
+          league: League.nrl,
+          homeTeam: nrlGame.homeTeam,
+          awayTeam: nrlGame.awayTeam,
+          location: nrlGame.location,
+          startTimeUTC: nrlGame.startTimeUTC.add(const Duration(hours: 20)),
+          fixtureRoundNumber: 1,
+          fixtureMatchNumber: 11,
+        ),
+        ...round.games,
+      ];
+      notifyAll(listeners);
+      await tester.pump();
+      final kept = gameTop(tester, League.afl, 1);
+
+      // The rest of the animation would carry on in the old layout's offsets.
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(gameTop(tester, League.afl, 1), closeTo(kept, 1));
     },
   );
 
@@ -642,7 +790,7 @@ void main() {
     // Round 1 has not started and its first game is the first to tip, so
     // the list opens at the top: the welcome header, then the round's header
     // and its first game, none of them under the inset or the sticky header.
-    expect(tipsState.scrollController.offset, 0);
+    expect(tipsState.scrollController!.offset, 0);
 
     // The rest arrive, and the cards they bring are measured afresh. The
     // reader has not moved, so the list starts where a new comp starts.
@@ -656,10 +804,31 @@ void main() {
     }
 
     expect(
-      tipsState.scrollController.offset,
+      tipsState.scrollController!.offset,
       0,
       reason: 'not a fraction of a section that held other games',
     );
+  });
+
+  testWidgets('opens on a live first game, not the welcome header', (
+    tester,
+  ) async {
+    // Round 1's first NRL game is under way and everything is tipped.
+    final first = round.games.first;
+    round.games[0] = Game(
+      dbkey: first.dbkey,
+      league: League.nrl,
+      homeTeam: first.homeTeam,
+      awayTeam: first.awayTeam,
+      location: first.location,
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(hours: 1)),
+      fixtureRoundNumber: 1,
+      fixtureMatchNumber: 1,
+    );
+    tipsWithFirstUntipped(nrl: -1, afl: -1);
+    await pumpHome(tester);
+
+    expectLeagueAtTop(tester, League.nrl);
   });
 
   group('under a notch, startup puts the first game to tip just below the '
@@ -695,8 +864,8 @@ void main() {
     final tipsState = await pumpHome(tester);
     final beforeExtent = tipsState.cardExtent;
     bool atEndOfCompetition() =>
-        tipsState.scrollController.offset >
-        tipsState.scrollController.position.maxScrollExtent -
+        tipsState.scrollController!.offset >
+        tipsState.scrollController!.position.maxScrollExtent -
             2 * tipsState.cardExtent;
     expect(
       atEndOfCompetition(),
@@ -721,8 +890,8 @@ void main() {
       reason: 'the narrower pane must actually change the layout',
     );
     expect(
-      tipsState.scrollController.offset,
-      closeTo(tipsState.scrollController.position.maxScrollExtent, 0.5),
+      tipsState.scrollController!.offset,
+      closeTo(tipsState.scrollController!.position.maxScrollExtent, 0.5),
       reason: 'still at the very end after the fold, not near it',
     );
   });

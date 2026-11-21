@@ -1,5 +1,5 @@
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
-import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -84,18 +84,20 @@ class TipsNameLine {
   /// the "V".
   final double besideWidth;
 
-  /// Height the line needs whatever the name, such as a logo's.
+  /// Height the line needs whatever the name, such as a logo's, when deciding
+  /// which name needs less.
   final double minHeight;
 }
 
 /// The two names of a matchup, one above the other, with [between] (the logos
 /// and "V") between them if given.
 ///
-/// Each name gets a share of the height in proportion to what it needs at
-/// this width. Cards are measured to hold both of the season's teams' names,
-/// so a real name always gets all it needs; only a name past that, a finals
-/// placeholder, is cut short. An even split instead gave a two-line name half
-/// the room beside a one-line one, and cut it short in a card sized for it.
+/// The name that needs less height at this width gets all it needs, and the
+/// other gets the rest. Cards are measured to hold both of the season's teams'
+/// names, so a real name is never cut short; only a name past that, a finals
+/// placeholder, is, beside a real name or another placeholder. Sharing the
+/// height in proportion to need instead gave a one-line name less than a line
+/// beside a four-line placeholder.
 class TipsNamesColumn extends StatelessWidget {
   const TipsNamesColumn({
     super.key,
@@ -114,7 +116,7 @@ class TipsNamesColumn extends StatelessWidget {
     final direction = Directionality.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        int share(TipsNameLine line) {
+        double need(TipsNameLine line) {
           final painter = TextPainter(
             text: line.text,
             textAlign: TextAlign.center,
@@ -127,16 +129,21 @@ class TipsNamesColumn extends StatelessWidget {
           );
           final height = math.max(painter.height, line.minHeight);
           painter.dispose();
-          return math.max(1, (height * 100).round());
+          return height;
         }
 
+        final homeNeed = need(home);
+        final awayNeed = need(away);
+        final same = (homeNeed - awayNeed).abs() < 0.5;
+        Widget fit(TipsNameLine line, {required bool shorter}) =>
+            shorter && !same ? line.child : Flexible(child: line.child);
         final between = this.between;
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Flexible(flex: share(home), child: home.child),
+            fit(home, shorter: homeNeed < awayNeed),
             ?between,
-            Flexible(flex: share(away), child: away.child),
+            fit(away, shorter: awayNeed < homeNeed),
           ],
         );
       },

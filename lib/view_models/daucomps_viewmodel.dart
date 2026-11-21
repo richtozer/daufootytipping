@@ -143,7 +143,6 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   late final Future<void> _initDone;
 
-  // --- Testability additions ---
   @visibleForTesting
   void setSelectedCompForTest(DAUComp comp) {
     _selectedDAUComp = comp;
@@ -164,7 +163,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       _initialDAUCompLoadCompleter.complete();
     }
   }
-  // --- End Testability additions ---
 
   Future<void> _init() async {
     _listenToDAUComps();
@@ -684,6 +682,10 @@ class DAUCompsViewModel extends ChangeNotifier {
 
   bool _isLinkingGames = false;
   bool get isLinkingGames => _isLinkingGames;
+  bool _gamesLinked = false;
+
+  /// Whether the selected comp's rounds hold their games; before, all are empty.
+  bool get gamesLinked => _gamesLinked;
 
   Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
     log('In daucompsviewmodel.linkGamesWithRounds()');
@@ -720,6 +722,7 @@ class DAUCompsViewModel extends ChangeNotifier {
       log(
         'Unassigned games count: ${unassignedGames.length}, split round games count: ${splitRoundGames.length}',
       );
+      _gamesLinked = true;
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
     } finally {
@@ -955,6 +958,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   /// Disposes child ViewModels (games, stats, tips) before re-initialization
   /// to prevent leaked Firebase stream subscriptions and listeners.
   void _disposeChildViewModels() {
+    _gamesLinked = false;
     gamesViewModel?.removeListener(_gamesViewModelUpdated);
     gamesViewModel?.dispose();
     gamesViewModel = null;
@@ -990,7 +994,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       _cachedLadderAvailability.clear();
       log('DAUCompsViewModel: Cleared all ladder caches');
     }
-    // notifyListeners(); // Consider if UI needs to react to cache clearing directly
   }
 
   LeagueLadderAvailability getLeagueLadderAvailability(League league) {
@@ -1036,9 +1039,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       );
       return null;
     }
-
-    // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
-    // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
 
     final currentComp = selectedDAUComp!;
     final currentGamesViewModel = gamesViewModel!;

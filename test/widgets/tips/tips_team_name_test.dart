@@ -98,4 +98,82 @@ void main() {
     expect(names.map((text) => text.maxLines), [null, null]);
     expect(tester.takeException(), isNull);
   });
+
+  /// The height [text] needs at the column's width, less its 4 either side.
+  double needed(TextSpan text) {
+    final painter = TextPainter(
+      text: text,
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 120 - 8);
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
+  testWidgets('a real name beside a long placeholder keeps all it needs', (
+    tester,
+  ) async {
+    const placeholder = TextSpan(
+      text: 'Highest-ranked Qualifying Final Loser',
+      style: style,
+    );
+    const real = TextSpan(text: 'Swans', style: style);
+    expect(needed(placeholder), greaterThan(needed(real) * 2.5));
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: 120,
+            // Room for two lines between them.
+            height: 2 * needed(real) + 1,
+            child: TipsNamesColumn(
+              home: TipsNameLine.padded(placeholder),
+              away: TipsNameLine.padded(real),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final names = tester.widgetList<Text>(find.byType(Text)).toList();
+    expect(names.last.maxLines, isNull, reason: 'the real name, whole');
+    expect(names.first.maxLines, 1, reason: 'the placeholder, cut short');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a line keeps its minimum height beside a long placeholder', (
+    tester,
+  ) async {
+    const placeholder = TextSpan(
+      text: 'Highest-ranked Qualifying Final Loser',
+      style: style,
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            width: 120,
+            height: 70,
+            child: TipsNamesColumn(
+              home: const TipsNameLine(
+                text: TextSpan(text: 'Swans', style: style),
+                // A logo beside the name.
+                minHeight: 30,
+                child: SizedBox(key: Key('logoLine'), height: 30),
+              ),
+              away: TipsNameLine.padded(placeholder),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const Key('logoLine'))).height,
+      greaterThanOrEqualTo(30),
+    );
+  });
 }

@@ -1,6 +1,7 @@
 import 'dart:developer';
 
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -294,18 +295,15 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                         sectionIndex < sections.length;
                                         sectionIndex++
                                       )
-                                        ...buildRoundLeagueSectionSlivers(
+                                        buildRoundLeagueSection(
                                           section: sections[sectionIndex],
-                                          roundIndex:
-                                              sections[sectionIndex].roundIndex,
-                                          league: sections[sectionIndex].league,
                                           dauCompsViewModel:
                                               daucompsViewmodelConsumer,
                                           currentTipper: di<TippersViewModel>()
                                               .selectedTipper,
                                           isPercentStatsPage: true,
                                           layout: cardLayout,
-                                          hideInlineHeaderVisual: false,
+                                          pinHeader: false,
                                         ),
                                       SliverToBoxAdapter(
                                         child: SizedBox(

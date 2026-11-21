@@ -9,7 +9,6 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:provider/provider.dart';
 
 /// League round header card showing round number, points/countdown stats,
 /// and league logo.
@@ -145,16 +144,15 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                   ),
                                 ],
                               )
-                            : Selector<StatsViewModel?, RoundStats?>(
-                                selector: (_, statsViewModel) =>
-                                    statsViewModel?.getScoringRoundStats(
-                                      dauRound,
-                                      selectedTipper,
-                                    ),
-                                builder: (context, roundStats, child) {
-                                  if (roundStats == null) {
-                                    return const SizedBox.shrink();
-                                  }
+                            : _RoundStatsBuilder(
+                                statsViewModel:
+                                    dauCompsViewModel.statsViewModel,
+                                builder: (statsViewModel) {
+                                  final RoundStats roundStats = statsViewModel
+                                      .getScoringRoundStats(
+                                        dauRound,
+                                        selectedTipper,
+                                      );
 
                                   final String rankLabel;
                                   final String rankChangeLabel;
@@ -331,6 +329,30 @@ class _RoundLabel extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 6,
       children: [label, number],
+    );
+  }
+}
+
+/// Rebuilds [builder] as the round's stats change, or shows nothing while
+/// there are none.
+class _RoundStatsBuilder extends StatelessWidget {
+  const _RoundStatsBuilder({
+    required this.statsViewModel,
+    required this.builder,
+  });
+
+  final StatsViewModel? statsViewModel;
+  final Widget Function(StatsViewModel statsViewModel) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final statsViewModel = this.statsViewModel;
+    if (statsViewModel == null) {
+      return const SizedBox.shrink();
+    }
+    return ListenableBuilder(
+      listenable: statsViewModel,
+      builder: (context, child) => builder(statsViewModel),
     );
   }
 }

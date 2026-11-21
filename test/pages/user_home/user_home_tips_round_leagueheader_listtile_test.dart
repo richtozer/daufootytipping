@@ -14,7 +14,6 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:provider/provider.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -162,20 +161,18 @@ Future<void> _pumpHeader(
   when(() => statsViewModel.removeListener(any())).thenReturn(null);
   when(() => statsViewModel.getScoringRoundStats(round, tipper))
       .thenReturn(roundStats);
+  when(() => compsViewModel.statsViewModel).thenReturn(statsViewModel);
 
   await tester.pumpWidget(
     MaterialApp(
-      home: ChangeNotifierProvider<StatsViewModel?>.value(
-        value: statsViewModel,
-        child: Scaffold(
-          body: RoundLeagueHeaderListTile(
-            league: League.nrl,
-            logoWidth: 50,
-            logoHeight: 50,
-            dauRound: round,
-            dauCompsViewModel: compsViewModel,
-            selectedTipper: tipper,
-          ),
+      home: Scaffold(
+        body: RoundLeagueHeaderListTile(
+          league: League.nrl,
+          logoWidth: 50,
+          logoHeight: 50,
+          dauRound: round,
+          dauCompsViewModel: compsViewModel,
+          selectedTipper: tipper,
         ),
       ),
     ),

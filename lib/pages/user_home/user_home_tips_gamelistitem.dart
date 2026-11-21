@@ -227,13 +227,18 @@ class _GameListItemState extends State<GameListItem> {
           if (!widget.isPercentStatsPage) {
             // The live game stats listener keeps the entry current, so the
             // average only needs reading here, not requesting.
-            return Selector<StatsViewModel?, GameStatsEntry?>(
-              selector: (_, statsViewModel) => statsViewModel
-                  ?.gameStatsEntryFor(gameTipsViewModelConsumer.game),
-              builder: (context, entry, child) => _card(
+            final statsViewModel = di<DAUCompsViewModel>().statsViewModel;
+            if (statsViewModel == null) {
+              return _card(context, gameTipsViewModelConsumer);
+            }
+            return ListenableBuilder(
+              listenable: statsViewModel,
+              builder: (context, child) => _card(
                 context,
                 gameTipsViewModelConsumer,
-                gameStatsEntry: entry,
+                gameStatsEntry: statsViewModel.gameStatsEntryFor(
+                  gameTipsViewModelConsumer.game,
+                ),
               ),
             );
           }

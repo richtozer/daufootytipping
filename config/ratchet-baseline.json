@@ -7,7 +7,6 @@
     "lib/pages/admin_daucomps/admin_daucomps_edit.dart": 685,
     "lib/pages/admin_tippers/admin_tippers_edit_add.dart": 743,
     "lib/pages/user_auth/user_auth_sign_in_form.dart": 878,
-    "lib/pages/user_home/user_home_tips.dart": 1004,
     "lib/view_models/daucomps_viewmodel.dart": 1450,
     "lib/view_models/games_viewmodel.dart": 651,
     "lib/view_models/stats_viewmodel.dart": 1410,
@@ -17,7 +16,7 @@
     "lib/widgets/tips/adaptive_tips_card.dart": 761
   },
   "counts": {
-    "Provider widgets in lib": 34,
+    "Provider widgets in lib": 27,
     "dynamic in lib": 88,
     "service locator in view models": 40
   }
