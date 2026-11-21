@@ -154,6 +154,11 @@ class _AppTableFrameState extends State<AppTableFrame> {
   /// through every page to the table inside it.
   final _measurements = AppTableMeasurementCache();
 
+  /// Holds the table's place across the portrait and landscape arrangements.
+  /// They nest it differently, so without a key rotating rebuilt the table
+  /// from scratch and sent the reader back to the first row.
+  final _tableKey = GlobalKey();
+
   /// The room beside the rows for their scrollbar: none where the table is only
   /// as tall as its rows and so does not scroll.
   double get _lane => widget.fill ? AppTableLayout.scrollbarLane : 0;
@@ -242,11 +247,12 @@ class _AppTableFrameState extends State<AppTableFrame> {
 
   Widget _tableArea() {
     final banner = widget.banner;
-    if (banner == null) return widget.table;
+    final table = KeyedSubtree(key: _tableKey, child: widget.table);
+    if (banner == null) return table;
     return Column(
       children: [
         banner,
-        Expanded(child: widget.table),
+        Expanded(child: table),
       ],
     );
   }
