@@ -149,7 +149,7 @@ class UserAuthPageState extends State<UserAuthPage> {
       adoptTipper: (tipper) =>
           di<TippersViewModel>().setAuthenticatedTipper(tipper),
       syncPhoto: (photoUrl) => di<TippersViewModel>().updateOwnPhoto(photoUrl),
-      canCreateTippers: di<TippersViewModel>().canCreateTippers,
+      canCreateTippers: widget.createLinkedTipper,
     );
     _linkController = controller;
     unawaited(

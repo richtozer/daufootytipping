@@ -67,7 +67,7 @@ void main() {
       compsPaidFor: [comp],
     );
 
-    final TippersViewModel vm = TippersViewModel(true, skipInit: true);
+    final TippersViewModel vm = TippersViewModel(skipInit: true);
     vm.setLinkedTippersForTest(cachedTipper);
 
     await vm.completeIsUserLinkedWhenReadyForTest(

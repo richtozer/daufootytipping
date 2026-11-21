@@ -13,7 +13,6 @@ void main() {
 
     setUp(() {
       viewModel = TippersViewModel(
-        true,
         skipInit: true,
         signedIn: () => const Stream<bool>.empty(),
       );

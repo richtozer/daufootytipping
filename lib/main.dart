@@ -16,6 +16,7 @@ import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
 import 'package:daufootytipping/widgets/connection_loss_notice.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
+import 'package:daufootytipping/services/core_view_model_registration.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_data_refresher.dart';
@@ -328,8 +329,9 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  String? _registeredActiveCompKey;
-  bool? _registeredCreateLinkedTipper;
+  final CoreViewModelRegistration _coreViewModels = CoreViewModelRegistration(
+    di,
+  );
   bool _coreWarmupScheduled = false;
   late final AppResumeDataRefresher _resumeDataRefresher;
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
@@ -459,7 +461,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     StartupProfiling.instant(
       'startup.core_viewmodels_warmup_scheduled',
       arguments: <String, Object?>{
-        'compDbKey': _registeredActiveCompKey ?? 'unknown',
+        'compDbKey': _coreViewModels.activeCompKey ?? 'unknown',
       },
     );
 
@@ -473,7 +475,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       StartupProfiling.instant(
         'startup.core_viewmodels_warmup_started',
         arguments: <String, Object?>{
-          'compDbKey': _registeredActiveCompKey ?? 'unknown',
+          'compDbKey': _coreViewModels.activeCompKey ?? 'unknown',
         },
       );
 
@@ -491,13 +493,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _retiredViewModels
       ..retire<TippersViewModel>()
       ..retire<DAUCompsViewModel>();
-    _registeredActiveCompKey = null;
-    _registeredCreateLinkedTipper = null;
+    _coreViewModels.forget();
   }
 
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
-    final bool createLinkedTipper = configViewModel.createLinkedTipper!;
 
     if (!di.isRegistered<TeamsViewModel>()) {
       di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
@@ -506,33 +506,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       di.registerLazySingleton<TeamLogosViewModel>(() => TeamLogosViewModel());
     }
 
-    final bool needsRegistration =
-        !di.isRegistered<DAUCompsViewModel>() ||
-        !di.isRegistered<TippersViewModel>() ||
-        _registeredActiveCompKey != activeCompKey ||
-        _registeredCreateLinkedTipper != createLinkedTipper;
-
-    if (needsRegistration) {
-      _registeredActiveCompKey = activeCompKey;
-      _registeredCreateLinkedTipper = createLinkedTipper;
-
-      di.registerLazySingleton<TippersViewModel>(
-        () => TippersViewModel(createLinkedTipper),
-      );
-      di.registerLazySingleton<DAUCompsViewModel>(
-        () => DAUCompsViewModel(
-          activeCompKey,
-          false,
-          cloudFunctionsBaseURLOverride: widget.cloudFunctionsBaseURLOverride,
-          cloudFunctionsBaseURLProvider: () =>
-              configViewModel.cloudFunctionsBaseURL,
-          adminScoringRescoreURLProvider: () =>
-              configViewModel.adminScoringRescoreURL,
-          adminScoringRescoreURLLoader:
-              configViewModel.loadAdminScoringRescoreURL,
-        ),
-      );
-    }
+    _coreViewModels.register(
+      activeCompKey: activeCompKey,
+      createTippers: TippersViewModel.new,
+      createDauComps: () => DAUCompsViewModel(
+        activeCompKey,
+        false,
+        cloudFunctionsBaseURLOverride: widget.cloudFunctionsBaseURLOverride,
+        cloudFunctionsBaseURLProvider: () =>
+            configViewModel.cloudFunctionsBaseURL,
+        adminScoringRescoreURLProvider: () =>
+            configViewModel.adminScoringRescoreURL,
+        adminScoringRescoreURLLoader:
+            configViewModel.loadAdminScoringRescoreURL,
+      ),
+    );
 
     if (!di.isRegistered<IdentityService>()) {
       di.registerLazySingleton<IdentityService>(

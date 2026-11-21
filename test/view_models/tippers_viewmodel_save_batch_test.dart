@@ -26,7 +26,7 @@ void main() {
       ConfiguredRealtimeDatabase.configure(database);
       serverAnswer = Completer<void>();
       when(() => root.update(any())).thenAnswer((_) => serverAnswer.future);
-      viewModel = TippersViewModel(true, skipInit: true);
+      viewModel = TippersViewModel(skipInit: true);
       viewModel.applyTippersSnapshotForTest(const []);
       viewModel.updates[rolePath] = 'tipper';
     });

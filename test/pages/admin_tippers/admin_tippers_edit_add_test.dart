@@ -653,7 +653,7 @@ void main() {
     late Tipper authenticatedAdmin;
 
     setUp(() {
-      realTippersViewModel = TippersViewModel(true, skipInit: true);
+      realTippersViewModel = TippersViewModel(skipInit: true);
       authenticatedAdmin = Tipper(
         dbkey: 'admin-auth',
         authuid: 'auth-admin',

@@ -231,7 +231,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _initializeAndResetViewModels(bool adminDAUCompMode) async {
-    if (di<DAUCompsViewModel>()._selectedDAUComp == null) {
+    if (_selectedDAUComp == null) {
       log(
         'Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.',
       );
@@ -1208,9 +1208,9 @@ class DAUCompsViewModel extends ChangeNotifier {
           ); // 'this.' to clarify it's the VM method
           await saveBatchOfCompAttributes();
 
-          // Initialize GamesViewModel for the new comp
-          // Ensure 'this' is passed if DAUCompsViewModel instance is needed by GamesViewModel constructor
-          gamesViewModel = GamesViewModel(newDAUComp, this);
+          // Show the new comp as opening a saved one does: the download waits
+          // for its view models, and the admin page opens with no comp shown.
+          await changeDisplayedDAUComp(newDAUComp, false);
           await gamesViewModel?.initialLoadComplete;
 
           String fixtureMessage = await getNetworkFixtureData(newDAUComp);

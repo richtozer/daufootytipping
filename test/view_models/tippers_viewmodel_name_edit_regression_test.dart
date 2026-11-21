@@ -19,7 +19,7 @@ void main() {
     // The signed-in copy carries the private fields (here the role) that the
     // public list does not, so it must stay the signed-in copy.
     final Tipper signedIn = _tipper('Old Alias', role: TipperRole.admin);
-    final TippersViewModel vm = TippersViewModel(true, skipInit: true);
+    final TippersViewModel vm = TippersViewModel(skipInit: true);
     vm.applyTippersSnapshotForTest([listed]);
     vm.setLinkedTippersForTest(signedIn);
     var notifications = 0;
@@ -36,7 +36,7 @@ void main() {
   });
 
   test('applyOwnAlias leaves other tippers alone', () {
-    final TippersViewModel vm = TippersViewModel(true, skipInit: true);
+    final TippersViewModel vm = TippersViewModel(skipInit: true);
     final Tipper other = Tipper(
       dbkey: 'tipper-2',
       authuid: 'auth-2',

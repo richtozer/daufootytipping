@@ -89,7 +89,6 @@ void main() {
   setUp(() {
     database = _FakeDatabase();
     viewModel = TippersViewModel(
-      false,
       skipInit: true,
       database: database.root,
       signedIn: () => Stream<bool>.value(true),

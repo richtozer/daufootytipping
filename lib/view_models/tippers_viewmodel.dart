@@ -73,18 +73,10 @@ class TippersViewModel extends ChangeNotifier {
   final Completer<void> _isUserLinked = Completer<void>();
   Future<void> get isUserLinked => _isUserLinked.future;
 
-  final bool _createLinkedTipper;
-
-  /// Whether `AppConfig/createLinkedTipper` allows new tippers to be created. The
-  /// server enforces it; this lets the sign-in screen say so instead of asking for
-  /// an alias that would be refused.
-  bool get canCreateTippers => _createLinkedTipper;
-
   final Map<String, dynamic> updates = {};
 
   //constructor
-  TippersViewModel(
-    this._createLinkedTipper, {
+  TippersViewModel({
     bool skipInit = false,
     DatabaseReference? database,
     Stream<bool> Function()? signedIn,
