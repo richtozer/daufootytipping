@@ -133,8 +133,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             DAUCompsViewModel
           >(); // Assuming DAUCompsViewModel is registered with WatchIt
       _localActiveCompState =
-          globalDauCompsVM.initDAUCompDbKey != null &&
-          widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+          widget.daucomp!.dbkey == globalDauCompsVM.activeDAUComp?.dbkey;
     } else {
       _localActiveCompState = false; // New comps are not active by default
     }
@@ -247,8 +246,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     if (widget.daucomp != null) {
       final globalDauCompsVM = di<DAUCompsViewModel>();
       originalActiveStatus =
-          globalDauCompsVM.initDAUCompDbKey != null &&
-          widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+          widget.daucomp!.dbkey == globalDauCompsVM.activeDAUComp?.dbkey;
     }
 
     if (widget.daucomp == null) {
@@ -336,10 +334,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         if (targetCompDbKey != null) {
           bool persistedActiveStatus = false;
           final globalDauCompsVM = di<DAUCompsViewModel>();
-          if (globalDauCompsVM.initDAUCompDbKey != null) {
-            persistedActiveStatus =
-                targetCompDbKey == globalDauCompsVM.initDAUCompDbKey;
-          }
+          persistedActiveStatus =
+              targetCompDbKey == globalDauCompsVM.activeDAUComp?.dbkey;
 
           // If locally marked active AND it's different from its persisted state OR it's a new comp being marked active
           if (_localActiveCompState &&
@@ -348,9 +344,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             ConfigViewModel remoteConfigService = ConfigViewModel();
             await remoteConfigService.setConfigCurrentDAUComp(targetCompDbKey);
             log('Active comp set to: $targetCompDbKey via main save button');
-            // Optionally refresh DAUCompsViewModel's activeDAUComp if necessary,
-            // though changing initDAUCompDbKey in ConfigViewModel usually triggers wider app refresh.
-            // dauCompsViewModel.changeDisplayedDAUComp(await dauCompsViewModel.findComp(targetCompDbKey), true); // Example
           }
           // No action needed if _localActiveCompState is false, as per plan (cannot deactivate this way).
         }
@@ -476,9 +469,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                             final globalDauCompsVM = di<DAUCompsViewModel>();
                             bool isCurrentGlobalActive =
                                 widget.daucomp != null &&
-                                globalDauCompsVM.initDAUCompDbKey != null &&
                                 widget.daucomp!.dbkey ==
-                                    globalDauCompsVM.initDAUCompDbKey;
+                                    globalDauCompsVM.activeDAUComp?.dbkey;
 
                             if (!newValue && isCurrentGlobalActive) {
                               // Tried to toggle off the currently globally active comp

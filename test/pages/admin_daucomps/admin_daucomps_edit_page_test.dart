@@ -90,8 +90,6 @@ void main() {
       rounds: <DAURound>[viewedRound],
     );
 
-    when(() => globalDauCompsViewModel.initDAUCompDbKey)
-        .thenReturn(activeComp.dbkey);
     when(() => globalDauCompsViewModel.activeDAUComp).thenReturn(activeComp);
     when(() => globalDauCompsViewModel.selectedDAUComp).thenReturn(activeComp);
     when(

@@ -36,7 +36,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
   final String? _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
-  String? get initDAUCompDbKey => _initDAUCompDbKey;
 
   DAUComp? _activeDAUComp;
   DAUComp? get activeDAUComp => _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
@@ -139,10 +138,10 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
-    if (!skipInit) {
-      _init();
-    }
+    _initDone = skipInit ? Future<void>.value() : _init();
   }
+
+  late final Future<void> _initDone;
 
   // --- Testability additions ---
   @visibleForTesting
@@ -170,28 +169,21 @@ class DAUCompsViewModel extends ChangeNotifier {
   Future<void> _init() async {
     _listenToDAUComps();
     await initialDAUCompLoadComplete;
-
-    if (_initDAUCompDbKey != null) {
-      DAUComp? foundComp = await findComp(_initDAUCompDbKey);
-      if (foundComp != null) {
-        _activeDAUComp = foundComp;
-        await changeDisplayedDAUComp(foundComp, false);
-      }
-    } else {
-      if (!adminMode) {
-        // if no comp is set as the active comp then we will default to the first comp in the list
-        _activeDAUComp = _daucomps.first;
-        if (_activeDAUComp != null) {
-          await changeDisplayedDAUComp(_daucomps.first, false);
-        } else {
-          log(
-            'No DAUComps found. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.',
-          );
-        }
-      } else {
-        log('In admin mode');
-      }
+    final String? compKey = _initDAUCompDbKey;
+    if (compKey == null && adminMode) {
+      return;
     }
+    // With no comp key, show the first comp in the list.
+    final DAUComp? comp = compKey == null
+        ? _daucomps.firstOrNull
+        : await findComp(compKey);
+    if (comp == null) {
+      log(
+        'DAUComp ${compKey ?? '(first)'} not found. Check AppCheck and the database.',
+      );
+      return;
+    }
+    await changeDisplayedDAUComp(comp, true);
   }
 
   Future<void> changeDisplayedDAUComp(
@@ -211,6 +203,17 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Makes [compDbKey] the active comp and shows it, after the comp this view
+  /// model started with, so screens holding this view model follow the change.
+  Future<void> changeActiveComp(String compDbKey) async {
+    await _initDone;
+    final DAUComp? comp = await findComp(compDbKey);
+    log(
+      'DAUCompsViewModel.changeActiveComp: $compDbKey found: ${comp != null}',
+    );
+    if (comp != null) await changeDisplayedDAUComp(comp, true);
+  }
+
   Future<void> selectedTipperChanged() async {
     await _initializeAndResetViewModels(false);
     _scheduleNextKickoffRefresh();
@@ -218,12 +221,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> refreshFixtureDataFromServer() async {
-    final currentGamesViewModel = gamesViewModel;
-    if (currentGamesViewModel == null) {
-      return;
-    }
-
-    await currentGamesViewModel.refreshFromServer();
+    await gamesViewModel?.refreshFromServer();
   }
 
   bool isSelectedCompActiveComp() {

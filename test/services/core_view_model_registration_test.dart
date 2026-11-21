@@ -36,18 +36,20 @@ void main() {
     compsCreatedFor = <String>[];
   });
 
-  test('a change of active comp replaces the comps view model but keeps the '
-      'tippers view model, which holds the signed-in tipper', () {
+  test('a change of active comp keeps both view models and switches the '
+      'comps view model to the new comp, so screens holding it follow', () {
     register('comp-2026');
     final TippersViewModel tippers = locator<TippersViewModel>();
-    final DAUCompsViewModel comps2026 = locator<DAUCompsViewModel>();
+    final DAUCompsViewModel comps = locator<DAUCompsViewModel>();
+    when(() => comps.changeActiveComp(any())).thenAnswer((_) async {});
 
     register('comp-2027');
 
     expect(locator<TippersViewModel>(), same(tippers));
+    expect(locator<DAUCompsViewModel>(), same(comps));
     expect(tippersCreated, 1);
-    expect(locator<DAUCompsViewModel>(), isNot(same(comps2026)));
-    expect(compsCreatedFor, <String>['comp-2026', 'comp-2027']);
+    expect(compsCreatedFor, <String>['comp-2026']);
+    verify(() => comps.changeActiveComp('comp-2027')).called(1);
     expect(registration.activeCompKey, 'comp-2027');
   });
 
