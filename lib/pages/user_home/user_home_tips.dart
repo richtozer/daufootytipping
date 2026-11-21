@@ -61,9 +61,8 @@ class TipsTabState extends State<TipsTab> {
   bool _stickyHeaderVisible = false;
   double _topSafeInset = 0;
 
-  /// The welcome header's height when the list was last laid out: the one the
-  /// scroll offset was measured against when the cards are next remeasured.
-  double _laidOutLeadingExtent = 0;
+  /// The top safe inset the scroll offset was last laid out against.
+  double _laidOutTopSafeInset = 0;
   List<TipsLeagueSection> _cachedSections = const [];
   TipsCardLayout? _cardLayout;
   String? _cardLayoutKey;
@@ -294,16 +293,17 @@ class TipsTabState extends State<TipsTab> {
     final atEnd =
         placed &&
         _startupScrollSettled &&
-        scrollController.offset >=
-            scrollController.position.maxScrollExtent - 1;
+        scrollController.position.extentAfter < 1 &&
+        scrollController.position.extentBefore > 0;
     final anchored = atEnd
         ? double.infinity
         : placed
         ? anchoredTipsScrollOffset(
             before: previous,
             after: _cachedSections,
-            beforeLeadingExtent: _laidOutLeadingExtent,
-            afterLeadingExtent: _welcomeSliverHeight,
+            welcomeHeaderExtent: WelcomeHeader.height,
+            beforeTopSafeInset: _laidOutTopSafeInset,
+            afterTopSafeInset: _topSafeInset,
             scrollOffset: _startupScrollSettled
                 ? scrollController.offset
                 : _pendingStartupOffset,
@@ -663,7 +663,7 @@ class TipsTabState extends State<TipsTab> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _syncCardLayout(context, constraints.maxWidth);
-        _laidOutLeadingExtent = _welcomeSliverHeight;
+        _laidOutTopSafeInset = _topSafeInset;
         final cardLayout = _cardLayout;
         if (cardLayout == null) {
           return Center(

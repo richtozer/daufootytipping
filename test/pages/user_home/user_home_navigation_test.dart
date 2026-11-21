@@ -171,13 +171,16 @@ void main() {
     );
   }
 
-  Future<TipsTabState> pumpHome(WidgetTester tester) async {
+  Future<TipsTabState> pumpHome(
+    WidgetTester tester, {
+    EdgeInsets padding = EdgeInsets.zero,
+  }) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(appHosting());
+    await tester.pumpWidget(appHosting(padding: padding));
     // The pill grows in once the tabs are offered; let it finish so it can be
     // tapped.
     await tester.pump();
@@ -449,8 +452,15 @@ void main() {
     tipsState.scrollController.jumpTo(nrlOffset + 4.5 * beforeExtent);
     await tester.pump();
 
-    // Rotating or folding narrows the pane, which remeasures the cards.
+    // Rotating or folding narrows the pane, which remeasures the cards. The
+    // device also resumes, and the view model notifies while the list is
+    // still being re-placed. Nothing it carries has changed, so it must not
+    // send the list back to the current round.
     tester.view.physicalSize = const Size(320, 844);
+    await tester.pump();
+    for (final listener in List.of(listeners)) {
+      listener();
+    }
     for (var i = 0; i < 6; i++) {
       await tester.pump();
     }
@@ -466,8 +476,7 @@ void main() {
       reason: 'the same game, the same way through it, not the current round',
     );
 
-    // A device that folds or rotates also resumes, and the view model
-    // notifies. Nothing it carries has changed, so the reader stays put.
+    // And again once it has settled.
     for (final listener in List.of(listeners)) {
       listener();
     }
@@ -480,6 +489,84 @@ void main() {
       reason: 'a notification after the remeasure must not undo it',
     );
   });
+
+  testWidgets('keeps a league at the top under a notch when remeasured', (
+    tester,
+  ) async {
+    // Below a notch, a league is placed with its first card under the sticky
+    // header, which sits below the inset: the offset is the league's start
+    // less the inset, inside the end of the league before it.
+    const topInset = 50.0;
+    final tipsState = await pumpHome(
+      tester,
+      padding: const EdgeInsets.only(top: topInset),
+    );
+    final nrlOffset = tipsState.scrollController.offset;
+    await tapTips(tester);
+    expect(
+      tipsState.scrollController.offset,
+      closeTo(nrlOffset + 10 * tipsState.cardExtent - topInset, 0.1),
+      reason: 'the AFL league is placed under the inset',
+    );
+
+    TipsStickyHeader stickyHeader() =>
+        tester.widget<TipsStickyHeader>(find.byType(TipsStickyHeader));
+    expect(stickyHeader().section.league, League.afl);
+
+    final beforeExtent = tipsState.cardExtent;
+    tester.view.physicalSize = const Size(320, 844);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(
+      tipsState.cardExtent,
+      isNot(beforeExtent),
+      reason: 'the narrower pane must actually change the layout',
+    );
+    expect(
+      tipsState.scrollController.offset,
+      closeTo(nrlOffset + 10 * tipsState.cardExtent - topInset, 0.5),
+      reason: 'the AFL league stays at the top, not scaled with the NRL one',
+    );
+    expect(stickyHeader().section.league, League.afl);
+  });
+
+  testWidgets(
+    'does not send a reader to the end when the list could not scroll',
+    (tester) async {
+      // One game in each league fits on a tall screen without scrolling.
+      round.games = [round.games.first, round.games.last];
+      tester.view.physicalSize = const Size(390, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(appHosting());
+      for (var i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+      final tipsState = tester.state<TipsTabState>(find.byType(TipsTab));
+      expect(tipsState.scrollController.position.maxScrollExtent, 0);
+
+      // A short, narrow pane makes the list scroll, with the reader still at
+      // the top of it.
+      tester.view.physicalSize = const Size(320, 400);
+      for (var i = 0; i < 6; i++) {
+        await tester.pump();
+      }
+
+      expect(
+        tipsState.scrollController.position.maxScrollExtent,
+        greaterThan(0),
+        reason: 'the smaller pane must actually make the list scroll',
+      );
+      expect(
+        tipsState.scrollController.offset,
+        lessThan(tipsState.scrollController.position.maxScrollExtent),
+        reason: 'a reader who was not at an end of anything stays off the end',
+      );
+    },
+  );
 
   testWidgets('re-places the list when a fold remeasures the cards', (
     tester,
@@ -519,9 +606,9 @@ void main() {
       reason: 'the narrower pane must actually change the layout',
     );
     expect(
-      atEndOfCompetition(),
-      isTrue,
-      reason: 'still at the end after the fold, not at a stale offset',
+      tipsState.scrollController.offset,
+      closeTo(tipsState.scrollController.position.maxScrollExtent, 0.5),
+      reason: 'still at the very end after the fold, not near it',
     );
   });
 

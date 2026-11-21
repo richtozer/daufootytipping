@@ -979,14 +979,21 @@ void main() {
     final before = sections(100, 60);
     final after = sections(150, 80);
 
-    double? anchored(double offset, {double afterLeading = 200}) =>
-        anchoredTipsScrollOffset(
-          before: before,
-          after: after,
-          beforeLeadingExtent: 200,
-          afterLeadingExtent: afterLeading,
-          scrollOffset: offset,
-        );
+    // The welcome header is 200 tall with no inset.
+    double? anchored(
+      double offset, {
+      double welcome = 200,
+      double beforeInset = 0,
+      double afterInset = 0,
+      List<TipsLeagueSection>? changed,
+    }) => anchoredTipsScrollOffset(
+      before: before,
+      after: changed ?? after,
+      welcomeHeaderExtent: welcome,
+      beforeTopSafeInset: beforeInset,
+      afterTopSafeInset: afterInset,
+      scrollOffset: offset,
+    );
 
     test('keeps a game and the fraction through it', () {
       // Half way through the third NRL card.
@@ -999,26 +1006,44 @@ void main() {
       expect(anchored(200 + 400 + 30), 200 + 600 + 40);
     });
 
-    test('follows a welcome header that changed height', () {
-      expect(anchored(100, afterLeading: 150), 75);
-      expect(anchored(200 + 250, afterLeading: 150), 150 + 375);
-    });
-
     test('stays the same distance into the end footer', () {
       expect(anchored(200 + 400 + 60 + 400 + 30), 200 + 600 + 80 + 600 + 30);
     });
 
-    test('gives up when the sections differ', () {
+    test('keeps a section placed under the inset at the top', () {
+      // Under a 50 inset the welcome header is 250, and AFL placed at the top
+      // leaves the offset 50 short of its header, inside the end of the NRL
+      // body.
       expect(
-        anchoredTipsScrollOffset(
-          before: before,
-          after: after.sublist(1),
-          beforeLeadingExtent: 200,
-          afterLeadingExtent: 200,
-          scrollOffset: 300,
-        ),
-        isNull,
+        anchored(250 + 400 - 50, welcome: 200, beforeInset: 50, afterInset: 50),
+        250 + 600 - 50,
       );
+    });
+
+    test('follows an inset that a rotation took away', () {
+      // The welcome header shrinks with the inset, the reader inside it keeps
+      // their fraction, and a section at the top stays there.
+      expect(anchored(100, welcome: 150, beforeInset: 50), 75);
+      expect(
+        anchored(200 + 400 - 50, welcome: 150, beforeInset: 50),
+        150 + 600,
+      );
+    });
+
+    test('keeps the sticky header up when the line maps near the top', () {
+      expect(
+        anchored(210, welcome: 200, beforeInset: 10, afterInset: 50),
+        greaterThanOrEqualTo(250),
+      );
+    });
+
+    test('treats an overscroll above the top as the top', () {
+      expect(anchored(-20, welcome: 0), 0);
+    });
+
+    test('gives up when the sections differ', () {
+      expect(anchored(300, changed: after.sublist(1)), isNull);
+      expect(anchored(300, changed: after.reversed.toList()), isNull);
     });
   });
 }
