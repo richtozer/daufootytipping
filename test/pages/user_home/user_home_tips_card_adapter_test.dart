@@ -1,4 +1,5 @@
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
@@ -317,5 +318,63 @@ void main() {
         ]);
       },
     );
+  });
+
+  group('measurement cards', () {
+    DAURound roundOf(int number, List<(String, String)> matchups) {
+      final kickoff = DateTime.utc(2027, 3, number);
+      return DAURound(
+          dAUroundNumber: number,
+          firstGameKickOffUTC: kickoff,
+          lastGameKickOffUTC: kickoff,
+        )
+        ..games = [
+          for (final (home, away) in matchups)
+            Game(
+              dbkey: 'afl-$number-$home',
+              league: League.afl,
+              homeTeam: Team(
+                dbkey: 'afl-$home',
+                name: home,
+                league: League.afl,
+              ),
+              awayTeam: Team(
+                dbkey: 'afl-$away',
+                name: away,
+                league: League.afl,
+              ),
+              location: 'Oval',
+              startTimeUTC: kickoff,
+              fixtureRoundNumber: number,
+              fixtureMatchNumber: 1,
+            ),
+        ];
+    }
+
+    Set<String> measuredNames(List<DAURound> rounds) => {
+      for (final card in tipsMeasurementCards(rounds))
+        if (card.league == League.afl) card.home.name,
+    };
+
+    test('are sized from the teams that play the season, not finals '
+        'placeholders', () {
+      // A fixture lists its finals before anyone has qualified, each team a
+      // placeholder that plays in that one week.
+      final rounds = [
+        roundOf(1, [('Swans', 'Bulldogs')]),
+        roundOf(2, [('Bulldogs', 'Swans')]),
+        roundOf(3, [('Highest-ranked WF Winner', 'Lowest-ranked WF Winner')]),
+      ];
+      expect(measuredNames(rounds), {'Bulldogs'});
+    });
+
+    test('use every team when none plays more than one round', () {
+      expect(
+        measuredNames([
+          roundOf(1, [('Swans', 'Western Bulldogs')]),
+        ]),
+        {'Western Bulldogs'},
+      );
+    });
   });
 }

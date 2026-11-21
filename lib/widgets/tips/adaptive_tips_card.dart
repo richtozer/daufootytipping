@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'tips_card_layout.dart';
+import 'tips_team_name.dart';
 import 'tips_choice_panel.dart';
 
 enum TipsPanel { tips, result, info, percentages }
@@ -284,14 +285,13 @@ class AdaptiveTipsCard extends StatelessWidget {
 
     Widget team(TipsTeamDisplay team, {bool rankAfterName = false}) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text.rich(
+      child: TipsTeamName(
         team.text(
           appPanelTextTheme(context),
           rankAfterName: rankAfterName,
           highlight: appSelectionColor(context),
           onHighlight: appOnSelectionColor(context),
         ),
-        textAlign: TextAlign.center,
       ),
     );
     final middle = editable
@@ -336,87 +336,23 @@ class AdaptiveTipsCard extends StatelessWidget {
                     )
                   : layout.mode == TipsCardMode.stacked ||
                         layout.mode == TipsCardMode.compact
-                  ? _stackedTeams(context, logo, editable)
+                  ? TipsStackedTeams(
+                      home: data.home,
+                      away: data.away,
+                      editable: editable,
+                      logo: logo,
+                    )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [team(data.home), middle, team(data.away)],
+                      children: [
+                        for (final side in [data.home, null, data.away])
+                          side == null ? middle : Flexible(child: team(side)),
+                      ],
                     ),
             ),
           ),
         ),
       ),
-    );
-  }
-
-  /// Two lines, each a logo beside its team's name, with the "V" on the
-  /// shorter name's line rather than a row of its own. A live card has no logos
-  /// and its edit pencil takes the "V"'s place.
-  Widget _stackedTeams(
-    BuildContext context,
-    Widget Function(TipsTeamDisplay team) logo,
-    bool editable,
-  ) {
-    final theme = appPanelTextTheme(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    final direction = Directionality.of(context);
-    double nameWidth(TipsTeamDisplay team) {
-      final painter = TextPainter(
-        text: team.text(theme),
-        textScaler: scaler,
-        textDirection: direction,
-      );
-      setBadgeDimensions(painter);
-      painter.layout();
-      final width = painter.width;
-      painter.dispose();
-      return width;
-    }
-
-    final markOnHome = TipsCardLayout.markOnHomeLine(
-      homeNameWidth: nameWidth(data.home),
-      awayNameWidth: nameWidth(data.away),
-    );
-    final mark = editable
-        ? Icon(Icons.edit, size: TipsCardLayout.scaledIconSize(scaler, theme))
-        : const Text('V');
-    Widget line(
-      TipsTeamDisplay team, {
-      required bool markBefore,
-      required bool markAfter,
-    }) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (markBefore) ...[mark, const SizedBox(width: kStackedMarkGap)],
-            if (!editable) ...[
-              logo(team),
-              const SizedBox(width: kStackedLogoGap),
-            ],
-            Flexible(
-              child: Text.rich(
-                team.text(
-                  theme,
-                  highlight: appSelectionColor(context),
-                  onHighlight: appOnSelectionColor(context),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            if (markAfter) ...[const SizedBox(width: kStackedMarkGap), mark],
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        line(data.home, markBefore: false, markAfter: markOnHome),
-        line(data.away, markBefore: !markOnHome, markAfter: false),
-      ],
     );
   }
 

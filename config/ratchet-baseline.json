@@ -14,7 +14,7 @@
     "lib/view_models/tippers_viewmodel.dart": 601,
     "lib/view_models/tips_viewmodel.dart": 612,
     "lib/widgets/app_table/app_table.dart": 652,
-    "lib/widgets/tips/adaptive_tips_card.dart": 827
+    "lib/widgets/tips/adaptive_tips_card.dart": 763
   },
   "counts": {
     "Provider widgets in lib": 34,

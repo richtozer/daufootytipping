@@ -230,8 +230,14 @@ const String _widestFixture = 'Fixture: round 88, match 88';
 /// Bounded worst-case cards used to size every row in the list. Covers both
 /// leagues (their choice labels differ) and the three matchup arrangements:
 /// ranks before kickoff, scores after it, and the edit pen while live.
+///
+/// Names come from the teams that play in more than one round. A fixture lists
+/// its finals before anyone has qualified, as placeholders such as "Highest-
+/// ranked WF Winner" that each play one week; sized for those, every card in
+/// the season carried their extra lines. A finals card fits its names to the
+/// height instead. A comp where no team plays twice measures every team.
 List<TipsCardDisplay> tipsMeasurementCards(Iterable<DAURound> daurounds) {
-  final widestName = <League, String>{};
+  final roundsByTeam = <String, Set<int>>{};
   var widestLocation = '';
   for (final dauRound in daurounds) {
     for (final game in dauRound.games) {
@@ -239,6 +245,21 @@ List<TipsCardDisplay> tipsMeasurementCards(Iterable<DAURound> daurounds) {
         widestLocation = game.location;
       }
       for (final team in [game.homeTeam, game.awayTeam]) {
+        (roundsByTeam[team.dbkey] ??= {}).add(dauRound.dAUroundNumber);
+      }
+    }
+  }
+  final seasonTeams = {
+    for (final key in roundsByTeam.keys)
+      if ((roundsByTeam[key]?.length ?? 0) > 1) key,
+  };
+  final widestName = <League, String>{};
+  for (final dauRound in daurounds) {
+    for (final game in dauRound.games) {
+      for (final team in [game.homeTeam, game.awayTeam]) {
+        if (seasonTeams.isNotEmpty && !seasonTeams.contains(team.dbkey)) {
+          continue;
+        }
         final current = widestName[team.league];
         if (current == null || team.name.length > current.length) {
           widestName[team.league] = team.name;
