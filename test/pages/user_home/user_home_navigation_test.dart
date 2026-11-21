@@ -568,6 +568,43 @@ void main() {
     },
   );
 
+  testWidgets('starts a new comp at its first game while its games arrive', (
+    tester,
+  ) async {
+    final listeners = <VoidCallback>[];
+    when(() => dauCompsViewModel.addListener(any())).thenAnswer(
+      (invocation) =>
+          listeners.add(invocation.positionalArguments.first as VoidCallback),
+    );
+    // A new comp's fixture streams in: three NRL games are there at first.
+    final allGames = round.games;
+    round.games = [...allGames.take(3), ...allGames.skip(10)];
+    const topInset = 62.0;
+    final tipsState = await pumpHome(
+      tester,
+      padding: const EdgeInsets.only(top: topInset),
+    );
+    const firstGameOffset = WelcomeHeader.height + topInset;
+    expect(tipsState.scrollController.offset, firstGameOffset);
+
+    // The rest arrive, and the cards they bring are measured afresh. The
+    // reader has not moved, so the list starts where a new comp starts.
+    round.games = allGames;
+    for (final listener in List.of(listeners)) {
+      listener();
+    }
+    tester.view.physicalSize = const Size(320, 844);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(
+      tipsState.scrollController.offset,
+      closeTo(firstGameOffset, 0.5),
+      reason: 'not a fraction of a section that held other games',
+    );
+  });
+
   testWidgets('re-places the list when a fold remeasures the cards', (
     tester,
   ) async {

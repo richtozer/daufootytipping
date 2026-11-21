@@ -974,6 +974,7 @@ void main() {
           league: league,
           headerExtent: header,
           bodyExtent: 4 * card,
+          gameCount: 4,
         ),
     ];
     final before = sections(100, 60);
@@ -1035,6 +1036,26 @@ void main() {
         anchored(210, welcome: 200, beforeInset: 10, afterInset: 50),
         greaterThanOrEqualTo(250),
       );
+    });
+
+    test('keeps the first game at the top under the inset', () {
+      // Startup places the first section at the welcome header's height, with
+      // no inset taken off: that is where it stays.
+      expect(anchored(250, welcome: 200, beforeInset: 50, afterInset: 50), 250);
+    });
+
+    test('gives up when a section holds other games', () {
+      final grown = [
+        TipsLeagueSection(
+          roundIndex: 0,
+          league: League.nrl,
+          headerExtent: 80,
+          bodyExtent: 6 * 150,
+          gameCount: 6,
+        ),
+        after.last,
+      ];
+      expect(anchored(300, changed: grown), isNull);
     });
 
     test('treats an overscroll above the top as the top', () {

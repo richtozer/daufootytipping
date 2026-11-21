@@ -23,12 +23,17 @@ class TipsLeagueSection {
     required this.league,
     required this.headerExtent,
     required this.bodyExtent,
+    required this.gameCount,
   });
 
   final int roundIndex;
   final League league;
   final double headerExtent;
   final double bodyExtent;
+
+  /// The games in the section's body, so a remeasure can tell a change in card
+  /// height from games that arrived or left.
+  final int gameCount;
 }
 
 class TipsTabItemExtentCache {
@@ -112,6 +117,7 @@ List<TipsLeagueSection> buildTipsLeagueSections({
           bodyExtent: games.isEmpty
               ? DAURound.noGamesCardHeight
               : games.length * cardExtent,
+          gameCount: games.length,
         ),
       );
     }
@@ -336,11 +342,14 @@ double tipsEndFooterOffset({
 /// startup placement. A card's share of its section is the same in both, so
 /// the reader keeps their game and their place in it.
 ///
-/// Once the sticky header shows, the reader's line is the inset below the
-/// offset, as in [activeStickyTipsLeagueSectionIndex]: a section placed at the
-/// top sits [beforeTopSafeInset] past the offset, so that line is what is
-/// carried across, and the new inset taken off again. Null when the two lists
-/// do not describe the same sections.
+/// Past the first game, the reader's line is the inset below the offset, as in
+/// [activeStickyTipsLeagueSectionIndex]: a later section placed at the top
+/// sits [beforeTopSafeInset] past the offset, so that line is what is carried
+/// across, and the new inset taken off again. The first section is placed at
+/// the welcome header's end with no inset taken off, so a list resting there
+/// stays there. Null when the two lists do not describe the same sections
+/// holding the same games: games that arrived or left are no fraction of what
+/// was there.
 double? anchoredTipsScrollOffset({
   required List<TipsLeagueSection> before,
   required List<TipsLeagueSection> after,
@@ -356,7 +365,8 @@ double? anchoredTipsScrollOffset({
   }
   for (var index = 0; index < before.length; index++) {
     if (before[index].roundIndex != after[index].roundIndex ||
-        before[index].league != after[index].league) {
+        before[index].league != after[index].league ||
+        before[index].gameCount != after[index].gameCount) {
       return null;
     }
   }
@@ -369,9 +379,9 @@ double? anchoredTipsScrollOffset({
   ];
   final from = pieces(before, beforeLeadingExtent);
   final to = pieces(after, afterLeadingExtent);
-  final stickyVisible = scrollOffset >= beforeLeadingExtent;
+  final pastFirstGame = scrollOffset > beforeLeadingExtent;
   // An overscroll above the top is still the top.
-  final line = stickyVisible
+  final line = pastFirstGame
       ? scrollOffset + beforeTopSafeInset
       : math.max(scrollOffset, 0.0);
 
@@ -391,7 +401,7 @@ double? anchoredTipsScrollOffset({
   }
 
   final mapped = mapLine();
-  if (!stickyVisible) {
+  if (!pastFirstGame) {
     return mapped;
   }
   // Still below the welcome header, so the sticky header stays up.
