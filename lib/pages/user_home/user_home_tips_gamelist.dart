@@ -295,12 +295,20 @@ int activeStickyTipsLeagueSectionIndex({
 /// The offset that puts the section at [targetSectionIndex] at the top, under
 /// the sticky header: the welcome header, then each section's body, with every
 /// header after the first between them.
+///
+/// The first section starts at the top of the list, on the welcome header with
+/// its own header and first game below it. Scrolled to its first game, that
+/// game would sit under the inset and the sticky header, which has no
+/// inline header above it to push it clear.
 double tipsSectionStartOffset({
   required List<TipsLeagueSection> sections,
   required int targetSectionIndex,
   required double leadingExtent,
   required double topSafeInset,
 }) {
+  if (targetSectionIndex == 0) {
+    return 0;
+  }
   var offset = leadingExtent;
   for (var index = 0; index < targetSectionIndex; index++) {
     if (index != 0) {
@@ -308,9 +316,7 @@ double tipsSectionStartOffset({
     }
     offset += sections[index].bodyExtent;
   }
-  return targetSectionIndex == 0
-      ? offset
-      : (offset - topSafeInset).clamp(0.0, double.infinity);
+  return (offset - topSafeInset).clamp(0.0, double.infinity);
 }
 
 /// The offset that shows the end of a finished competition: the last section

@@ -205,8 +205,10 @@ void main() {
     tester,
   ) async {
     final tipsState = await pumpHome(tester);
-    final nrlOffset = tipsState.scrollController.offset;
-    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
+    // Round 1 opens on the welcome header, which is also its NRL stop.
+    const nrlOffset = 0.0;
+    expect(tipsState.scrollController.offset, nrlOffset);
+    final aflOffset = WelcomeHeader.height + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
@@ -305,8 +307,14 @@ void main() {
 
     expect(stickyHeader().section.league, League.afl);
 
+    // NRL's stop in round 1 is the top of the list, where the round's own
+    // header shows in place of the sticky one.
     await tapTips(tester);
-    expect(stickyHeader().section.league, League.nrl);
+    expect(find.byType(TipsStickyHeader), findsNothing);
+    expect(
+      tester.state<TipsTabState>(find.byType(TipsTab)).scrollController.offset,
+      0,
+    );
   });
 
   testWidgets('includes a league section when that league has no games', (
@@ -315,8 +323,9 @@ void main() {
     round.games.removeWhere((game) => game.league == League.nrl);
 
     final tipsState = await pumpHome(tester);
-    final nrlEmptySectionOffset = tipsState.scrollController.offset;
-    final aflOffset = nrlEmptySectionOffset + DAURound.noGamesCardHeight;
+    const nrlEmptySectionOffset = 0.0;
+    expect(tipsState.scrollController.offset, nrlEmptySectionOffset);
+    final aflOffset = WelcomeHeader.height + DAURound.noGamesCardHeight;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(aflOffset, 0.1));
@@ -347,8 +356,8 @@ void main() {
 
     final tipsState = await pumpHome(tester);
     final endOfCompetitionOffset = tipsState.scrollController.offset;
-    const nrlOffset = 175.0;
-    final aflOffset = nrlOffset + 10 * tipsState.cardExtent;
+    const nrlOffset = 0.0;
+    final aflOffset = WelcomeHeader.height + 10 * tipsState.cardExtent;
 
     await tapTips(tester);
     expect(tipsState.scrollController.offset, closeTo(nrlOffset, 0.1));
@@ -362,7 +371,8 @@ void main() {
       closeTo(endOfCompetitionOffset, 0.1),
     );
 
-    tipsState.scrollController.jumpTo(0);
+    // Off the cycle: the top of the list is NRL's stop now.
+    tipsState.scrollController.jumpTo(400);
 
     await tapTips(tester);
     expect(
@@ -444,9 +454,8 @@ void main() {
           listeners.add(invocation.positionalArguments.first as VoidCallback),
     );
     final tipsState = await pumpHome(tester);
-    // Below the welcome header the NRL games start, one card each. Startup
-    // places the first of them at the top; the reader has moved half way
-    // through the fifth.
+    // Below the welcome header the NRL games start, one card each. The reader
+    // has scrolled from the welcome header to half way through the fifth.
     const nrlOffset = 175.0;
     final beforeExtent = tipsState.cardExtent;
     tipsState.scrollController.jumpTo(nrlOffset + 4.5 * beforeExtent);
@@ -501,11 +510,14 @@ void main() {
       tester,
       padding: const EdgeInsets.only(top: topInset),
     );
-    final nrlOffset = tipsState.scrollController.offset;
+    // AFL's header sits below the welcome header and its inset, then ten
+    // NRL games; placed under the inset, the inset comes off again.
+    const aflBase = WelcomeHeader.height + topInset - topInset;
+    expect(tipsState.scrollController.offset, 0);
     await tapTips(tester);
     expect(
       tipsState.scrollController.offset,
-      closeTo(nrlOffset + 10 * tipsState.cardExtent - topInset, 0.1),
+      closeTo(aflBase + 10 * tipsState.cardExtent, 0.1),
       reason: 'the AFL league is placed under the inset',
     );
 
@@ -526,7 +538,7 @@ void main() {
     );
     expect(
       tipsState.scrollController.offset,
-      closeTo(nrlOffset + 10 * tipsState.cardExtent - topInset, 0.5),
+      closeTo(aflBase + 10 * tipsState.cardExtent, 0.5),
       reason: 'the AFL league stays at the top, not scaled with the NRL one',
     );
     expect(stickyHeader().section.league, League.afl);
@@ -568,7 +580,7 @@ void main() {
     },
   );
 
-  testWidgets('starts a new comp at its first game while its games arrive', (
+  testWidgets('starts a new comp on its welcome header while games arrive', (
     tester,
   ) async {
     final listeners = <VoidCallback>[];
@@ -584,8 +596,10 @@ void main() {
       tester,
       padding: const EdgeInsets.only(top: topInset),
     );
-    const firstGameOffset = WelcomeHeader.height + topInset;
-    expect(tipsState.scrollController.offset, firstGameOffset);
+    // Round 1 has not started and its first game is the first to tip, so
+    // the list opens at the top: the welcome header, then the round's header
+    // and its first game, none of them under the inset or the sticky header.
+    expect(tipsState.scrollController.offset, 0);
 
     // The rest arrive, and the cards they bring are measured afresh. The
     // reader has not moved, so the list starts where a new comp starts.
@@ -600,7 +614,7 @@ void main() {
 
     expect(
       tipsState.scrollController.offset,
-      closeTo(firstGameOffset, 0.5),
+      0,
       reason: 'not a fraction of a section that held other games',
     );
   });
