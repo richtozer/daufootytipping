@@ -477,25 +477,15 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
-    if (_networkFixtureDownloader != null) {
-      return await _networkFixtureDownloader(daucompToUpdate);
-    }
     _lastFixtureDownloadRanViaCloudFunction = false;
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
     }
     await initialDAUCompLoadComplete;
-    await otherViewModelsLoadComplete;
-    if (gamesViewModel == null) {
-      return 'Fixture download is not ready yet. Please try again.';
-    }
-    if (gamesViewModel!.selectedDAUComp.dbkey != daucompToUpdate.dbkey) {
-      final loadedComp = gamesViewModel!.selectedDAUComp;
-      final message =
-          'Fixture download aborted: loaded games belong to ${loadedComp.name}, not ${daucompToUpdate.name}.';
-      log('DAUCompsViewModel_getNetworkFixtureData: $message');
-      return message;
+    // The backend downloads by comp key, so no games need to be loaded here.
+    if (_networkFixtureDownloader != null) {
+      return await _networkFixtureDownloader(daucompToUpdate);
     }
 
     final String? cloudFunctionsBaseURL =
@@ -1207,11 +1197,6 @@ class DAUCompsViewModel extends ChangeNotifier {
             newDAUComp,
           ); // 'this.' to clarify it's the VM method
           await saveBatchOfCompAttributes();
-
-          // Show the new comp as opening a saved one does: the download waits
-          // for its view models, and the admin page opens with no comp shown.
-          await changeDisplayedDAUComp(newDAUComp, false);
-          await gamesViewModel?.initialLoadComplete;
 
           String fixtureMessage = await getNetworkFixtureData(newDAUComp);
           return {

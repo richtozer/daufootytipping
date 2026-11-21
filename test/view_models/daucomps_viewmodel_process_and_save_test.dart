@@ -8,52 +8,12 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/repositories/daucomps_repository.dart';
-import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/games_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
-import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class _MockGamesViewModel extends Mock implements GamesViewModel {}
-
-class _MockStatsViewModel extends Mock implements StatsViewModel {}
-
-/// Hands back prepared games and stats view models, so a test can follow a
-/// comp being shown without a database.
-class _FakeSelectionInitCoordinator implements SelectionInitCoordinator {
-  _FakeSelectionInitCoordinator(this.gamesViewModel, this.statsViewModel);
-
-  final GamesViewModel gamesViewModel;
-  final StatsViewModel statsViewModel;
-  DAUComp? initializedComp;
-
-  @override
-  Future<SelectionInitResult> initializeAdmin({
-    required DAUComp selectedComp,
-    required GamesViewModel Function() createGamesViewModel,
-    required StatsViewModel Function(DAUComp, GamesViewModel)
-    createStatsViewModel,
-  }) async {
-    initializedComp = selectedComp;
-    return SelectionInitResult(
-      gamesViewModel: gamesViewModel,
-      statsViewModel: statsViewModel,
-      tipsViewModel: null,
-    );
-  }
-
-  @override
-  Future<SelectionInitResult> initializeUser({
-    required DAUComp selectedComp,
-    required GamesViewModel Function() createGamesViewModel,
-    required Future<void> Function() awaitTippersReady,
-    required StatsViewModel Function(DAUComp, GamesViewModel)
-    createStatsViewModel,
-    required TipsViewModel Function(GamesViewModel) createTipsViewModel,
-  }) => throw UnimplementedError('the admin comp page never selects a tipper');
-}
 
 class _FakeDauCompsRepository implements DauCompsRepository {
   _FakeDauCompsRepository({this.newKey});
@@ -223,50 +183,40 @@ void main() {
       expect(result['message'], contains('network timeout'));
     });
 
-    test('a new comp created from the admin page, which opens with no comp, '
-        'gets its view models before the first fixture download', () async {
+    test('a new comp created from the admin page, which opens with no comp '
+        'shown, saves and downloads its fixture', () async {
       final repo = _FakeDauCompsRepository(newKey: 'comp-2027');
-      final games = _MockGamesViewModel();
-      when(() => games.initialLoadComplete).thenAnswer((_) async {});
-      final coordinator = _FakeSelectionInitCoordinator(
-        games,
-        _MockStatsViewModel(),
-      );
-      late final DAUCompsViewModel vm;
-      var otherViewModelsReadyAtDownload = false;
-      vm = DAUCompsViewModel(
+      DAUComp? downloadedComp;
+      final vm = DAUCompsViewModel(
         null,
         true,
         skipInit: true,
         repo: repo,
-        selectionInit: coordinator,
         urlHealthChecker: UrlHealthChecker(remoteChecker: (_) async => true),
         networkFixtureDownloader: (comp) async {
-          // The real download waits for this before it calls the backend, so
-          // if it never completes, the save never finishes.
-          otherViewModelsReadyAtDownload = await vm.otherViewModelsLoadComplete
-              .then((_) => true)
-              .timeout(const Duration(seconds: 1), onTimeout: () => false);
+          downloadedComp = comp;
           return 'Fixture download succeeded';
         },
       );
       vm.completeInitialDAUCompLoadForTest();
 
-      final result = await vm.processAndSaveDauComp(
-        name: 'DAU 2027',
-        aflFixtureJsonURL: 'https://example.com/afl-2027',
-        nrlFixtureJsonURL: 'https://example.com/nrl-2027',
-        nrlRegularCompEndDateString: null,
-        aflRegularCompEndDateString: null,
-        existingComp: null,
-        currentRounds: const [],
-      );
+      final result = await vm
+          .processAndSaveDauComp(
+            name: 'DAU 2027',
+            aflFixtureJsonURL: 'https://example.com/afl-2027',
+            nrlFixtureJsonURL: 'https://example.com/nrl-2027',
+            nrlRegularCompEndDateString: null,
+            aflRegularCompEndDateString: null,
+            existingComp: null,
+            currentRounds: const [],
+          )
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => <String, dynamic>{'success': false},
+          );
 
       expect(result['success'], isTrue);
-      expect(otherViewModelsReadyAtDownload, isTrue);
-      expect(coordinator.initializedComp?.dbkey, 'comp-2027');
-      expect(vm.gamesViewModel, same(games));
-      expect(vm.selectedDAUComp?.dbkey, 'comp-2027');
+      expect(downloadedComp?.dbkey, 'comp-2027');
     });
 
     test('re-validates round start and cutoff edits against in-memory games right before saving', () async {
