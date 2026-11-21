@@ -110,7 +110,9 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   final double extent;
 
-  /// Built once per section, so the frames that move it do not rebuild it.
+  /// Built with the list rather than by [build], so the frames that only
+  /// scroll it reuse the same widget and do not rebuild the tile. A rebuild of
+  /// the list brings a new one.
   final Widget header;
 
   @override

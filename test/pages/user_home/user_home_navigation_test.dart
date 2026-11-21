@@ -771,6 +771,33 @@ void main() {
     },
   );
 
+  testWidgets('measures its cards only once it has a width', (tester) async {
+    tipsWithFirstUntipped(nrl: 2, afl: -1);
+    final width = ValueNotifier<double>(0);
+    addTearDown(width.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<double>(
+          valueListenable: width,
+          builder: (context, value, child) => Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: value, height: 844, child: child),
+          ),
+          child: const TipsTab(),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    // A pane opening from nothing, say.
+    width.value = 390;
+    await tester.pump();
+
+    expect(stickyLeague(tester), League.nrl);
+    expect(gameTop(tester, League.nrl, 2), closeTo(stickyBottom(tester), 1));
+  });
+
   testWidgets('starts a new comp on its welcome header while games arrive', (
     tester,
   ) async {

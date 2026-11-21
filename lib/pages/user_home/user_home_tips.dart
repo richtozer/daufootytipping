@@ -175,10 +175,14 @@ class TipsTabState extends State<TipsTab> {
       );
       _placementKey = placementKey;
       _scrollController = next;
+      if (current == null) {
+        // The first list this tab has placed is the one startup opens on.
+        StartupProfiling.instant('startup.tips_placed');
+        StartupProfiling.end('startup.tips_page_stable');
+        return next;
+      }
       // The list it replaces lets go of it as this frame is built.
-      WidgetsBinding.instance.addPostFrameCallback((_) => current?.dispose());
-      StartupProfiling.instant('startup.tips_placed');
-      StartupProfiling.end('startup.tips_page_stable');
+      WidgetsBinding.instance.addPostFrameCallback((_) => current.dispose());
       return next;
     }
 
@@ -392,15 +396,23 @@ class TipsTabState extends State<TipsTab> {
     );
   }
 
-  int _measuredTextKey(DAUComp selectedComp) => Object.hashAll([
-    for (final dauRound in selectedComp.daurounds)
-      for (final game in dauRound.games) ...[
-        dauRound.dAUroundNumber,
-        game.homeTeam.name,
-        game.awayTeam.name,
-        game.location,
-      ],
-  ]);
+  /// Folded in one game at a time: the tab builds on every notification, and
+  /// listing every name first allocated a list as long as the season.
+  int _measuredTextKey(DAUComp selectedComp) {
+    var key = 0;
+    for (final dauRound in selectedComp.daurounds) {
+      for (final game in dauRound.games) {
+        key = Object.hash(
+          key,
+          dauRound.dAUroundNumber,
+          game.homeTeam.name,
+          game.awayTeam.name,
+          game.location,
+        );
+      }
+    }
+    return key;
+  }
 
   @override
   void dispose() {
