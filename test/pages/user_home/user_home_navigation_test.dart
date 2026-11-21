@@ -431,6 +431,56 @@ void main() {
     expect(veilOpacity(), 1);
   });
 
+  testWidgets('keeps the reader on their game when the cards are remeasured', (
+    tester,
+  ) async {
+    final listeners = <VoidCallback>[];
+    registerFallbackValue(() {});
+    when(() => dauCompsViewModel.addListener(any())).thenAnswer(
+      (invocation) =>
+          listeners.add(invocation.positionalArguments.first as VoidCallback),
+    );
+    final tipsState = await pumpHome(tester);
+    // Below the welcome header the NRL games start, one card each. Startup
+    // places the first of them at the top; the reader has moved half way
+    // through the fifth.
+    const nrlOffset = 175.0;
+    final beforeExtent = tipsState.cardExtent;
+    tipsState.scrollController.jumpTo(nrlOffset + 4.5 * beforeExtent);
+    await tester.pump();
+
+    // Rotating or folding narrows the pane, which remeasures the cards.
+    tester.view.physicalSize = const Size(320, 844);
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+
+    expect(
+      tipsState.cardExtent,
+      isNot(beforeExtent),
+      reason: 'the narrower pane must actually change the layout',
+    );
+    expect(
+      tipsState.scrollController.offset,
+      closeTo(nrlOffset + 4.5 * tipsState.cardExtent, 0.5),
+      reason: 'the same game, the same way through it, not the current round',
+    );
+
+    // A device that folds or rotates also resumes, and the view model
+    // notifies. Nothing it carries has changed, so the reader stays put.
+    for (final listener in List.of(listeners)) {
+      listener();
+    }
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+    expect(
+      tipsState.scrollController.offset,
+      closeTo(nrlOffset + 4.5 * tipsState.cardExtent, 0.5),
+      reason: 'a notification after the remeasure must not undo it',
+    );
+  });
+
   testWidgets('re-places the list when a fold remeasures the cards', (
     tester,
   ) async {

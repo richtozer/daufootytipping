@@ -285,6 +285,87 @@ int activeStickyTipsLeagueSectionIndex({
   return nextIndex;
 }
 
+/// The offset that puts the section at [targetSectionIndex] at the top, under
+/// the sticky header: the welcome header, then each section's body, with every
+/// header after the first between them.
+double tipsSectionStartOffset({
+  required List<TipsLeagueSection> sections,
+  required int targetSectionIndex,
+  required double leadingExtent,
+  required double topSafeInset,
+}) {
+  var offset = leadingExtent;
+  for (var index = 0; index < targetSectionIndex; index++) {
+    if (index != 0) {
+      offset += sections[index].headerExtent;
+    }
+    offset += sections[index].bodyExtent;
+  }
+  return targetSectionIndex == 0
+      ? offset
+      : (offset - topSafeInset).clamp(0.0, double.infinity);
+}
+
+/// The offset that shows the end of a finished competition: the last section
+/// with its header pinned above it.
+double tipsEndFooterOffset({
+  required List<TipsLeagueSection> sections,
+  required double leadingExtent,
+  required double topSafeInset,
+}) {
+  if (sections.isEmpty) {
+    return 0;
+  }
+  var offset = leadingExtent + sections.first.bodyExtent;
+  for (var index = 1; index < sections.length; index++) {
+    offset += sections[index].headerExtent + sections[index].bodyExtent;
+  }
+  final stickyOverlayExtent = sections.last.headerExtent + topSafeInset;
+  return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
+}
+
+/// Where [scrollOffset], measured against [before], lands in [after]: the same
+/// piece of the list, the same fraction of the way through it.
+///
+/// Remeasuring the cards moves every section while the offset stays put in
+/// pixels, which leaves a different game on screen. The list is the welcome
+/// header, then each section's body, with every header after the first
+/// between them -- the same arithmetic as startup placement. A card's share of
+/// its section is the same in both, so the reader keeps their game and their
+/// place in it. Null when the two lists do not describe the same sections.
+double? anchoredTipsScrollOffset({
+  required List<TipsLeagueSection> before,
+  required List<TipsLeagueSection> after,
+  required double beforeLeadingExtent,
+  required double afterLeadingExtent,
+  required double scrollOffset,
+}) {
+  if (before.length != after.length) {
+    return null;
+  }
+  List<double> pieces(List<TipsLeagueSection> sections, double leading) => [
+    leading,
+    for (var index = 0; index < sections.length; index++) ...[
+      if (index != 0) sections[index].headerExtent,
+      sections[index].bodyExtent,
+    ],
+  ];
+  final from = pieces(before, beforeLeadingExtent);
+  final to = pieces(after, afterLeadingExtent);
+  var fromStart = 0.0;
+  var toStart = 0.0;
+  for (var index = 0; index < from.length; index++) {
+    if (scrollOffset < fromStart + from[index]) {
+      final fraction = (scrollOffset - fromStart) / from[index];
+      return toStart + fraction * to[index];
+    }
+    fromStart += from[index];
+    toStart += to[index];
+  }
+  // Past the last section, in the end footer, which does not change height.
+  return toStart + scrollOffset - fromStart;
+}
+
 List<Widget> buildRoundLeagueSectionSlivers({
   required TipsLeagueSection section,
   required TipsCardLayout layout,

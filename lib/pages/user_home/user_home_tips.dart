@@ -60,6 +60,10 @@ class TipsTabState extends State<TipsTab> {
   bool _showLoadingPlaceholder = true;
   bool _stickyHeaderVisible = false;
   double _topSafeInset = 0;
+
+  /// The welcome header's height when the list was last laid out: the one the
+  /// scroll offset was measured against when the cards are next remeasured.
+  double _laidOutLeadingExtent = 0;
   List<TipsLeagueSection> _cachedSections = const [];
   TipsCardLayout? _cardLayout;
   String? _cardLayoutKey;
@@ -133,16 +137,19 @@ class TipsTabState extends State<TipsTab> {
     final tipsLoaded =
         daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
         false;
+    // No card extents: a remeasure re-places the list itself, not from here.
     final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:$_cardExtent:'
+        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:'
         '${_buildItemExtentCacheKey(selectedComp)}';
-    if (_lastScrollSignature != nextScrollSignature) {
+    final signatureChanged = _lastScrollSignature != nextScrollSignature;
+    if (signatureChanged) {
       _lastScrollSignature = nextScrollSignature;
       _startupScrollSettled = false;
       _startupScrollRetryCount = 0;
       _lastStartupMaxScrollExtent = -1;
     }
-    if (_startupScrollSettled) {
+    // Once placed, the same inputs give the same target as before.
+    if (_startupScrollSettled || (_hasPlacedOnce && !signatureChanged)) {
       return;
     }
     log(
@@ -273,21 +280,42 @@ class TipsTabState extends State<TipsTab> {
     _holdPreviousMaxScrollExtent = -1;
   }
 
-  /// Re-places the list after the cards are remeasured.
+  /// Re-places the list after the cards are remeasured from [previous].
   ///
-  /// Offsets are pixels, so folding or rotating moves every section while the
-  /// scroll offset stays put, leaving a different round on screen. Nothing
-  /// else corrects it: startup placement only runs off a view model
-  /// notification, and a relayout is not one. Re-uses the startup target
-  /// rather than inventing a second placement rule, with the hold re-armed so
-  /// it waits for the new extents to settle exactly as a cold start does.
-  void _replaceAfterRelayout(DAUComp selectedComp) {
+  /// Once placed, the reader keeps the game they were on (or the one placement
+  /// is heading for), and a reader at the end stays there; before that, the
+  /// startup target stands. The hold waits for the new extents to settle.
+  void _replaceAfterRelayout(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> previous,
+  ) {
     _rearmStartupHold();
-    final target = _defaultScrollTarget(
-      selectedComp: selectedComp,
-      sections: _cachedSections,
-      latestRoundNumber: selectedComp.latestsCompletedRoundNumber(),
-    );
+    final placed = _hasPlacedOnce && scrollController.hasClients;
+    final atEnd =
+        placed &&
+        _startupScrollSettled &&
+        scrollController.offset >=
+            scrollController.position.maxScrollExtent - 1;
+    final anchored = atEnd
+        ? double.infinity
+        : placed
+        ? anchoredTipsScrollOffset(
+            before: previous,
+            after: _cachedSections,
+            beforeLeadingExtent: _laidOutLeadingExtent,
+            afterLeadingExtent: _welcomeSliverHeight,
+            scrollOffset: _startupScrollSettled
+                ? scrollController.offset
+                : _pendingStartupOffset,
+          )
+        : null;
+    final target = anchored == null
+        ? _defaultScrollTarget(
+            selectedComp: selectedComp,
+            sections: _cachedSections,
+            latestRoundNumber: selectedComp.latestsCompletedRoundNumber(),
+          )
+        : (offset: anchored, sectionIndex: _activeSectionIndex);
     _pendingStartupOffset = target.offset;
     _activeSectionIndex = target.sectionIndex;
     _startupScrollSettled = false;
@@ -342,16 +370,18 @@ class TipsTabState extends State<TipsTab> {
     final targetRoundIndex = sections[defaultTarget.sectionIndex].roundIndex;
     final leagueTargets = <_TipsScrollTarget>[
       for (final league in const [League.nrl, League.afl])
-        if (_sectionIndexForRoundAndLeague(
-              sections: sections,
-              roundIndex: targetRoundIndex,
-              league: league,
+        if (sections.indexWhere(
+              (section) =>
+                  section.roundIndex == targetRoundIndex &&
+                  section.league == league,
             )
             case final sectionIndex when sectionIndex >= 0)
           (
-            offset: _startupScrollOffset(
+            offset: tipsSectionStartOffset(
               sections: sections,
               targetSectionIndex: sectionIndex,
+              leadingExtent: _welcomeSliverHeight,
+              topSafeInset: _topSafeInset,
             ),
             sectionIndex: sectionIndex,
           ),
@@ -410,18 +440,24 @@ class TipsTabState extends State<TipsTab> {
         sections.isNotEmpty;
     if (isCompComplete) {
       return (
-        offset: _endFooterStartupOffset(sections),
+        offset: tipsEndFooterOffset(
+          sections: sections,
+          leadingExtent: _welcomeSliverHeight,
+          topSafeInset: _topSafeInset,
+        ),
         sectionIndex: sections.length - 1,
       );
     }
 
-    final targetSectionIndex = _targetStartupSectionIndex(
+    final targetSectionIndex = targetStartupSectionIndex(
       selectedComp,
       sections,
     );
-    final base = _startupScrollOffset(
+    final base = tipsSectionStartOffset(
       sections: sections,
       targetSectionIndex: targetSectionIndex,
+      leadingExtent: _welcomeSliverHeight,
+      topSafeInset: _topSafeInset,
     );
     final refinement = _intraRoundScrollRefinement(
       selectedComp: selectedComp,
@@ -429,16 +465,6 @@ class TipsTabState extends State<TipsTab> {
       targetSectionIndex: targetSectionIndex,
     );
     return (offset: base + refinement, sectionIndex: targetSectionIndex);
-  }
-
-  int _sectionIndexForRoundAndLeague({
-    required List<TipsLeagueSection> sections,
-    required int roundIndex,
-    required League league,
-  }) {
-    return sections.indexWhere(
-      (section) => section.roundIndex == roundIndex && section.league == league,
-    );
   }
 
   void _handleScrollChanged() {
@@ -451,29 +477,6 @@ class TipsTabState extends State<TipsTab> {
     if (visibilityChanged || sectionChanged) {
       setState(() {});
     }
-  }
-
-  int _targetStartupSectionIndex(
-    DAUComp selectedComp,
-    List<TipsLeagueSection> sections,
-  ) {
-    return targetStartupSectionIndex(selectedComp, sections);
-  }
-
-  double _startupScrollOffset({
-    required List<TipsLeagueSection> sections,
-    required int targetSectionIndex,
-  }) {
-    var offset = _welcomeSliverHeight;
-    for (var index = 0; index < targetSectionIndex; index++) {
-      if (index != 0) {
-        offset += sections[index].headerExtent;
-      }
-      offset += sections[index].bodyExtent;
-    }
-    return targetSectionIndex == 0
-        ? offset
-        : (offset - _topSafeInset).clamp(0.0, double.infinity);
   }
 
   double _intraRoundScrollRefinement({
@@ -495,20 +498,6 @@ class TipsTabState extends State<TipsTab> {
           tipsViewModel.firstUntippedGameIndex(games, tipper),
       cardExtent: _cardExtent,
     );
-  }
-
-  double _endFooterStartupOffset(List<TipsLeagueSection> sections) {
-    if (sections.isEmpty) {
-      return 0;
-    }
-
-    var offset = _welcomeSliverHeight + sections.first.bodyExtent;
-    for (var index = 1; index < sections.length; index++) {
-      offset += sections[index].headerExtent + sections[index].bodyExtent;
-    }
-
-    final stickyOverlayExtent = sections.last.headerExtent + _topSafeInset;
-    return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
   }
 
   bool _updateStickyHeaderVisibility({double? scrollOffsetOverride}) {
@@ -674,6 +663,7 @@ class TipsTabState extends State<TipsTab> {
     return LayoutBuilder(
       builder: (context, constraints) {
         _syncCardLayout(context, constraints.maxWidth);
+        _laidOutLeadingExtent = _welcomeSliverHeight;
         final cardLayout = _cardLayout;
         if (cardLayout == null) {
           return Center(
@@ -858,6 +848,7 @@ class TipsTabState extends State<TipsTab> {
     // header is positioned from them. Rebuild in this same frame, before the
     // slivers below read them, so the header never sits against stale offsets
     // waiting for the next view model notification to correct it.
+    final previousSections = _cachedSections;
     _cachedSections = buildTipsLeagueSections(
       selectedComp: selectedComp,
       cardExtent: nextLayout.cardExtent,
@@ -868,7 +859,7 @@ class TipsTabState extends State<TipsTab> {
     // and which the measured card does not match -- 128 against 124 here, and
     // the target it placed 47 out. Excluding it left the list resting beside
     // the position its own placement had chosen.
-    _replaceAfterRelayout(selectedComp);
+    _replaceAfterRelayout(selectedComp, previousSections);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;

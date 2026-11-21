@@ -964,4 +964,61 @@ void main() {
       );
     });
   });
+
+  group('Keeping the reader in place across a relayout', () {
+    // Two sections of four games: welcome, NRL body, AFL header, AFL body.
+    List<TipsLeagueSection> sections(double card, double header) => [
+      for (final league in const [League.nrl, League.afl])
+        TipsLeagueSection(
+          roundIndex: 0,
+          league: league,
+          headerExtent: header,
+          bodyExtent: 4 * card,
+        ),
+    ];
+    final before = sections(100, 60);
+    final after = sections(150, 80);
+
+    double? anchored(double offset, {double afterLeading = 200}) =>
+        anchoredTipsScrollOffset(
+          before: before,
+          after: after,
+          beforeLeadingExtent: 200,
+          afterLeadingExtent: afterLeading,
+          scrollOffset: offset,
+        );
+
+    test('keeps a game and the fraction through it', () {
+      // Half way through the third NRL card.
+      expect(anchored(200 + 250), 200 + 375);
+      // A quarter of the way through the second AFL card.
+      expect(anchored(200 + 400 + 60 + 125), 200 + 600 + 80 + 187.5);
+    });
+
+    test('keeps a place on a round header', () {
+      expect(anchored(200 + 400 + 30), 200 + 600 + 40);
+    });
+
+    test('follows a welcome header that changed height', () {
+      expect(anchored(100, afterLeading: 150), 75);
+      expect(anchored(200 + 250, afterLeading: 150), 150 + 375);
+    });
+
+    test('stays the same distance into the end footer', () {
+      expect(anchored(200 + 400 + 60 + 400 + 30), 200 + 600 + 80 + 600 + 30);
+    });
+
+    test('gives up when the sections differ', () {
+      expect(
+        anchoredTipsScrollOffset(
+          before: before,
+          after: after.sublist(1),
+          beforeLeadingExtent: 200,
+          afterLeadingExtent: 200,
+          scrollOffset: 300,
+        ),
+        isNull,
+      );
+    });
+  });
 }
