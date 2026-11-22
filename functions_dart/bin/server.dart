@@ -1654,12 +1654,11 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
   Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
 }) async {
   final compKey = comp.dbkey!;
+  final compPath = '${paths.daucompsPath}/$compKey';
 
   logFunction('executeFixtureDownload: loading compKey=$compKey');
 
-  final lockRef = db.ref(
-    '${paths.daucompsPath}/$compKey/${paths.downloadLockKey}',
-  );
+  final lockRef = db.ref('$compPath/${paths.downloadLockKey}');
   TransactionResult transactionResult;
   try {
     transactionResult = await lockRef.runTransaction((MutableData mutableData) {
@@ -1712,10 +1711,8 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
       message: 'Applying fixture updates...',
     );
 
-    final existingGamesValue = await readDatabaseValue(
-      db,
-      '${paths.gamesPathRoot}/$compKey',
-    );
+    final existingGamesValue =
+        await readDatabaseValue(db, '${paths.gamesPathRoot}/$compKey');
     final Map<String, dynamic> existingGames = existingGamesValue != null
         ? Map<String, dynamic>.from(existingGamesValue as Map)
         : {};
@@ -1776,9 +1773,15 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
         final roundIndex = round.dAUroundNumber - 1;
         final startDateStr =
             '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
-        dbUpdates['${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$roundIndex/'
-                '${paths.roundStartDateKey}'] =
-            startDateStr;
+        dbUpdates['$compPath/${paths.combinedRoundsPath}/$roundIndex/'
+            '${paths.roundStartDateKey}'] = startDateStr;
+      }
+      // The first download also saves the cutoffs it filled in on comp.
+      for (final (key, cutoff) in [
+        (paths.nrlRegularCompEndDateUTCKey, comp.nrlRegularCompEndDateUTC),
+        (paths.aflRegularCompEndDateUTCKey, comp.aflRegularCompEndDateUTC),
+      ]) {
+        if (cutoff != null) dbUpdates['$compPath/$key'] = cutoff.toUtc().toIso8601String();
       }
     }
     final roundEndUpdates = importApplier.recalculateRoundEndDates(
@@ -1789,14 +1792,11 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
       forceWriteAll: combined != null,
     );
     for (final entry in roundEndUpdates.entries) {
-      dbUpdates['${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/${entry.key}/'
-              '${paths.roundEndDateKey}'] =
-          entry.value;
+      dbUpdates['$compPath/${paths.combinedRoundsPath}/${entry.key}/'
+          '${paths.roundEndDateKey}'] = entry.value;
     }
 
-    dbUpdates[
-        '${paths.daucompsPath}/$compKey/${paths.lastFixtureUTCKey}'] =
-        now.toIso8601String();
+    dbUpdates['$compPath/${paths.lastFixtureUTCKey}'] = now.toIso8601String();
 
     logFunction('executeFixtureDownload: applying ${dbUpdates.length} database updates');
     await db.ref('/').update(dbUpdates);

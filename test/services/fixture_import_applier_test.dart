@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import 'package:daufootytipping/models/daucomp.dart';
@@ -395,5 +398,111 @@ void main() {
         expect(changed[1], '2026-03-08 13:00:00Z');
       },
     );
+  });
+
+  group('regular season cutoff', () {
+    const applier = FixtureImportApplier();
+    List<dynamic> feed(String name) =>
+        jsonDecode(File('test/fixtures/$name-2027.json').readAsStringSync())
+            as List<dynamic>;
+    Map<String, dynamic> match(
+      int round,
+      String date,
+      String home,
+      String away,
+    ) => {
+      'RoundNumber': round,
+      'DateUtc': '$date 08:00:00Z',
+      'HomeTeam': home,
+      'AwayTeam': away,
+    };
+    DAUComp emptyComp({DateTime? nrlCutoff}) => DAUComp(
+      dbkey: 'comp-2027',
+      name: 'DAU 2027',
+      aflFixtureJsonURL: Uri.parse('https://afl'),
+      nrlFixtureJsonURL: Uri.parse('https://nrl'),
+      daurounds: [],
+      nrlRegularCompEndDateUTC: nrlCutoff,
+    );
+
+    test('AFL ends on the day its placeholder finals start, so round 24 games '
+        'later moved off their parked Thursday stay in', () {
+      expect(
+        applier.regularSeasonCutoffUTC(feed('afl')),
+        DateTime.utc(2027, 9, 2),
+      );
+    });
+
+    test(
+      'NRL, with no finals in its feed, ends the day after its last game',
+      () {
+        expect(
+          applier.regularSeasonCutoffUTC(feed('nrl')),
+          DateTime.utc(2027, 9, 6),
+        );
+      },
+    );
+
+    test('a feed where no team plays twice has no cutoff', () {
+      expect(
+        applier.regularSeasonCutoffUTC([match(1, '2027-03-05', 'A', 'B')]),
+        isNull,
+      );
+    });
+
+    test('a round of "To be announced" against itself counts as finals, '
+        'though the name plays in more than one round', () {
+      expect(
+        applier.regularSeasonCutoffUTC([
+          match(1, '2027-03-05', 'A', 'B'),
+          match(2, '2027-03-12', 'B', 'A'),
+          match(3, '2027-03-19', 'To be announced', 'To be announced'),
+          match(4, '2027-03-26', 'To be announced', 'To be announced'),
+        ]),
+        DateTime.utc(2027, 3, 19),
+      );
+    });
+
+    test('a later download, when the comp already has rounds, leaves its '
+        'cutoffs to the administrator', () {
+      final comp = emptyComp()
+        ..daurounds = [
+          DAURound(
+            dAUroundNumber: 1,
+            firstGameKickOffUTC: DateTime.utc(2027, 3, 5),
+            lastGameKickOffUTC: DateTime.utc(2027, 3, 8),
+          ),
+        ];
+      final afl = feed('afl');
+      applier.tagGamesWithLeagueInPlace(afl, 'afl');
+
+      expect(applier.computeCombinedRoundsIfMissing(comp, afl), isNull);
+      expect(comp.aflRegularCompEndDateUTC, isNull);
+      expect(comp.nrlRegularCompEndDateUTC, isNull);
+    });
+
+    test('the first download fills only the missing cutoffs and builds no '
+        'rounds for games after them', () {
+      final comp = emptyComp(nrlCutoff: DateTime.utc(2027, 8, 30));
+      final nrl = feed('nrl');
+      final afl = feed('afl');
+      applier.tagGamesWithLeagueInPlace(nrl, 'nrl');
+      applier.tagGamesWithLeagueInPlace(afl, 'afl');
+
+      final rounds = applier.computeCombinedRoundsIfMissing(comp, [
+        ...nrl,
+        ...afl,
+      ]);
+
+      expect(comp.nrlRegularCompEndDateUTC, DateTime.utc(2027, 8, 30));
+      expect(comp.aflRegularCompEndDateUTC, DateTime.utc(2027, 9, 2));
+      expect(rounds, isNotNull);
+      expect(
+        rounds!.every(
+          (r) => r.firstGameKickOffUTC.isBefore(DateTime.utc(2027, 9, 2)),
+        ),
+        isTrue,
+      );
+    });
   });
 }

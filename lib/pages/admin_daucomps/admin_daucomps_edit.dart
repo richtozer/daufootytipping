@@ -198,7 +198,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     }
     DateTime? parsed;
     try {
-      parsed = DateFormat('yyyy-MM-dd').parseStrict(text);
+      parsed = DateFormat('yyyy-MM-dd').parseStrict(text, true);
     } on FormatException {
       return;
     }

@@ -11,7 +11,11 @@ class GameUpdate {
   final String league; // 'nrl' or 'afl'
   final Map<String, dynamic> attributes;
 
-  GameUpdate({required this.dbkey, required this.league, required this.attributes});
+  GameUpdate({
+    required this.dbkey,
+    required this.league,
+    required this.attributes,
+  });
 }
 
 class FixtureImportApplier {
@@ -115,10 +119,10 @@ class FixtureImportApplier {
       final reason = isScored
           ? 'game already has an official score'
           : (nowMs != null &&
-                  existingKickoffMs != null &&
-                  existingKickoffMs <= nowMs)
-              ? 'stored kickoff ($existingDateUtc) has already passed'
-              : 'stored kickoff ($existingDateUtc) is within the ${maxTipGracePeriodSeconds}s grace window';
+                existingKickoffMs != null &&
+                existingKickoffMs <= nowMs)
+          ? 'stored kickoff ($existingDateUtc) has already passed'
+          : 'stored kickoff ($existingDateUtc) is within the ${maxTipGracePeriodSeconds}s grace window';
       log?.call(
         'Ignoring kickoff change for $dbkey ($incomingDateUtc -> kept $existingDateUtc) because $reason.',
       );
@@ -284,9 +288,83 @@ class FixtureImportApplier {
     }
   }
 
-  List<DAURound>? computeCombinedRoundsIfMissing(DAUComp comp, List<dynamic> allGames) {
+  /// Builds the comp's rounds on its first download, when it has none. A
+  /// league with no cutoff yet gets one from its feed, set on [comp], and the
+  /// rounds hold only the games inside the cutoffs. Later downloads leave the
+  /// cutoffs to the administrator.
+  List<DAURound>? computeCombinedRoundsIfMissing(
+    DAUComp comp,
+    List<dynamic> allGames,
+  ) {
     if (comp.daurounds.isNotEmpty) return null;
-    final roundsBuilder = CombinedRoundsService();
-    return roundsBuilder.buildCombinedRounds(allGames);
+    List<dynamic> gamesOf(String league) => [
+      for (final game in allGames)
+        if (game is Map && game['league'] == league) game,
+    ];
+    comp.nrlRegularCompEndDateUTC ??= regularSeasonCutoffUTC(gamesOf('nrl'));
+    comp.aflRegularCompEndDateUTC ??= regularSeasonCutoffUTC(gamesOf('afl'));
+    final regularSeason = allGames.where((game) {
+      if (game is! Map) return true;
+      final cutoff = switch (game['league']) {
+        'nrl' => comp.nrlRegularCompEndDateUTC,
+        'afl' => comp.aflRegularCompEndDateUTC,
+        _ => null,
+      };
+      final kickoff = DateTime.tryParse('${game['DateUtc']}');
+      return cutoff == null || kickoff == null || !kickoff.isAfter(cutoff);
+    }).toList();
+    return CombinedRoundsService().buildCombinedRounds(regularSeason);
+  }
+
+  /// When one league's regular season ends, read from its fixture feed.
+  ///
+  /// Early in the year a feed lists its finals with placeholder teams such as
+  /// "1st" or "Winner of QF1", each of which plays in one round only. The
+  /// season ends at 0:00 UTC on the day the first round made up entirely of
+  /// placeholder games starts. Regular-season kickoffs are often parked on one
+  /// day until they are set, so the finals' start is the safer boundary. A
+  /// feed with no such round ends the day after its last game. Returns null
+  /// when no team plays in more than one round, as nothing can be told apart.
+  DateTime? regularSeasonCutoffUTC(List<dynamic> leagueGames) {
+    final games = [
+      for (final game in leagueGames)
+        if (game is Map &&
+            game['RoundNumber'] is int &&
+            DateTime.tryParse('${game['DateUtc']}') != null)
+          game,
+    ];
+    final roundsByTeam = <Object?, Set<int>>{};
+    for (final game in games) {
+      for (final team in [game['HomeTeam'], game['AwayTeam']]) {
+        (roundsByTeam[team] ??= {}).add(game['RoundNumber'] as int);
+      }
+    }
+    if (roundsByTeam.values.every((rounds) => rounds.length < 2)) return null;
+    bool isPlaceholderGame(Map game) =>
+        game['HomeTeam'] == game['AwayTeam'] ||
+        [
+          game['HomeTeam'],
+          game['AwayTeam'],
+        ].every((team) => (roundsByTeam[team]?.length ?? 0) == 1);
+    DateTime kickoff(Map game) => DateTime.parse('${game['DateUtc']}').toUtc();
+    DateTime day(DateTime time) =>
+        DateTime.utc(time.year, time.month, time.day);
+
+    final roundNumbers = {
+      for (final game in games) game['RoundNumber'] as int,
+    }.toList()..sort();
+    for (final roundNumber in roundNumbers) {
+      final round = [
+        for (final game in games)
+          if (game['RoundNumber'] == roundNumber) game,
+      ];
+      if (round.every(isPlaceholderGame)) {
+        return day(round.map(kickoff).reduce((a, b) => a.isBefore(b) ? a : b));
+      }
+    }
+    final lastKickoff = games
+        .map(kickoff)
+        .reduce((a, b) => a.isAfter(b) ? a : b);
+    return day(lastKickoff).add(const Duration(days: 1));
   }
 }

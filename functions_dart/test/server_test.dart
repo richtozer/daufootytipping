@@ -1113,6 +1113,20 @@ void main() {
           'KickOffTime': '2026-06-01T19:00:00Z',
           'DateUtc': '2026-06-01T19:00:00Z',
         },
+        {
+          'RoundNumber': 2,
+          'MatchNumber': 1,
+          'HomeTeam': 'Richmond',
+          'AwayTeam': 'Collingwood',
+          'DateUtc': '2026-06-08T19:00:00Z',
+        },
+        {
+          'RoundNumber': 3,
+          'MatchNumber': 1,
+          'HomeTeam': '1st',
+          'AwayTeam': '4th',
+          'DateUtc': '2026-06-15T19:00:00Z',
+        },
       ];
       final mockNrlGames = [
         {
@@ -1142,7 +1156,7 @@ void main() {
         },
       );
 
-      expect(resultMsg, contains('Found 1 NRL games and 1 AFL games'));
+      expect(resultMsg, contains('Found 1 NRL games and 3 AFL games'));
       expect(afterSuccessfulDownloadCalls, 1);
 
       // Verify that lock was acquired and then released
@@ -1164,6 +1178,29 @@ void main() {
           verify(() => mockRootRef.update(captureAny())).captured.single
               as Map<String, dynamic>;
       expect(capturedUpdates, contains('/AllDAUComps/comp2026/lastFixtureUTC'));
+      // Rounds are built from games inside the cutoffs: AFL round 1, NRL
+      // round 1 and AFL round 2 make three, and the placeholder final none.
+      expect(
+        capturedUpdates,
+        contains('/AllDAUComps/comp2026/combinedRounds2/2/roundStartDate'),
+      );
+      expect(
+        capturedUpdates,
+        isNot(contains('/AllDAUComps/comp2026/combinedRounds2/3/roundStartDate')),
+      );
+      // The comp's first download fills its empty cutoffs: AFL ends where its
+      // placeholder finals start; NRL, where no team plays twice, gets none.
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/AllDAUComps/comp2026/aflRegularCompEndDateUTC',
+          '2026-06-15T00:00:00.000Z',
+        ),
+      );
+      expect(
+        capturedUpdates,
+        isNot(contains('/AllDAUComps/comp2026/nrlRegularCompEndDateUTC')),
+      );
       expect(
         capturedUpdates,
         contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'),

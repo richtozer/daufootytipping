@@ -90,11 +90,11 @@ void main() {
       expect(updates, isNotNull);
       expect(
         updates!['/AllDAUComps/comp-2026/nrlRegularCompEndDateUTC'],
-        DateTime.parse('2026-08-31').toIso8601String(),
+        '2026-08-31T00:00:00.000Z',
       );
       expect(
         updates['/AllDAUComps/comp-2026/aflRegularCompEndDateUTC'],
-        DateTime.parse('2026-09-01').toIso8601String(),
+        '2026-09-01T00:00:00.000Z',
       );
     });
 
@@ -217,6 +217,70 @@ void main() {
 
       expect(result['success'], isTrue);
       expect(downloadedComp?.dbkey, 'comp-2027');
+    });
+
+    test(
+      'a new comp saves the cutoffs typed on the create form, as UTC '
+      'midnight, before its first download fills in any missing one',
+      () async {
+        final repo = _FakeDauCompsRepository(newKey: 'comp-2027');
+        final vm = DAUCompsViewModel(
+          null,
+          true,
+          skipInit: true,
+          repo: repo,
+          urlHealthChecker: UrlHealthChecker(remoteChecker: (_) async => true),
+          networkFixtureDownloader: (_) async => 'Fixture download succeeded',
+        );
+        vm.completeInitialDAUCompLoadForTest();
+
+        await vm.processAndSaveDauComp(
+          name: 'DAU 2027',
+          aflFixtureJsonURL: 'https://example.com/afl-2027',
+          nrlFixtureJsonURL: 'https://example.com/nrl-2027',
+          nrlRegularCompEndDateString: '2027-09-06',
+          aflRegularCompEndDateString: null,
+          existingComp: null,
+          currentRounds: const [],
+        );
+
+        expect(
+          repo.capturedUpdates,
+          containsPair(
+            '/AllDAUComps/comp-2027/nrlRegularCompEndDateUTC',
+            '2027-09-06T00:00:00.000Z',
+          ),
+        );
+        expect(
+          repo.capturedUpdates,
+          isNot(contains('/AllDAUComps/comp-2027/aflRegularCompEndDateUTC')),
+        );
+      },
+    );
+
+    test('a cutoff the form cannot read fails the save rather than '
+        'throwing', () async {
+      final vm = DAUCompsViewModel(
+        null,
+        true,
+        skipInit: true,
+        repo: _FakeDauCompsRepository(newKey: 'comp-2027'),
+        urlHealthChecker: UrlHealthChecker(remoteChecker: (_) async => true),
+        networkFixtureDownloader: (_) async => 'Fixture download succeeded',
+      );
+      vm.completeInitialDAUCompLoadForTest();
+
+      final result = await vm.processAndSaveDauComp(
+        name: 'DAU 2027',
+        aflFixtureJsonURL: 'https://example.com/afl-2027',
+        nrlFixtureJsonURL: 'https://example.com/nrl-2027',
+        nrlRegularCompEndDateString: '2027-9-6',
+        aflRegularCompEndDateString: null,
+        existingComp: null,
+        currentRounds: const [],
+      );
+
+      expect(result['success'], isFalse);
     });
 
     test('re-validates round start and cutoff edits against in-memory games right before saving', () async {
@@ -376,7 +440,7 @@ void main() {
           name: 'Test Comp 2026',
           aflFixtureJsonURL: Uri.parse('https://example.com/afl.json'),
           nrlFixtureJsonURL: Uri.parse('https://example.com/nrl.json'),
-          nrlRegularCompEndDateUTC: DateTime.parse('2026-08-31'),
+          nrlRegularCompEndDateUTC: DateTime.utc(2026, 8, 31),
           daurounds: [round1],
         );
         when(() => mockGamesVm.selectedDAUComp).thenReturn(existingComp);

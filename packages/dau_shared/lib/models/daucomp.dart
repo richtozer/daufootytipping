@@ -161,12 +161,27 @@ class DAUComp implements Comparable<DAUComp> {
       lastFixtureUpdateTimestampUTC: data[p.lastFixtureUTCKey] != null
           ? DateTime.parse(data[p.lastFixtureUTCKey])
           : null,
-      aflRegularCompEndDateUTC: data[p.aflRegularCompEndDateUTCKey] != null
-          ? DateTime.parse(data[p.aflRegularCompEndDateUTCKey])
-          : null,
-      nrlRegularCompEndDateUTC: data[p.nrlRegularCompEndDateUTCKey] != null
-          ? DateTime.parse(data[p.nrlRegularCompEndDateUTCKey])
-          : null,
+      aflRegularCompEndDateUTC: _cutoffFromJson(
+        data[p.aflRegularCompEndDateUTCKey],
+      ),
+      nrlRegularCompEndDateUTC: _cutoffFromJson(
+        data[p.nrlRegularCompEndDateUTCKey],
+      ),
+    );
+  }
+
+  /// Older comps saved their cutoffs with no time zone. The backend runs in
+  /// UTC and reads those as UTC, so every client does too.
+  static DateTime? _cutoffFromJson(Object? value) {
+    final parsed = value is String ? DateTime.tryParse(value) : null;
+    if (parsed == null || parsed.isUtc) return parsed;
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
     );
   }
 

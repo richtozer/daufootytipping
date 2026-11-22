@@ -788,6 +788,15 @@ class DAUCompsViewModel extends ChangeNotifier {
       updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] = newDAUComp
           .nrlFixtureJsonURL
           .toString();
+      // A cutoff typed here wins: the first download fills only missing ones.
+      <String, DateTime?>{
+        nrlRegularCompEndDateUTCKey: newDAUComp.nrlRegularCompEndDateUTC,
+        aflRegularCompEndDateUTCKey: newDAUComp.aflRegularCompEndDateUTC,
+      }.forEach((cutoffKey, cutoff) {
+        if (cutoff != null) {
+          updates['$daucompsPath/$key/$cutoffKey'] = cutoff.toIso8601String();
+        }
+      });
       newDAUComp.dbkey = key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -1160,6 +1169,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     Map<int, DateTime?>? initialRoundStartOverrides,
   }) async {
     try {
+      // The form's dates are calendar days, saved as 0:00 UTC like the backend's.
+      DateTime? cutoffFrom(String? day) => day == null || day.isEmpty
+          ? null
+          : DateTime.parse('${day}T00:00:00Z');
+      final DateTime? newNrlCutoff = cutoffFrom(nrlRegularCompEndDateString);
+      final DateTime? newAflCutoff = cutoffFrom(aflRegularCompEndDateString);
       bool aflURLActive = await _isUriActiveIfChanged(
         aflFixtureJsonURL,
         previousUri: existingComp?.aflFixtureJsonURL,
@@ -1178,16 +1193,8 @@ class DAUCompsViewModel extends ChangeNotifier {
             name: name,
             aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
             nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
-            nrlRegularCompEndDateUTC:
-                nrlRegularCompEndDateString != null &&
-                    nrlRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(nrlRegularCompEndDateString)
-                : null,
-            aflRegularCompEndDateUTC:
-                aflRegularCompEndDateString != null &&
-                    aflRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(aflRegularCompEndDateString)
-                : null,
+            nrlRegularCompEndDateUTC: newNrlCutoff,
+            aflRegularCompEndDateUTC: newAflCutoff,
             daurounds: [], // Initial empty rounds
           );
 
@@ -1204,16 +1211,6 @@ class DAUCompsViewModel extends ChangeNotifier {
           };
         } else {
           // Existing comp
-          final DateTime? newNrlCutoff =
-              nrlRegularCompEndDateString != null &&
-                  nrlRegularCompEndDateString.isNotEmpty
-              ? DateTime.parse(nrlRegularCompEndDateString)
-              : null;
-          final DateTime? newAflCutoff =
-              aflRegularCompEndDateString != null &&
-                  aflRegularCompEndDateString.isNotEmpty
-              ? DateTime.parse(aflRegularCompEndDateString)
-              : null;
           final Map<int, DateTime?> baselineOverrides =
               initialRoundStartOverrides ??
               <int, DateTime?>{

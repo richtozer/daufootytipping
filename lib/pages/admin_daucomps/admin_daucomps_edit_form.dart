@@ -226,7 +226,10 @@ class AdminDaucompsEditForm extends StatelessWidget {
           const SizedBox(height: 20.0),
           if (daucomp == null) ...[
             const Text(
-              'Save downloads the fixture. Open the comp again from the list to see its rounds.',
+              'Save downloads the fixture. Cutoffs left blank are pre-filled '
+              'from this first download; check them when you open the comp '
+              'again from the list, and adjust them now or later in the '
+              'season if the regular comp fixture changes.',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
