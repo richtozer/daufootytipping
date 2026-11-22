@@ -216,12 +216,14 @@ Use the "Database-First with Reactive Listeners" pattern for all state changes t
 - **Skip tests for** → Simple getters/setters, basic constructors
 
 ### Driving the running app
-To check behaviour in the running app, run a debug build and connect to it through the `dart` MCP
-server (`dtd`: `listDtdUris`, then `connect`). Do not navigate by screenshots.
-- Read what is on screen as text from the semantics tree (`widget_inspector`, `vm_service`).
+To check behaviour in the running app, run a debug build from the driver entry point
+(`flutter run -t test_driver/main.dart`) and connect to it through the `dart` MCP server (`dtd`:
+`listDtdUris`, then `connect`). Do not navigate by screenshots.
+- Read what is on screen as text from the widget or semantics tree (`widget_inspector`, `vm_service`)
+  before acting. Do not guess at labels.
 - Find and tap widgets with `flutter_driver_command` by semantics label or `Key`, never by coordinates.
-  Driver commands only work in a build that calls `enableFlutterDriverExtension()`; the app does not
-  do this by default.
+  Driver commands only work from `test_driver/main.dart`, which enables the Flutter Driver extension;
+  `lib/main.dart` does not.
 - After each flow, check `get_runtime_errors`. After a code change, hot reload.
 - When a widget cannot be found because it has no label, give it a `Semantics` label or a `Key`. This
   also helps VoiceOver and TalkBack users.

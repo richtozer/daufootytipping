@@ -37,6 +37,15 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Location: Service tests live under `test/services/`; ViewModel tests under `test/view_models/`.
 - Gate: Treat a clean analyzer run and a green test suite as gates before merging further refactors.
 
+## Driving the Running App
+- Entry point: `test_driver/main.dart` starts the app with the Flutter Driver extension enabled (`flutter run -t test_driver/main.dart`, debug only). Use it rather than creating another; `lib/main.dart` does not enable the extension.
+- Connect through the `dart` MCP server: `dtd` with `listDtdUris`, then `connect`. Running with `--print-dtd` prints the URI.
+- Read the screen as text from the widget or semantics tree (`widget_inspector`, `vm_service`) before acting. Do not guess at labels.
+- Find and tap widgets with `flutter_driver_command` by `Key`, text or semantics label, never by coordinates. Do not navigate by screenshots.
+- After each flow, check `get_runtime_errors`. After a code change, hot reload.
+- When a widget cannot be found because it has no label, give it a `Semantics` label or a `Key`.
+- Use screenshots only for visual questions such as layout, alignment, theming and clipping.
+
 ## Drift Guards
 - The "Drift Guards" section of `CLAUDE.md` applies to every agent working in this repository. Read it before changing code.
 - Run `node scripts/ratchet.mjs` before declaring a change done; it must pass. Never raise a number in `config/ratchet-baseline.json`: only the maintainer does that.
