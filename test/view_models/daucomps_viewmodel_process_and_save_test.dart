@@ -219,45 +219,6 @@ void main() {
       expect(downloadedComp?.dbkey, 'comp-2027');
     });
 
-    test(
-      'a new comp saves the cutoffs typed on the create form, as UTC '
-      'midnight, before its first download fills in any missing one',
-      () async {
-        final repo = _FakeDauCompsRepository(newKey: 'comp-2027');
-        final vm = DAUCompsViewModel(
-          null,
-          true,
-          skipInit: true,
-          repo: repo,
-          urlHealthChecker: UrlHealthChecker(remoteChecker: (_) async => true),
-          networkFixtureDownloader: (_) async => 'Fixture download succeeded',
-        );
-        vm.completeInitialDAUCompLoadForTest();
-
-        await vm.processAndSaveDauComp(
-          name: 'DAU 2027',
-          aflFixtureJsonURL: 'https://example.com/afl-2027',
-          nrlFixtureJsonURL: 'https://example.com/nrl-2027',
-          nrlRegularCompEndDateString: '2027-09-06',
-          aflRegularCompEndDateString: null,
-          existingComp: null,
-          currentRounds: const [],
-        );
-
-        expect(
-          repo.capturedUpdates,
-          containsPair(
-            '/AllDAUComps/comp-2027/nrlRegularCompEndDateUTC',
-            '2027-09-06T00:00:00.000Z',
-          ),
-        );
-        expect(
-          repo.capturedUpdates,
-          isNot(contains('/AllDAUComps/comp-2027/aflRegularCompEndDateUTC')),
-        );
-      },
-    );
-
     test('a cutoff the form cannot read fails the save rather than '
         'throwing', () async {
       final vm = DAUCompsViewModel(
@@ -276,7 +237,13 @@ void main() {
         nrlFixtureJsonURL: 'https://example.com/nrl-2027',
         nrlRegularCompEndDateString: '2027-9-6',
         aflRegularCompEndDateString: null,
-        existingComp: null,
+        existingComp: DAUComp(
+          dbkey: 'comp-2027',
+          name: 'DAU 2027',
+          aflFixtureJsonURL: Uri.parse('https://example.com/afl-2027'),
+          nrlFixtureJsonURL: Uri.parse('https://example.com/nrl-2027'),
+          daurounds: const [],
+        ),
         currentRounds: const [],
       );
 

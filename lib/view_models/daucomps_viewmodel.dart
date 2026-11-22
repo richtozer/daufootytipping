@@ -788,15 +788,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] = newDAUComp
           .nrlFixtureJsonURL
           .toString();
-      // A cutoff typed here wins: the first download fills only missing ones.
-      <String, DateTime?>{
-        nrlRegularCompEndDateUTCKey: newDAUComp.nrlRegularCompEndDateUTC,
-        aflRegularCompEndDateUTCKey: newDAUComp.aflRegularCompEndDateUTC,
-      }.forEach((cutoffKey, cutoff) {
-        if (cutoff != null) {
-          updates['$daucompsPath/$key/$cutoffKey'] = cutoff.toIso8601String();
-        }
-      });
       newDAUComp.dbkey = key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -1193,8 +1184,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             name: name,
             aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
             nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
-            nrlRegularCompEndDateUTC: newNrlCutoff,
-            aflRegularCompEndDateUTC: newAflCutoff,
+            // Its first download sets the cutoffs from the fixture.
             daurounds: [], // Initial empty rounds
           );
 
