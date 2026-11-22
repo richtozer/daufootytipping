@@ -18,7 +18,9 @@ permissions:
 jobs:
   build_and_upload:
     name: Build iOS IPA and Upload to TestFlight
-    runs-on: macos-latest
+    # The Xcode 27 image: macos-latest stops at Xcode 26, which cannot build
+    # for the iPhone Duo.
+    runs-on: xcode-27
 
     steps:
       - name: Checkout code
@@ -29,13 +31,17 @@ jobs:
       - name: Select Xcode
         run: |
           set -euo pipefail
-          if [ -d /Applications/Xcode-beta.app ]; then
-            selected_xcode="/Applications/Xcode-beta.app"
-          else
-            selected_xcode="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1 || true)"
-          fi
+          # Xcode 27.2 or later builds for the iPhone Duo. The image's default
+          # may be older, so pick by name, newest first.
+          selected_xcode=""
+          for candidate in /Applications/Xcode_27.3.app /Applications/Xcode_27.2.app; do
+            if [ -d "$candidate" ]; then
+              selected_xcode="$candidate"
+              break
+            fi
+          done
           if [ -z "$selected_xcode" ]; then
-            echo "Xcode was not found on the runner."
+            echo "Neither Xcode 27.3 nor 27.2 is on the runner."
             echo "Installed Xcode versions:"
             ls -d /Applications/Xcode*.app || true
             exit 1
