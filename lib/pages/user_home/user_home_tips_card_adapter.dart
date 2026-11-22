@@ -5,6 +5,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:dau_shared/services/season_teams.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
 import 'package:intl/intl.dart';
@@ -238,22 +239,17 @@ const String _widestFixture = 'Fixture: round 88, match 88';
 /// height instead. A league none of whose teams plays twice yet, such as one
 /// with a single round loaded, measures every one of its teams.
 List<TipsCardDisplay> tipsMeasurementCards(Iterable<DAURound> daurounds) {
-  final roundsByTeam = <String, Set<int>>{};
   var widestLocation = '';
   for (final dauRound in daurounds) {
     for (final game in dauRound.games) {
       if (game.location.length > widestLocation.length) {
         widestLocation = game.location;
       }
-      for (final team in [game.homeTeam, game.awayTeam]) {
-        (roundsByTeam[team.dbkey] ??= {}).add(dauRound.dAUroundNumber);
-      }
     }
   }
-  final seasonTeams = {
-    for (final key in roundsByTeam.keys)
-      if ((roundsByTeam[key]?.length ?? 0) > 1) key,
-  };
+  final seasonTeams = teamKeysInSeveralRounds([
+    for (final dauRound in daurounds) ...dauRound.games,
+  ]);
   final leaguesWithSeasonTeams = {
     for (final dauRound in daurounds)
       for (final game in dauRound.games)

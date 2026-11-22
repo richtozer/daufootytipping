@@ -13,6 +13,7 @@ import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
+import 'package:dau_shared/services/season_teams.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -471,24 +472,15 @@ class GamesViewModel extends ChangeNotifier {
       'GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey',
     );
 
-    if (_gamesByDAUCompKeyCache.containsKey(dauCompDbKey)) {
-      return _gamesByDAUCompKeyCache[dauCompDbKey]!;
-    }
-
-    // Testability hook: If testGamesByCompKey is set and contains data for this key, return it.
-    if (testGamesByCompKey != null &&
-        testGamesByCompKey!.containsKey(dauCompDbKey)) {
-      log(
-        'GamesViewModel_fetchGamesForDAUCompKey: Using test data for DAUComp key $dauCompDbKey',
-      );
-      final testGames = testGamesByCompKey![dauCompDbKey]!;
-      return Future.value(List<Game>.from(testGames)); // Return a copy
-    }
+    final cachedGames = _gamesByDAUCompKeyCache[dauCompDbKey];
+    if (cachedGames != null) return cachedGames;
+    // A copy of the games a test supplies for this comp, if any.
+    final testGames = testGamesByCompKey?[dauCompDbKey];
+    if (testGames != null) return List<Game>.from(testGames);
 
     List<Game> fetchedGames = [];
     try {
-      await _teamsViewModel
-          .initialLoadComplete; // Ensure teams are ready for deserialization
+      await _teamsViewModel.initialLoadComplete; // teams to build games with
 
       final event = await _db.child('${p.gamesPathRoot}/$dauCompDbKey').once();
       if (event.snapshot.exists) {
@@ -532,15 +524,10 @@ class GamesViewModel extends ChangeNotifier {
             })
             .whereType<Game>()
             .toList();
-
-        log(
-          'GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase',
-        );
-      } else {
-        log(
-          'GamesViewModel_fetchGamesForDAUCompKey: No games found for DAUComp $dauCompDbKey from Firebase',
-        );
       }
+      log(
+        'GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase',
+      );
     } catch (e) {
       log(
         'GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e',
@@ -548,6 +535,18 @@ class GamesViewModel extends ChangeNotifier {
     }
     _gamesByDAUCompKeyCache[dauCompDbKey] = fetchedGames;
     return fetchedGames;
+  }
+
+  /// Keys of the teams that play in more than one round of at least one
+  /// comp's stored games, each comp counted on its own. Finals placeholders
+  /// such as "1st" play in one round of a comp, or in none.
+  Future<Set<String>> teamKeysInSeveralRoundsOfAnyComp() async {
+    await initialLoadComplete;
+    return {
+      for (final compKey in _dauCompsViewModel.daucomps.map((c) => c.dbkey))
+        if (compKey != null)
+          ...teamKeysInSeveralRounds(await _fetchGamesForDAUCompKey(compKey)),
+    };
   }
 
   Future<List<Game>> getCompleteMatchupHistory(

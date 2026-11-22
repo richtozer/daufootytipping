@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_list.dart';
 import 'package:daufootytipping/pages/admin_teams/admin_teams_list.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_list.dart';
-import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_panel_card.dart';
@@ -15,12 +14,9 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
 
   @override
   Widget build(context) {
-    final DAUCompsViewModel dauCompsViewModel = watch(di<DAUCompsViewModel>());
     String selectedTipper =
         watch(di<TippersViewModel>()).selectedTipper.dbkey ?? '';
     log('AdminFunctionsWidget.build: selectedTipper=$selectedTipper');
-    // grab teamViewModel from gamesViewModel
-    final teamsViewModel = dauCompsViewModel.gamesViewModel?.teamsViewModel;
     return AppPanelCard(
       child: Padding(
         padding: const EdgeInsets.all(12.0),
@@ -58,12 +54,8 @@ class AdminFunctionsWidget extends StatelessWidget with WatchItMixin {
                 OutlinedButton(
                   child: const Text('Admin Teams'),
                   onPressed: () {
-                    Navigator.of(context).push(
-                      appPageRoute(
-                        (context) =>
-                            TeamsListPage(teamsViewModel: teamsViewModel!),
-                      ),
-                    );
+                    Navigator.of(context)
+                        .push(appPageRoute((context) => const TeamsListPage()));
                   },
                 ),
               ],
