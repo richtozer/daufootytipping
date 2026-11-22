@@ -126,9 +126,10 @@ const Color kOnControlGreenLight = kOnSelectionLightColor;
 const Color kControlGreenDark = kSelectionDarkColor;
 const Color kOnControlGreenDark = kOnSelectionDarkColor;
 
-/// Gives the switches, tick boxes and radio buttons the navigation's green when
-/// they are on and usable, so they match the buttons beside them instead of the
-/// theme's own dark green. Disabled, they go back to the theme's greys.
+/// Gives the switches, tick boxes, radio buttons and filter chips the
+/// navigation's green when they are on and usable, so they match the buttons
+/// beside them instead of the theme's own colours. Disabled, they go back to
+/// the theme's greys.
 ///
 /// A control that sets its own colour, such as the admin switches whose thumb
 /// warns in red or orange, still wins over this.
@@ -162,6 +163,12 @@ ThemeData withNavGreenControls(ThemeData theme) {
       ),
     ),
     radioTheme: theme.radioTheme.copyWith(fillColor: whenOn(green)),
+    // A ticked filter chip, with its tick and label in the text colour.
+    chipTheme: theme.chipTheme.copyWith(
+      selectedColor: green,
+      checkmarkColor: onGreen,
+      secondaryLabelStyle: TextStyle(color: onGreen),
+    ),
     // The one filled button, for the choice that goes ahead: the same green and
     // dark text as the navigation's buttons.
     filledButtonTheme: FilledButtonThemeData(

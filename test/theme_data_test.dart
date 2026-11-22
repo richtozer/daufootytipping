@@ -179,6 +179,10 @@ void main() {
           resolve(theme.switchTheme.trackColor, WidgetState.disabled),
           isNull,
         );
+        // A ticked filter chip is the same green, tick and label included.
+        expect(theme.chipTheme.selectedColor, green);
+        expect(theme.chipTheme.checkmarkColor, onGreen);
+        expect(theme.chipTheme.secondaryLabelStyle?.color, onGreen);
       });
 
       test(
