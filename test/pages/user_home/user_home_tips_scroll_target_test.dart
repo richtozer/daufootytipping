@@ -1072,4 +1072,136 @@ void main() {
       expect(anchored(300, to: after.sublist(1)), isNull);
     });
   });
+
+  group('Where the percentage page opens', () {
+    /// [roundCount] rounds a week apart, the first [completedRounds] of them
+    /// over. A round's games have final scores unless [unscoredRounds] names
+    /// it.
+    DAUComp comp({
+      required int roundCount,
+      required int completedRounds,
+      Set<int> unscoredRounds = const {},
+    }) {
+      final now = DateTime.now().toUtc();
+      return DAUComp(
+        name: 'Comp',
+        aflFixtureJsonURL: Uri.parse('https://afl'),
+        nrlFixtureJsonURL: Uri.parse('https://nrl'),
+        daurounds: [
+          for (var roundNumber = 1; roundNumber <= roundCount; roundNumber++)
+            () {
+              // Completed rounds ended well past the +6h threshold; the rest
+              // are still to come.
+              final roundStart = roundNumber <= completedRounds
+                  ? now.subtract(
+                      Duration(days: 7 * (completedRounds - roundNumber + 1)),
+                    )
+                  : now.add(
+                      Duration(days: 7 * (roundNumber - completedRounds)),
+                    );
+              return DAURound(
+                  dAUroundNumber: roundNumber,
+                  firstGameKickOffUTC: roundStart,
+                  lastGameKickOffUTC: roundStart.add(const Duration(days: 1)),
+                  games: [
+                    for (final league in const [League.nrl, League.afl])
+                      for (var match = 1; match <= 2; match++)
+                        Game(
+                          dbkey: '${league.name}-$roundNumber-$match',
+                          league: league,
+                          homeTeam: Team(dbkey: 'h', name: 'h', league: league),
+                          awayTeam: Team(dbkey: 'a', name: 'a', league: league),
+                          location: 'Ground',
+                          startTimeUTC: roundStart,
+                          fixtureRoundNumber: roundNumber,
+                          fixtureMatchNumber: match,
+                          scoring:
+                              roundNumber <= completedRounds &&
+                                  !unscoredRounds.contains(roundNumber)
+                              ? Scoring(homeTeamScore: 1, awayTeamScore: 0)
+                              : null,
+                        ),
+                  ],
+                )
+                ..roundState = roundNumber <= completedRounds
+                    ? RoundState.allGamesEnded
+                    : RoundState.notStarted;
+            }(),
+        ],
+      );
+    }
+
+    double offsetFor(DAUComp selectedComp) {
+      final sections = buildTipsLeagueSections(
+        selectedComp: selectedComp,
+        cardExtent: Game.gameCardHeight,
+        headerExtent: DAURound.leagueHeaderHeight,
+        officialFixtureScoresOnly: true,
+      );
+      return latestCompletedRoundOffset(
+        selectedComp: selectedComp,
+        sections: sections,
+      );
+    }
+
+    /// Where round [roundNumber]'s NRL section starts, every round before it
+    /// listed in full.
+    double roundTop(DAUComp selectedComp, int roundNumber) {
+      final sections = buildTipsLeagueSections(
+        selectedComp: selectedComp,
+        cardExtent: Game.gameCardHeight,
+        headerExtent: DAURound.leagueHeaderHeight,
+        officialFixtureScoresOnly: true,
+      );
+      return tipsSectionHeaderTop(
+        sections: sections,
+        sectionIndex: sections.indexWhere(
+          (section) => section.roundIndex == roundNumber - 1,
+        ),
+        leadingExtent: 0,
+      );
+    }
+
+    test('opens a finished comp on its last round', () {
+      final finished = comp(roundCount: 27, completedRounds: 27);
+      expect(offsetFor(finished), roundTop(finished, 27));
+    });
+
+    test('opens mid-season on the latest completed round', () {
+      final midSeason = comp(roundCount: 27, completedRounds: 12);
+      expect(offsetFor(midSeason), roundTop(midSeason, 12));
+    });
+
+    test('measures from the sections, whatever height the cards are', () {
+      final finished = comp(roundCount: 27, completedRounds: 27);
+      final tallCards = buildTipsLeagueSections(
+        selectedComp: finished,
+        cardExtent: 3 * Game.gameCardHeight,
+        headerExtent: DAURound.leagueHeaderHeight,
+        officialFixtureScoresOnly: true,
+      );
+      expect(
+        latestCompletedRoundOffset(selectedComp: finished, sections: tallCards),
+        tipsSectionHeaderTop(
+          sections: tallCards,
+          sectionIndex: tallCards.length - 2,
+          leadingExtent: 0,
+        ),
+      );
+    });
+
+    test('falls back to the round before when the latest has no final '
+        'scores yet', () {
+      final awaitingScores = comp(
+        roundCount: 27,
+        completedRounds: 12,
+        unscoredRounds: {12},
+      );
+      expect(offsetFor(awaitingScores), roundTop(awaitingScores, 11));
+    });
+
+    test('opens at the top before any round has completed', () {
+      expect(offsetFor(comp(roundCount: 27, completedRounds: 0)), 0);
+    });
+  });
 }

@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -33,12 +34,10 @@ class StatPercentTippedState extends State<StatPercentTipped> {
   String? _cardLayoutKey;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
-  int latestRoundNumber = 0;
   String? _lastScrolledCompDbKey;
   bool _selectingActiveComp = false;
   late ScrollController scrollController;
   late FocusNode focusNode;
-  int initialScrollOffset = -150;
 
   @override
   void initState() {
@@ -48,50 +47,36 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     focusNode = FocusNode();
     scrollController = ScrollController();
     daucompsViewModel.addListener(_handleDAUCompsUpdated);
-    _syncSelectedCompState();
     _ensureSelectedComp();
   }
 
   void _handleDAUCompsUpdated() {
     if (!mounted) return;
-    _syncSelectedCompState();
     _ensureSelectedComp();
   }
 
-  void _syncSelectedCompState() {
-    final selectedComp = daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
+  /// Opens each comp on its latest completed round, once the list it scrolls
+  /// has been laid out.
+  void _scrollToLatestCompletedRound(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> sections,
+  ) {
+    if (_lastScrolledCompDbKey == selectedComp.dbkey || sections.isEmpty) {
       return;
     }
-
-    final nextLatestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    log(
-      'StatPercentTipped._syncSelectedCompState() latestRoundNumber: $nextLatestRoundNumber',
+    _lastScrolledCompDbKey = selectedComp.dbkey;
+    final targetOffset = latestCompletedRoundOffset(
+      selectedComp: selectedComp,
+      sections: sections,
     );
-
-    if (latestRoundNumber != nextLatestRoundNumber && mounted) {
-      setState(() {
-        latestRoundNumber = nextLatestRoundNumber;
-      });
-    }
-
-    if (_lastScrolledCompDbKey != selectedComp.dbkey) {
-      _lastScrolledCompDbKey = selectedComp.dbkey;
-      final targetOffset =
-          selectedComp.pixelHeightUpToRound(nextLatestRoundNumber) +
-          initialScrollOffset;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !scrollController.hasClients) {
-          return;
-        }
-
-        final clampedOffset = targetOffset.clamp(
-          0.0,
-          scrollController.position.maxScrollExtent,
-        );
-        scrollController.jumpTo(clampedOffset);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scrollController.hasClients) {
+        return;
+      }
+      scrollController.jumpTo(
+        targetOffset.clamp(0.0, scrollController.position.maxScrollExtent),
+      );
+    });
   }
 
   void _ensureSelectedComp() {
@@ -193,6 +178,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                     headerExtent: cardLayout.headerExtent,
                     officialFixtureScoresOnly: true,
                   );
+                  _scrollToLatestCompletedRound(selectedComp, sections);
 
                   return ChangeNotifierProvider<StatsViewModel?>.value(
                     value: daucompsViewmodelConsumer.statsViewModel,

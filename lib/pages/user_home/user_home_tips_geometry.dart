@@ -128,6 +128,30 @@ int targetStartupSectionIndex(
   return targetSectionIndex == -1 ? 0 : targetSectionIndex;
 }
 
+/// Where the percentage page opens: the top of the latest completed round,
+/// or of the last round before it that has a section, as the page lists only
+/// games with a final score. 0 before any round has completed.
+double latestCompletedRoundOffset({
+  required DAUComp selectedComp,
+  required List<TipsLeagueSection> sections,
+}) {
+  final latestRoundIndex = selectedComp.latestsCompletedRoundNumber() - 1;
+  final lastListed = sections.lastIndexWhere(
+    (section) => section.roundIndex <= latestRoundIndex,
+  );
+  if (lastListed < 0) {
+    return 0;
+  }
+  final targetIndex = sections.indexWhere(
+    (section) => section.roundIndex == sections[lastListed].roundIndex,
+  );
+  return tipsSectionHeaderTop(
+    sections: sections,
+    sectionIndex: targetIndex,
+    leadingExtent: 0,
+  );
+}
+
 /// Callback type for finding the first untipped game index within a game list.
 typedef FirstUntippedGameIndexFn = int Function(List<Game> games);
 
