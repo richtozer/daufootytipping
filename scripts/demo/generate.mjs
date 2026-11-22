@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { COMP, NAMESPACE, roster } from './roster.mjs';
+import { LOGO_DIR, readLogos } from '../seed_team_logos.mjs';
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hour = 3600000;
@@ -103,15 +104,13 @@ function resultFor(key, game) {
   return homeMargin >= threshold ? 'a' : homeMargin > 0 ? 'b' : homeMargin === 0 ? 'c' : homeMargin <= -threshold ? 'e' : 'd';
 }
 
-// Each team's logo from team_logos/<teamKey>.svg, the same files the production
-// seed script uploads (scripts/seed_team_logos.mjs). A team with no file gets no
-// entry, and the app shows its initials, as it does for a new club.
-export function teamLogosFor(teams, logoDir = resolve(repoRoot, 'team_logos')) {
+// Every logo in team_logos/, the same files the production seed script uploads
+// (scripts/seed_team_logos.mjs). Logos for teams the demo does not have yet,
+// such as the Bears, are there when a fixture download adds the team.
+export function teamLogosFor(logoDir = LOGO_DIR) {
   const updatedUtc = '2026-11-15T00:00:00.000Z';
-  return Object.fromEntries(Object.keys(teams)
-    .map(teamKey => [teamKey, resolve(logoDir, `${teamKey}.svg`)])
-    .filter(([, file]) => existsSync(file))
-    .map(([teamKey, file]) => [teamKey, { svg: readFileSync(file, 'utf8'), updatedUtc }]));
+  return Object.fromEntries(Object.entries(readLogos(logoDir))
+    .map(([teamKey, svg]) => [teamKey, { svg, updatedUtc }]));
 }
 
 // Past seasons as their own competitions, unshifted, so head-to-head history
@@ -229,7 +228,7 @@ export function buildDemo(source, { anchor = new Date().toISOString(), avatarHos
     database.AllTips[COMP][person.tipperId] = tips;
   }
   if (history) addHistory(database, history);
-  database.TeamLogos = teamLogosFor(database.Teams);
+  database.TeamLogos = teamLogosFor();
   return { database, users, manifest: {
     comp: COMP, anchor: iso(now), currentRound: 8, completedRounds: 7, totalRounds: 12,
     sourceSeason: 2026, screenshotAccount: 'daisy@demo.example.test', avatarHost,

@@ -159,11 +159,11 @@ test('the emulator import folder holds the database and matching Auth accounts',
   }
 });
 
-test('team logos skip teams with no logo file instead of failing', () => {
-  const logos = teamLogosFor({ 'nrl-Broncos': {}, 'nrl-Perth Bears': {} });
-  assert.deepEqual(Object.keys(logos), ['nrl-Broncos']);
-  assert.match(logos['nrl-Broncos'].svg, /^<svg/);
-
+test('every logo file is seeded, including teams a later fixture download adds', () => {
   const { database } = buildDemo(source, { anchor });
-  for (const teamKey of Object.keys(database.TeamLogos)) assert.ok(database.Teams[teamKey], teamKey);
+  assert.deepEqual(database.TeamLogos, teamLogosFor());
+  // The 2027 NRL feed brings the Bears, which the backend keys as nrl-bears.
+  assert.equal(database.Teams['nrl-bears'], undefined);
+  assert.match(database.TeamLogos['nrl-bears'].svg, /^<svg/);
+  for (const teamKey of Object.keys(database.Teams)) assert.ok(database.TeamLogos[teamKey], teamKey);
 });
