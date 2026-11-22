@@ -78,13 +78,9 @@ class TipsTabState extends State<TipsTab> {
             child: CircularProgressIndicator(color: League.afl.colour),
           );
         }
-        // The list starts below the status bar, where its headers pin.
-        return Padding(
-          padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
-          child: LayoutBuilder(
-            builder: (context, constraints) =>
-                _buildList(context, constraints, selectedComp),
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) =>
+              _buildList(context, constraints, selectedComp),
         );
       },
     );
@@ -101,13 +97,26 @@ class TipsTabState extends State<TipsTab> {
       cardExtent: layout.cardExtent,
       headerExtent: layout.headerExtent,
     );
+    final topInset = MediaQuery.paddingOf(context).top;
+    // Every offset here is measured from just below the status bar: the
+    // spacer under it moves the list down by the inset and the line its
+    // headers pin to down by the same, so the two cancel. Only the room the
+    // list has to show itself in is the inset less.
     final maxScrollExtent = tipsMaxScrollExtent(
       sections: sections,
       leadingExtent: WelcomeHeader.height,
       footerExtent: EndFooter.extentIn(context),
-      viewportExtent: constraints.maxHeight,
+      viewportExtent: constraints.maxHeight - topInset,
     );
     final controller = _place(selectedComp, sections, maxScrollExtent);
+    final sectionTops = [
+      for (var index = 0; index < sections.length; index++)
+        tipsSectionHeaderTop(
+          sections: sections,
+          sectionIndex: index,
+          leadingExtent: WelcomeHeader.height,
+        ),
+    ];
     _laidOutSections = sections;
     _laidOutMaxScrollExtent = maxScrollExtent;
     final currentTipper = di<TippersViewModel>().selectedTipper;
@@ -124,6 +133,13 @@ class TipsTabState extends State<TipsTab> {
             key: ValueKey(_placementKey),
             controller: controller,
             slivers: [
+              // The status bar's height, pinned and see-through: the cards
+              // scroll up under the status bar, and every round's header
+              // pins below it. Taps there do not reach a card that has
+              // scrolled past; a drag from there still scrolls.
+              PinnedHeaderSliver(
+                child: AbsorbPointer(child: SizedBox(height: topInset)),
+              ),
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: WelcomeHeader.height,
@@ -132,14 +148,17 @@ class TipsTabState extends State<TipsTab> {
                   ),
                 ),
               ),
-              for (final section in sections)
+              for (final (index, section) in sections.indexed)
                 buildRoundLeagueSection(
                   section: section,
                   dauCompsViewModel: daucompsViewModel,
                   currentTipper: currentTipper,
                   isPercentStatsPage: false,
                   layout: layout,
-                  pinHeader: true,
+                  pinnedIn: (
+                    controller: controller,
+                    sectionTop: sectionTops[index],
+                  ),
                 ),
               const SliverToBoxAdapter(child: EndFooter()),
             ],

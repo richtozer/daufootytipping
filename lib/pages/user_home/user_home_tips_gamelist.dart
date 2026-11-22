@@ -12,17 +12,21 @@ import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:flutter/material.dart';
 
+/// Where a pinned section sits: the list scrolled by [controller], and the
+/// offset of its header ([tipsSectionHeaderTop]).
+typedef TipsPinning = ({ScrollController controller, double sectionTop});
+
 /// One section of the list: the league's header for the round, then its games.
 ///
-/// With [pinHeader] the header stays at the top while the section's games
-/// scroll beneath it, until the next section's header pushes it off.
+/// [pinnedIn] pins the header at the top while the section's games scroll
+/// beneath it, until the next section's header pushes it off.
 Widget buildRoundLeagueSection({
   required TipsLeagueSection section,
   required TipsCardLayout layout,
   required DAUCompsViewModel dauCompsViewModel,
   required Tipper currentTipper,
   required bool isPercentStatsPage,
-  required bool pinHeader,
+  TipsPinning? pinnedIn,
 }) {
   final selectedComp = dauCompsViewModel.selectedDAUComp!;
   final dauRound = selectedComp.daurounds[section.roundIndex];
@@ -46,11 +50,12 @@ Widget buildRoundLeagueSection({
 
   return SliverMainAxisGroup(
     slivers: [
-      if (pinHeader)
+      if (pinnedIn != null)
         SliverPersistentHeader(
           pinned: true,
           delegate: _PinnedHeaderDelegate(
-            extent: section.headerExtent,
+            section: section,
+            pinnedIn: pinnedIn,
             header: header,
           ),
         )
@@ -102,13 +107,25 @@ Widget buildRoundLeagueSection({
   );
 }
 
-/// A section's header, pinned. Once it is pinned over the section's cards it
-/// blurs them, in the same see-through colour as before: without the blur the
-/// cards ghost through its text.
+/// A section's header, pinned. While it covers cards it blurs them, in the
+/// same see-through colour as before: without the blur the cards ghost
+/// through its text.
+///
+/// Headers pin to a line, which under a notch is just below the status bar.
+/// The next section's header pushes this one up past that line, and the part
+/// that has gone past it is clipped away: the cards scroll on up under the
+/// status bar, and the header tucks under its edge.
 class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _PinnedHeaderDelegate({required this.extent, required this.header});
+  const _PinnedHeaderDelegate({
+    required this.section,
+    required this.pinnedIn,
+    required this.header,
+  });
 
-  final double extent;
+  final TipsLeagueSection section;
+  final TipsPinning pinnedIn;
+
+  double get extent => section.headerExtent;
 
   /// Built with the list rather than by [build], so the frames that only
   /// scroll it reuse the same widget and do not rebuild the tile. A rebuild of
@@ -127,6 +144,26 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final controller = pinnedIn.controller;
+    final sectionEnd =
+        pinnedIn.sectionTop + section.headerExtent + section.bodyExtent;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, child) {
+        final offset = controller.hasClients ? controller.offset : 0.0;
+        // How far the next header has pushed this one past the pin line.
+        final pastLine = (offset + extent - sectionEnd).clamp(0.0, extent);
+        return ClipRect(
+          clipper: _ClipTop(pastLine),
+          clipBehavior: pastLine > 0 ? Clip.hardEdge : Clip.none,
+          child: child,
+        );
+      },
+      child: _header(shrinkOffset, overlapsContent),
+    );
+  }
+
+  Widget _header(double shrinkOffset, bool overlapsContent) {
     return SizedBox(
       height: extent,
       child: RepaintBoundary(
@@ -135,7 +172,9 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(kCardCornerRadius),
             child: BackdropFilter(
-              enabled: shrinkOffset > 0,
+              // Over cards once pinned: scrolled into its section, or pinned
+              // below something pinned above it, such as the status bar.
+              enabled: shrinkOffset > 0 || overlapsContent,
               filter: ui.ImageFilter.blur(
                 sigmaX: kGlassBlurSigma,
                 sigmaY: kGlassBlurSigma,
@@ -150,7 +189,22 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_PinnedHeaderDelegate oldDelegate) =>
-      extent != oldDelegate.extent || header != oldDelegate.header;
+      section != oldDelegate.section ||
+      pinnedIn != oldDelegate.pinnedIn ||
+      header != oldDelegate.header;
+}
+
+/// Clips away the top [top] of its child.
+class _ClipTop extends CustomClipper<Rect> {
+  const _ClipTop(this.top);
+
+  final double top;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(0, top, size.width, size.height);
+
+  @override
+  bool shouldReclip(_ClipTop oldClipper) => oldClipper.top != top;
 }
 
 class _NoGamesCard extends StatelessWidget {

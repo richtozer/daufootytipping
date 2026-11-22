@@ -24,6 +24,7 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/load_tips_fonts.dart';
@@ -265,7 +266,10 @@ void main() {
   /// The header pinned at the top of the list: its tile sits inside 4 of
   /// padding at the list's top. Null while the welcome header is there.
   Element? pinnedHeader(WidgetTester tester) {
-    final listTop = tester.getTopLeft(find.byType(CustomScrollView)).dy;
+    // Headers pin just below the status bar.
+    final listTop =
+        tester.getTopLeft(find.byType(CustomScrollView)).dy +
+        MediaQuery.paddingOf(tester.element(find.byType(TipsTab))).top;
     for (final element in find.byType(RoundLeagueHeaderListTile).evaluate()) {
       final top = (element.renderObject! as RenderBox).localToGlobal(
         Offset.zero,
@@ -856,6 +860,131 @@ void main() {
     await pumpHome(tester);
 
     expectLeagueAtTop(tester, League.nrl);
+  });
+
+  group('under a notch', () {
+    const notch = EdgeInsets.only(top: 62);
+
+    testWidgets('a header pushed off tucks under the status-bar line', (
+      tester,
+    ) async {
+      await pumpHome(tester, padding: notch);
+      await tapTips(tester);
+      await tapTips(tester);
+      expectLeagueAtTop(tester, League.afl);
+
+      // At the AFL stop the NRL header has been pushed up against it, into
+      // the status bar. What it would draw there is clipped away, leaving
+      // the cards it covered.
+      final nrlHeader = find.byWidgetPredicate(
+        (widget) =>
+            widget is RoundLeagueHeaderListTile && widget.league == League.nrl,
+        skipOffstage: false,
+      );
+      final clip = tester.renderObject<RenderClipRect>(
+        find.ancestor(of: nrlHeader, matching: find.byType(ClipRect)).first,
+      );
+      final clipper = clip.clipper;
+      expect(clipper, isNotNull);
+      if (clipper == null) return;
+      final drawnFrom = clip
+          .localToGlobal(clipper.getClip(clip.size).topLeft)
+          .dy;
+      expect(drawnFrom, closeTo(notch.top, 0.5));
+    });
+
+    testWidgets('a reader at the end stays there when the inset changes', (
+      tester,
+    ) async {
+      final now = DateTime.now().toUtc();
+      round
+        ..roundState = RoundState.allGamesEnded
+        ..firstGameKickOffUTC = now.subtract(const Duration(days: 2))
+        ..lastGameKickOffUTC = now.subtract(const Duration(days: 1));
+      final tipsState = await pumpHome(tester, padding: notch);
+      final controller = tipsState.scrollController!;
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
+
+      for (final padding in [EdgeInsets.zero, notch]) {
+        await tester.pumpWidget(appHosting(padding: padding));
+        await tester.pump();
+        expect(
+          controller.offset,
+          closeTo(controller.position.maxScrollExtent, 0.5),
+          reason: 'still at the very end with a top inset of ${padding.top}',
+        );
+      }
+    });
+
+    testWidgets('cards scroll under the status bar, headers pin below it', (
+      tester,
+    ) async {
+      tipsWithFirstUntipped(nrl: 4, afl: -1);
+      await pumpHome(tester, padding: notch);
+
+      expect(
+        tester.getTopLeft(find.byType(CustomScrollView)).dy,
+        0,
+        reason: 'the list reaches the top of the screen',
+      );
+      expect(stickyLeague(tester), League.nrl);
+      expect(
+        gameTop(tester, League.nrl, 4),
+        closeTo(stickyBottom(tester), 1),
+        reason: 'the header pinned below the status bar, its game below it',
+      );
+      expect(
+        gameTop(tester, League.nrl, 3),
+        lessThan(notch.top),
+        reason: 'an earlier game up under the status bar',
+      );
+    });
+
+    testWidgets('a header blurs from the first card it covers', (tester) async {
+      final tipsState = await pumpHome(tester, padding: notch);
+      await tapTips(tester);
+      await tapTips(tester);
+      expectLeagueAtTop(tester, League.afl);
+      final aflBlur = find.ancestor(
+        of: find.byWidgetPredicate(
+          (widget) =>
+              widget is RoundLeagueHeaderListTile &&
+              widget.league == League.afl,
+        ),
+        matching: find.byType(BackdropFilter),
+      );
+      expect(
+        tester.widget<BackdropFilter>(aflBlur).enabled,
+        isFalse,
+        reason: 'at its stop it covers nothing yet',
+      );
+
+      // Half the inset past the AFL stop: the AFL header has been pinned
+      // below the status bar all the way, with its first card running in
+      // under it, though it is not yet scrolled past its own place.
+      final controller = tipsState.scrollController!;
+      controller.jumpTo(controller.offset + notch.top / 2);
+      await tester.pump();
+
+      expect(tester.widget<BackdropFilter>(aflBlur).enabled, isTrue);
+    });
+
+    testWidgets('keeps the reader on their game when the inset changes', (
+      tester,
+    ) async {
+      tipsWithFirstUntipped(nrl: -1, afl: 2);
+      await pumpHome(tester, padding: notch);
+      expect(stickyLeague(tester), League.afl);
+      expect(gameTop(tester, League.afl, 2), closeTo(stickyBottom(tester), 1));
+
+      // Turned to landscape, the status bar goes.
+      await tester.pumpWidget(appHosting());
+      await tester.pump();
+
+      expect(stickyLeague(tester), League.afl);
+      expect(gameTop(tester, League.afl, 2), closeTo(stickyBottom(tester), 1));
+    });
   });
 
   group('under a notch, startup puts the first game to tip just below the '

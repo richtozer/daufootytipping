@@ -303,7 +303,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                                               .selectedTipper,
                                           isPercentStatsPage: true,
                                           layout: cardLayout,
-                                          pinHeader: false,
                                         ),
                                       SliverToBoxAdapter(
                                         child: SizedBox(
