@@ -1,7 +1,5 @@
 import 'package:collection/collection.dart';
 import 'dauround.dart';
-import 'game.dart';
-import 'league.dart';
 import '../constants/paths.dart' as p;
 
 class DAUComp implements Comparable<DAUComp> {
@@ -97,39 +95,6 @@ class DAUComp implements Comparable<DAUComp> {
     return roundNumber;
   }
 
-  // method to calculate the pixel height up to the supplied round number
-  // this is used to scroll the listView to the correct position when the tips page is loaded
-  double pixelHeightUpToRound(int roundNumber) {
-    double totalHeight = 0;
-
-    // add the height of the welcome header if roundNumber is greater than zero
-    if (roundNumber > 0) totalHeight += 200;
-
-    // add height for each round up to the supplied round number
-    for (var dauround in daurounds) {
-      if (dauround.dAUroundNumber <= roundNumber) {
-        // add the height for 2 headers - use DAURound.getGamesForRound to get the games for each league,
-        // if league has no games, then use emptyLeagueRoundHeight otherwise use leagueHeaderHeight
-        dauround.getGamesForLeague(League.nrl).isEmpty
-            ? totalHeight += DAURound.noGamesCardHeight
-            : dauround.roundState == RoundState.allGamesEnded
-            ? totalHeight += DAURound.leagueHeaderEndedHeight
-            : totalHeight += DAURound.leagueHeaderHeight;
-
-        dauround.getGamesForLeague(League.afl).isEmpty
-            ? totalHeight += DAURound.noGamesCardHeight
-            : dauround.roundState == RoundState.allGamesEnded
-            ? totalHeight += DAURound.leagueHeaderEndedHeight
-            : totalHeight += DAURound.leagueHeaderHeight;
-
-        // add the height for all games in the round
-        totalHeight += dauround.games.length * Game.gameCardHeight;
-      }
-    }
-
-    return totalHeight;
-  }
-
   // get lowest round number where RoundState is notStarted or started
   int firstNotEndedRoundNumber() {
     int lowestRoundNumber = daurounds.length;
@@ -161,12 +126,27 @@ class DAUComp implements Comparable<DAUComp> {
       lastFixtureUpdateTimestampUTC: data[p.lastFixtureUTCKey] != null
           ? DateTime.parse(data[p.lastFixtureUTCKey])
           : null,
-      aflRegularCompEndDateUTC: data[p.aflRegularCompEndDateUTCKey] != null
-          ? DateTime.parse(data[p.aflRegularCompEndDateUTCKey])
-          : null,
-      nrlRegularCompEndDateUTC: data[p.nrlRegularCompEndDateUTCKey] != null
-          ? DateTime.parse(data[p.nrlRegularCompEndDateUTCKey])
-          : null,
+      aflRegularCompEndDateUTC: _cutoffFromJson(
+        data[p.aflRegularCompEndDateUTCKey],
+      ),
+      nrlRegularCompEndDateUTC: _cutoffFromJson(
+        data[p.nrlRegularCompEndDateUTCKey],
+      ),
+    );
+  }
+
+  /// Older comps saved their cutoffs with no time zone. The backend runs in
+  /// UTC and reads those as UTC, so every client does too.
+  static DateTime? _cutoffFromJson(Object? value) {
+    final parsed = value is String ? DateTime.tryParse(value) : null;
+    if (parsed == null || parsed.isUtc) return parsed;
+    return DateTime.utc(
+      parsed.year,
+      parsed.month,
+      parsed.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
     );
   }
 

@@ -1,6 +1,14 @@
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/team_logo_validator.dart';
+import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:watch_it/watch_it.dart';
 
 // this class only supports updating Team records. for referential
 // integrity reasons, we do not allow teams to be deleted
@@ -19,11 +27,11 @@ class _TeamEditPageState extends State<TeamEditPage> {
   late Team team;
 
   late TextEditingController _teamNameController;
-  late TextEditingController _teamLogoURIController;
 
   late bool disableBackButton = false;
   late bool disableSaves = true;
   late bool isSaving = false;
+  bool _isUploadingLogo = false;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
@@ -31,7 +39,6 @@ class _TeamEditPageState extends State<TeamEditPage> {
     super.initState();
     team = widget.team;
     _teamNameController = TextEditingController(text: team.name);
-    _teamLogoURIController = TextEditingController(text: team.logoURI);
   }
 
   @override
@@ -52,7 +59,6 @@ class _TeamEditPageState extends State<TeamEditPage> {
         name: _teamNameController.text,
         dbkey: oldTeam.dbkey,
         league: oldTeam.league,
-        logoURI: _teamLogoURIController.text,
       );
 
       await widget.teamsViewModel.editTeam(teamEdited);
@@ -84,128 +90,221 @@ class _TeamEditPageState extends State<TeamEditPage> {
     }
   }
 
+  /// Picks an SVG, checks it, shows it beside the current logo and stores it
+  /// only once the admin confirms. The logo preview on this page updates when
+  /// the `/TeamLogos` listener receives the change.
+  Future<void> _uploadLogo() async {
+    final PlatformFile? file = await FilePicker.pickFile(
+      dialogTitle: 'Choose the ${team.name} logo',
+      type: FileType.custom,
+      allowedExtensions: const ['svg'],
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _isUploadingLogo = true);
+    String? message;
+    try {
+      final String svg = await validateTeamLogo(await file.readAsBytes());
+      if (!mounted) return;
+      final bool confirmed = await confirmTeamLogoReplacement(
+        context: context,
+        team: team,
+        svg: svg,
+      );
+      if (confirmed) {
+        await di<TeamLogosViewModel>().saveLogo(
+          teamDbKey: team.dbkey,
+          svg: svg,
+        );
+        message = 'Logo updated for ${team.name}.';
+      }
+    } on TeamLogoRejected catch (rejection) {
+      message = rejection.message;
+    } on Exception {
+      message = 'The logo could not be saved.';
+    }
+    if (!mounted) return;
+    setState(() => _isUploadingLogo = false);
+    if (message == null) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (BuildContext context) {
-            return IconButton(
-              icon: disableBackButton
-                  ? const ImageIcon(
-                      null,
-                    ) // dont show anything clickable while saving is in progress
-                  : const Icon(Icons.arrow_back),
-              onPressed: disableBackButton
-                  ? null
-                  : () {
-                      Navigator.maybePop(context);
-                    },
-            );
-          },
-        ),
-        actions: <Widget>[
-          Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: isSaving
-                    ? const Icon(Icons.hourglass_bottom)
-                    : disableSaves
-                    ? const Icon(Icons.save_outlined) // Disabled save icon
-                    : const Icon(Icons.save), // Enabled save icon
-                onPressed: (disableSaves || isSaving)
-                    ? null
-                    : () async {
-                        // Validate will return true if the form is valid, or false if
-                        // the form is invalid.
-                        final isValid = _formKey.currentState!.validate();
-                        if (isValid) {
-                          _saveTeam(context, team);
-                        }
-                      },
-              );
-            },
+    // Back is the floating control's maybePop, so a save in progress holds the
+    // page here the same way it held the old back button.
+    return PopScope(
+      canPop: !disableBackButton,
+      child: AppAdminPage(
+        title: 'Edit Team',
+        actions: [
+          AppGlassAction(
+            icon: isSaving
+                ? Icons.hourglass_bottom
+                : disableSaves
+                ? Icons.save_outlined
+                : Icons.save,
+            label: 'Save',
+            onPressed: (disableSaves || isSaving)
+                ? null
+                : () async {
+                    // Validate will return true if the form is valid, or false
+                    // if the form is invalid.
+                    final isValid = _formKey.currentState!.validate();
+                    if (isValid) {
+                      _saveTeam(context, team);
+                    }
+                  },
           ),
         ],
-        title: const Text('Edit Team'),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: [
+                    const Text('Name:'),
+                    Expanded(
+                      child: TextFormField(
+                        enabled: !disableBackButton,
+                        controller: _teamNameController,
+                        onChanged: (String value) {
+                          if (team.name != value) {
+                            //something has changed, allow saves
+                            setState(() {
+                              disableSaves = false;
+                            });
+                          } else {
+                            setState(() {
+                              disableSaves = true;
+                            });
+                          }
+                        },
+                        decoration: const InputDecoration(
+                          hintText: 'Team name',
+                        ),
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).nextFocus();
+                        },
+                        validator: (String? value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a team name';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Row(
+                    children: [
+                      const Text('Logo:'),
+                      const SizedBox(width: 12),
+                      TeamLogo(
+                        teamDbKey: team.dbkey,
+                        teamName: team.name,
+                        size: 48,
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: (_isUploadingLogo || disableBackButton)
+                            ? null
+                            : _uploadLogo,
+                        icon: _isUploadingLogo
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file),
+                        label: const Text('Upload logo'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: [
-                  const Text('Name:'),
-                  Expanded(
-                    child: TextFormField(
-                      enabled: !disableBackButton,
-                      controller: _teamNameController,
-                      onChanged: (String value) {
-                        if (team.name != value) {
-                          //something has changed, allow saves
-                          setState(() {
-                            disableSaves = false;
-                          });
-                        } else {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                        }
-                      },
-                      decoration: const InputDecoration(hintText: 'Team name'),
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).nextFocus();
-                      },
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a team name';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
+    );
+  }
+}
+
+/// Shows [team]'s current logo beside [svg] at header and list sizes, and
+/// returns whether the admin chose to replace the current logo.
+Future<bool> confirmTeamLogoReplacement({
+  required BuildContext context,
+  required Team team,
+  required String svg,
+}) async {
+  final bool? replace = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Replace the ${team.name} logo?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _LogoPreview(
+                label: 'Current',
+                logoAt: (size) => TeamLogo(
+                  teamDbKey: team.dbkey,
+                  teamName: team.name,
+                  size: size,
+                ),
               ),
-              Row(
-                children: [
-                  const Text('Logo:'),
-                  Expanded(
-                    child: TextFormField(
-                      enabled: !disableBackButton,
-                      controller: _teamLogoURIController,
-                      onChanged: (String value) {
-                        if (team.logoURI != value) {
-                          //something has changed, allow saves
-                          setState(() {
-                            disableSaves = false;
-                          });
-                        } else {
-                          setState(() {
-                            disableSaves = true;
-                          });
-                        }
-                      },
-                      decoration: const InputDecoration(hintText: 'Logo'),
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).nextFocus();
-                      },
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a team logo link';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
+              _LogoPreview(
+                label: 'New',
+                logoAt: (size) =>
+                    SvgPicture.string(svg, width: size, height: size),
               ),
             ],
           ),
-        ),
+        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Replace logo'),
+        ),
+      ],
+    ),
+  );
+  return replace ?? false;
+}
+
+/// A logo shown at the header size (96) and the list size (28) under a label.
+class _LogoPreview extends StatelessWidget {
+  const _LogoPreview({required this.label, required this.logoAt});
+
+  final String label;
+  final Widget Function(double size) logoAt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        logoAt(96),
+        const SizedBox(height: 8),
+        logoAt(28),
+      ],
     );
   }
 }

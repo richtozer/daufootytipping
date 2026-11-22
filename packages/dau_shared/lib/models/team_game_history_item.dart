@@ -1,6 +1,6 @@
 class TeamGameHistoryItem {
   final String opponentName;
-  final String? opponentLogoUri;
+  final String opponentDbKey;
   final int teamScore; // Score of the team for whom the history is being viewed
   final int opponentScore;
   final String result; // "Won", "Lost", "Draw" (relative to the team)
@@ -12,7 +12,7 @@ class TeamGameHistoryItem {
 
   TeamGameHistoryItem({
     required this.opponentName,
-    this.opponentLogoUri,
+    required this.opponentDbKey,
     required this.teamScore,
     required this.opponentScore,
     required this.result,

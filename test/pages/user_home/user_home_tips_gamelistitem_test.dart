@@ -1,6 +1,6 @@
-import 'package:carousel_slider/carousel_controller.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/daucomp.dart';
+import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/ladder_team.dart';
 import 'package:daufootytipping/models/league.dart';
@@ -8,9 +8,12 @@ import 'package:daufootytipping/models/league_ladder.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelistitem.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -21,10 +24,46 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
+/// A layout measured at phone width, so the card renders its standard form.
+TipsCardLayout testTipsCardLayout({
+  double width = 390,
+  double scale = 1,
+  bool percentStats = false,
+}) {
+  const textTheme = Typography.englishLike2021;
+  return TipsCardLayout.measure(
+    width: width,
+    textScaler: TextScaler.linear(scale),
+    textTheme: textTheme,
+    textDirection: TextDirection.ltr,
+    cards: [
+      for (final card in tipsMeasurementCards(const <DAURound>[]))
+        card.content(textTheme),
+    ],
+    percentStats: percentStats,
+  );
+}
+
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
+
 class MockGameTipViewModel extends Mock implements GameTipViewModel {}
+
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+
 class MockStatsViewModel extends Mock implements StatsViewModel {}
+
+/// A copy of [game] that kicked off a day ago, so tipping on it has closed.
+Game _closedGameLike(Game game) => Game(
+  dbkey: game.dbkey,
+  league: game.league,
+  homeTeam: game.homeTeam,
+  awayTeam: game.awayTeam,
+  location: game.location,
+  startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 1)),
+  fixtureRoundNumber: game.fixtureRoundNumber,
+  fixtureMatchNumber: game.fixtureMatchNumber,
+  scoring: game.scoring,
+);
 
 void main() {
   late MockDAUCompsViewModel mockDauCompsViewModel;
@@ -96,10 +135,7 @@ void main() {
       tipperRole: TipperRole.tipper,
     );
 
-    currentLadder = buildLadder([
-      game.homeTeam.dbkey,
-      game.awayTeam.dbkey,
-    ]);
+    currentLadder = buildLadder([game.homeTeam.dbkey, game.awayTeam.dbkey]);
 
     when(
       () => mockDauCompsViewModel.getOrCalculateLeagueLadder(
@@ -107,16 +143,13 @@ void main() {
         forceRecalculate: any(named: 'forceRecalculate'),
       ),
     ).thenAnswer((_) async => currentLadder);
-    when(
-      () => mockDauCompsViewModel.leagueLadderRevision,
-    ).thenReturn(ladderRevision);
+    when(() => mockDauCompsViewModel.leagueLadderRevision)
+        .thenReturn(ladderRevision);
+    when(() => mockDauCompsViewModel.statsViewModel).thenReturn(null);
 
     when(() => mockGameTipViewModel.game).thenReturn(game);
     when(() => mockGameTipViewModel.tip).thenReturn(null);
     when(() => mockGameTipViewModel.savingTip).thenReturn(false);
-    when(
-      () => mockGameTipViewModel.controller,
-    ).thenReturn(CarouselSliderController());
 
     di.registerSingleton<DAUCompsViewModel>(mockDauCompsViewModel);
   });
@@ -134,6 +167,7 @@ void main() {
           value: null,
           child: Scaffold(
             body: GameListItem(
+              layout: testTipsCardLayout(),
               game: game,
               currentTipper: currentTipper,
               currentDAUComp: currentComp,
@@ -149,8 +183,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1st'), findsOneWidget);
-    expect(find.text('2nd'), findsOneWidget);
+    expect(find.textContaining('1st', findRichText: true), findsOneWidget);
+    expect(find.textContaining('2nd', findRichText: true), findsOneWidget);
     verify(
       () => mockDauCompsViewModel.getOrCalculateLeagueLadder(
         League.nrl,
@@ -158,6 +192,9 @@ void main() {
       ),
     ).called(1);
     verify(() => mockDauCompsViewModel.leagueLadderRevision).called(1);
+    // The tips tab reads its stats from here too.
+    verify(() => mockDauCompsViewModel.statsViewModel)
+        .called(greaterThanOrEqualTo(1));
     verifyNoMoreInteractions(mockDauCompsViewModel);
   });
 
@@ -170,6 +207,7 @@ void main() {
           value: null,
           child: Scaffold(
             body: GameListItem(
+              layout: testTipsCardLayout(),
               game: game,
               currentTipper: currentTipper,
               currentDAUComp: previousComp,
@@ -185,8 +223,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('1st'), findsOneWidget);
-    expect(find.text('2nd'), findsOneWidget);
+    expect(find.textContaining('1st', findRichText: true), findsOneWidget);
+    expect(find.textContaining('2nd', findRichText: true), findsOneWidget);
 
     currentLadder = buildLadder([
       'nrl-filler-1',
@@ -204,6 +242,7 @@ void main() {
           value: null,
           child: Scaffold(
             body: GameListItem(
+              layout: testTipsCardLayout(),
               game: game,
               currentTipper: currentTipper,
               currentDAUComp: currentComp,
@@ -219,10 +258,10 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('4th'), findsOneWidget);
-    expect(find.text('7th'), findsOneWidget);
-    expect(find.text('1st'), findsNothing);
-    expect(find.text('2nd'), findsNothing);
+    expect(find.textContaining('4th', findRichText: true), findsOneWidget);
+    expect(find.textContaining('7th', findRichText: true), findsOneWidget);
+    expect(find.textContaining('1st', findRichText: true), findsNothing);
+    expect(find.textContaining('2nd', findRichText: true), findsNothing);
     verify(
       () => mockDauCompsViewModel.getOrCalculateLeagueLadder(
         League.nrl,
@@ -231,55 +270,60 @@ void main() {
     ).called(2);
   });
 
-  testWidgets('refetches ladder ranks when fixture scores invalidate the ladder', (
-    tester,
-  ) async {
-    Widget buildSubject() => MaterialApp(
-      home: Provider<StatsViewModel?>.value(
-        value: null,
-        child: Scaffold(
-          body: GameListItem(
-            game: game,
-            currentTipper: currentTipper,
-            currentDAUComp: currentComp,
-            allTipsViewModel: mockTipsViewModel,
-            isPercentStatsPage: false,
-            gameTipViewModel: mockGameTipViewModel,
+  testWidgets(
+    'refetches ladder ranks when fixture scores invalidate the ladder',
+    (tester) async {
+      Widget buildSubject() => MaterialApp(
+        home: Provider<StatsViewModel?>.value(
+          value: null,
+          child: Scaffold(
+            body: GameListItem(
+              layout: testTipsCardLayout(),
+              game: game,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: false,
+              gameTipViewModel: mockGameTipViewModel,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    await tester.pumpWidget(buildSubject());
-    await tester.pump();
-    await tester.pump();
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('1st'), findsOneWidget);
-    expect(find.text('2nd'), findsOneWidget);
+      expect(find.textContaining('1st', findRichText: true), findsOneWidget);
+      expect(find.textContaining('2nd', findRichText: true), findsOneWidget);
 
-    currentLadder = buildLadder([
-      'nrl-filler-1',
-      'nrl-filler-2',
-      game.awayTeam.dbkey,
-      'nrl-filler-3',
-      game.homeTeam.dbkey,
-    ]);
-    ladderRevision.value++;
+      currentLadder = buildLadder([
+        'nrl-filler-1',
+        'nrl-filler-2',
+        game.awayTeam.dbkey,
+        'nrl-filler-3',
+        game.homeTeam.dbkey,
+      ]);
+      ladderRevision.value++;
 
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text('3rd'), findsOneWidget);
-    expect(find.text('5th'), findsOneWidget);
-    expect(find.text('1st'), findsNothing);
-    expect(find.text('2nd'), findsNothing);
-  });
+      expect(find.textContaining('3rd', findRichText: true), findsOneWidget);
+      expect(find.textContaining('5th', findRichText: true), findsOneWidget);
+      expect(find.textContaining('1st', findRichText: true), findsNothing);
+      expect(find.textContaining('2nd', findRichText: true), findsNothing);
+    },
+  );
 
   testWidgets('replaces percentage spinners when game stats arrive', (
     tester,
   ) async {
     final statsViewModel = MockStatsViewModel();
+    // How the field tipped exists only once tipping has closed.
+    final closedGame = _closedGameLike(game);
+    when(() => mockGameTipViewModel.game).thenReturn(closedGame);
     GameStatsEntry? gameStatsEntry;
     var loadState = GameStatsLoadState.notRequested;
     late VoidCallback statsListener;
@@ -287,15 +331,14 @@ void main() {
       statsListener = invocation.positionalArguments[0] as VoidCallback;
     });
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
-    when(
-      () => statsViewModel.gameStatsEntryFor(game),
-    ).thenAnswer((_) => gameStatsEntry);
-    when(
-      () => statsViewModel.gameStatsLoadStateFor(game),
-    ).thenAnswer((_) => loadState);
-    when(() => statsViewModel.getGamesStatsEntry(game, false)).thenAnswer((_) {
-      loadState = GameStatsLoadState.loading;
-    });
+    when(() => statsViewModel.gameStatsEntryFor(closedGame))
+        .thenAnswer((_) => gameStatsEntry);
+    when(() => statsViewModel.gameStatsLoadStateFor(closedGame))
+        .thenAnswer((_) => loadState);
+    when(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+        .thenAnswer((_) {
+          loadState = GameStatsLoadState.loading;
+        });
 
     await tester.pumpWidget(
       MaterialApp(
@@ -303,7 +346,8 @@ void main() {
           value: statsViewModel,
           child: Scaffold(
             body: GameListItem(
-              game: game,
+              layout: testTipsCardLayout(percentStats: true),
+              game: closedGame,
               currentTipper: currentTipper,
               currentDAUComp: currentComp,
               allTipsViewModel: mockTipsViewModel,
@@ -318,7 +362,8 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
     expect(find.text('?'), findsNothing);
-    verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+    verify(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+        .called(1);
 
     gameStatsEntry = GameStatsEntry(
       percentageTippedHomeMargin: 0.035,
@@ -344,6 +389,9 @@ void main() {
     'repairs an incomplete first percentage card with a direct stats read',
     (tester) async {
       final statsViewModel = MockStatsViewModel();
+      // How the field tipped exists only once tipping has closed.
+      final closedGame = _closedGameLike(game);
+      when(() => mockGameTipViewModel.game).thenReturn(closedGame);
       GameStatsEntry? gameStatsEntry = GameStatsEntry();
       var loadState = GameStatsLoadState.notRequested;
       late VoidCallback statsListener;
@@ -360,17 +408,14 @@ void main() {
         statsListener = invocation.positionalArguments[0] as VoidCallback;
       });
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
-      when(
-        () => statsViewModel.gameStatsEntryFor(game),
-      ).thenAnswer((_) => gameStatsEntry);
-      when(
-        () => statsViewModel.gameStatsLoadStateFor(game),
-      ).thenAnswer((_) => loadState);
-      when(
-        () => statsViewModel.getGamesStatsEntry(game, false),
-      ).thenAnswer((_) {
-        loadState = GameStatsLoadState.loading;
-      });
+      when(() => statsViewModel.gameStatsEntryFor(closedGame))
+          .thenAnswer((_) => gameStatsEntry);
+      when(() => statsViewModel.gameStatsLoadStateFor(closedGame))
+          .thenAnswer((_) => loadState);
+      when(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+          .thenAnswer((_) {
+            loadState = GameStatsLoadState.loading;
+          });
 
       await tester.pumpWidget(
         MaterialApp(
@@ -378,7 +423,8 @@ void main() {
             value: statsViewModel,
             child: Scaffold(
               body: GameListItem(
-                game: game,
+                layout: testTipsCardLayout(percentStats: true),
+                game: closedGame,
                 currentTipper: currentTipper,
                 currentDAUComp: currentComp,
                 allTipsViewModel: mockTipsViewModel,
@@ -393,7 +439,8 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsNWidgets(5));
       expect(find.text('?'), findsNothing);
-      verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
+      verify(() => statsViewModel.getGamesStatsEntry(closedGame, false))
+          .called(1);
 
       gameStatsEntry = directEntry;
       loadState = GameStatsLoadState.resolved;
@@ -417,14 +464,12 @@ void main() {
       });
       when(() => statsViewModel.removeListener(any())).thenReturn(null);
       when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
-      when(
-        () => statsViewModel.gameStatsLoadStateFor(game),
-      ).thenAnswer((_) => loadState);
-      when(
-        () => statsViewModel.getGamesStatsEntry(game, false),
-      ).thenAnswer((_) {
-        loadState = GameStatsLoadState.loading;
-      });
+      when(() => statsViewModel.gameStatsLoadStateFor(game))
+          .thenAnswer((_) => loadState);
+      when(() => statsViewModel.getGamesStatsEntry(game, false))
+          .thenAnswer((_) {
+            loadState = GameStatsLoadState.loading;
+          });
 
       await tester.pumpWidget(
         MaterialApp(
@@ -432,6 +477,7 @@ void main() {
             value: statsViewModel,
             child: Scaffold(
               body: GameListItem(
+                layout: testTipsCardLayout(percentStats: true),
                 game: game,
                 currentTipper: currentTipper,
                 currentDAUComp: currentComp,
@@ -467,9 +513,8 @@ void main() {
     when(() => statsViewModel.addListener(any())).thenReturn(null);
     when(() => statsViewModel.removeListener(any())).thenReturn(null);
     when(() => statsViewModel.gameStatsEntryFor(game)).thenReturn(null);
-    when(
-      () => statsViewModel.gameStatsLoadStateFor(game),
-    ).thenReturn(GameStatsLoadState.notRequested);
+    when(() => statsViewModel.gameStatsLoadStateFor(game))
+        .thenReturn(GameStatsLoadState.notRequested);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -480,6 +525,7 @@ void main() {
               value: value,
               child: Scaffold(
                 body: GameListItem(
+                  layout: testTipsCardLayout(percentStats: true),
                   game: game,
                   currentTipper: currentTipper,
                   currentDAUComp: currentComp,
@@ -504,53 +550,51 @@ void main() {
     verify(() => statsViewModel.getGamesStatsEntry(game, false)).called(1);
   });
 
-  testWidgets(
-    'does not show an endless spinner when an untipped game starts',
-    (tester) async {
-      Widget buildSubject() {
-        return MaterialApp(
-          home: Provider<StatsViewModel?>.value(
-            value: null,
-            child: Scaffold(
-              body: GameListItem(
-                game: game,
-                currentTipper: currentTipper,
-                currentDAUComp: currentComp,
-                allTipsViewModel: mockTipsViewModel,
-                isPercentStatsPage: false,
-                gameTipViewModel: mockGameTipViewModel,
-              ),
+  testWidgets('does not show an endless spinner when an untipped game starts', (
+    tester,
+  ) async {
+    Widget buildSubject() {
+      return MaterialApp(
+        home: Provider<StatsViewModel?>.value(
+          value: null,
+          child: Scaffold(
+            body: GameListItem(
+              layout: testTipsCardLayout(),
+              game: game,
+              currentTipper: currentTipper,
+              currentDAUComp: currentComp,
+              allTipsViewModel: mockTipsViewModel,
+              isPercentStatsPage: false,
+              gameTipViewModel: mockGameTipViewModel,
             ),
           ),
-        );
-      }
-
-      await tester.pumpWidget(buildSubject());
-      await tester.pump();
-      await tester.pump();
-
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-
-      game = Game(
-        dbkey: game.dbkey,
-        league: game.league,
-        homeTeam: game.homeTeam,
-        awayTeam: game.awayTeam,
-        location: game.location,
-        startTimeUTC: DateTime.now().toUtc().subtract(
-          const Duration(minutes: 1),
         ),
-        fixtureRoundNumber: game.fixtureRoundNumber,
-        fixtureMatchNumber: game.fixtureMatchNumber,
-        scoring: game.scoring,
       );
-      when(() => mockGameTipViewModel.game).thenReturn(game);
-      await tester.pumpWidget(buildSubject());
-      await tester.pump();
+    }
 
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-    },
-  );
+    await tester.pumpWidget(buildSubject());
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    game = Game(
+      dbkey: game.dbkey,
+      league: game.league,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      location: game.location,
+      startTimeUTC: DateTime.now().toUtc().subtract(const Duration(minutes: 1)),
+      fixtureRoundNumber: game.fixtureRoundNumber,
+      fixtureMatchNumber: game.fixtureMatchNumber,
+      scoring: game.scoring,
+    );
+    when(() => mockGameTipViewModel.game).thenReturn(game);
+    await tester.pumpWidget(buildSubject());
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
 
   testWidgets(
     'shows interim banner for crowdsourced scores even after live window',
@@ -591,6 +635,7 @@ void main() {
             value: null,
             child: Scaffold(
               body: GameListItem(
+                layout: testTipsCardLayout(),
                 game: liveScoredGame,
                 currentTipper: currentTipper,
                 currentDAUComp: currentComp,
@@ -650,6 +695,7 @@ void main() {
           value: null,
           child: Scaffold(
             body: GameListItem(
+              layout: testTipsCardLayout(),
               game: finalScoredGame,
               currentTipper: currentTipper,
               currentDAUComp: currentComp,
@@ -666,6 +712,119 @@ void main() {
     await tester.pump();
 
     expect(_findBanner('* Interim'), findsNothing);
+  });
+
+  group('tips tab average points', () {
+    late Game finishedGame;
+    late MockStatsViewModel statsViewModel;
+    late VoidCallback statsListener;
+    late Tip tip;
+    GameStatsEntry? gameStatsEntry;
+
+    setUp(() {
+      finishedGame = Game(
+        dbkey: game.dbkey,
+        league: game.league,
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        location: game.location,
+        startTimeUTC: DateTime.now().toUtc().subtract(const Duration(days: 2)),
+        fixtureRoundNumber: game.fixtureRoundNumber,
+        fixtureMatchNumber: game.fixtureMatchNumber,
+        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+      );
+      tip = Tip(
+        game: finishedGame,
+        tipper: currentTipper,
+        tip: GameResult.b,
+        submittedTimeUTC: DateTime.now().toUtc().subtract(
+          const Duration(days: 3),
+        ),
+      );
+      when(() => mockGameTipViewModel.game).thenReturn(finishedGame);
+      when(() => mockGameTipViewModel.tip).thenReturn(tip);
+
+      gameStatsEntry = null;
+      statsViewModel = MockStatsViewModel();
+      when(() => statsViewModel.addListener(any())).thenAnswer((invocation) {
+        statsListener = invocation.positionalArguments[0] as VoidCallback;
+      });
+      when(() => statsViewModel.removeListener(any())).thenReturn(null);
+      when(() => statsViewModel.gameStatsEntryFor(finishedGame))
+          .thenAnswer((_) => gameStatsEntry);
+      when(() => mockDauCompsViewModel.statsViewModel)
+          .thenReturn(statsViewModel);
+    });
+
+    Widget buildSubject() {
+      return MaterialApp(
+        home: Scaffold(
+          body: GameListItem(
+            layout: testTipsCardLayout(),
+            game: finishedGame,
+            currentTipper: currentTipper,
+            currentDAUComp: currentComp,
+            allTipsViewModel: mockTipsViewModel,
+            isPercentStatsPage: false,
+            gameTipViewModel: mockGameTipViewModel,
+          ),
+        ),
+      );
+    }
+
+    String averageLine(WidgetTester tester) {
+      return tester
+          .widgetList<RichText>(find.byType(RichText))
+          .map((richText) => richText.text.toPlainText())
+          .singleWhere((text) => text.contains('Avg Points:'))
+          .replaceAll(' ', ' ');
+    }
+
+    testWidgets('shows the average from the stats view model', (tester) async {
+      gameStatsEntry = GameStatsEntry(
+        averagePoints: 1.5,
+        averagePointsTipCount: 40,
+      );
+
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: 1.5 / ${tip.getMaxPointsCalculated()}',
+      );
+    });
+
+    testWidgets('fills in the average when the stats arrive later', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: ? / ${tip.getMaxPointsCalculated()}',
+      );
+
+      gameStatsEntry = GameStatsEntry(
+        averagePoints: 0.75,
+        averagePointsTipCount: 40,
+      );
+      statsListener();
+      await tester.pump();
+
+      expect(
+        averageLine(tester),
+        'Avg Points: 0.75 / ${tip.getMaxPointsCalculated()}',
+      );
+    });
+
+    testWidgets('does not request stats from the tips tab', (tester) async {
+      await tester.pumpWidget(buildSubject());
+      await tester.pump();
+
+      verifyNever(() => statsViewModel.getGamesStatsEntry(finishedGame, any()));
+    });
   });
 }
 

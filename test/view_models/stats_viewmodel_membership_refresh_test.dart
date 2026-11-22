@@ -92,7 +92,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: database,
+      signedIn: () => Stream.value(true), database: database,
     );
     await Future<void>.delayed(Duration.zero);
 
@@ -131,7 +131,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: database,
+      signedIn: () => Stream.value(true), database: database,
     );
     await Future<void>.delayed(Duration.zero);
 
@@ -164,7 +164,7 @@ void main() {
     final viewModel = StatsViewModel(
       comp,
       gamesViewModel,
-      database: database,
+      signedIn: () => Stream.value(true), database: database,
     );
     await Future<void>.delayed(Duration.zero);
 

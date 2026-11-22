@@ -35,6 +35,9 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
+# Line-count reports from the VS Code Counter extension
+.VSCodeCounter/
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
@@ -78,3 +81,7 @@ node_modules/
 
 # Dart functions compiled executable
 functions_dart/bin/server
+
+# Golden test failure diffs, written by flutter test on a mismatch
+test/**/failures/
+/firebase.demo.json

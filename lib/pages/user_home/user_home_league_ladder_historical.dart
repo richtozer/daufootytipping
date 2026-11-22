@@ -1,13 +1,15 @@
 import 'dart:developer';
 
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
 import 'package:watch_it/watch_it.dart';
 
 class LeagueLadderHistoricalMatchups extends StatefulWidget {
@@ -30,8 +32,105 @@ class _LeagueLadderHistoricalMatchupsState
   List<HistoricalMatchupUIData>? _historicalMatchups;
   bool _isLoadingHistoricalData = false;
   String? _historicalDataError;
-  int? _historicalSortColumnIndex;
+  // Arrives newest first, which is Date descending; say so in the heading,
+  // and sort on load so the heading is telling the truth.
+  int? _historicalSortColumnIndex = 0;
   bool _historicalSortAscending = false;
+
+  static const columns = [
+    AppColumn.text('Date', sortable: true, descendingFirst: true),
+    AppColumn.text('Your Tip', sortable: true),
+    AppColumn.text('Winner', sortable: true),
+    AppColumn.numeric('Score', sortable: true),
+  ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final matchups = _historicalMatchups ?? <HistoricalMatchupUIData>[];
+    final values = <Object?>[
+      isDarkMode,
+      for (final matchup in matchups) ...[
+        matchup.month,
+        matchup.year,
+        matchup.isCurrentYear,
+        matchup.winType,
+        matchup.userTipTeamName,
+        matchup.winningTeamName,
+        matchup.pastGame.scoring?.homeTeamScore,
+        matchup.pastGame.scoring?.awayTeamScore,
+        matchup.pastGame.homeTeam.dbkey,
+        matchup.pastGame.awayTeam.dbkey,
+      ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    // The shading the ladder and the game history use to mark what matters: here,
+    // a game the tipper called correctly.
+    final correctColour = widget.league.rowShading(isDarkMode: isDarkMode);
+    _rows = [
+      for (final matchup in matchups)
+        AppRow(
+          colour: _tippedCorrectly(matchup) ? correctColour : null,
+          cells: [
+            AppCell.text(
+              matchup.isCurrentYear
+                  ? matchup.month
+                  : '${matchup.month} ${matchup.year}',
+            ),
+            _tipCell(matchup),
+            _winnerCell(matchup),
+            AppCell.text(
+              '${matchup.pastGame.scoring?.homeTeamScore ?? '-'} - '
+              '${matchup.pastGame.scoring?.awayTeamScore ?? '-'}',
+            ),
+          ],
+        ),
+    ];
+    return _rows;
+  }
+
+  bool _tippedCorrectly(HistoricalMatchupUIData matchup) =>
+      matchup.userTipTeamName.isNotEmpty &&
+      matchup.userTipTeamName == matchup.winningTeamName;
+
+  AppCell _tipCell(HistoricalMatchupUIData matchup) {
+    if (matchup.userTipTeamName.isEmpty) {
+      return const AppCell.text(
+        'N/A',
+        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+      );
+    }
+    return AppCell.text(
+      matchup.userTipTeamName,
+      semanticLabel:
+          '${matchup.userTipTeamName}, ${_tippedCorrectly(matchup) ? 'correct' : 'incorrect'} tip',
+    );
+  }
+
+  AppCell _winnerCell(HistoricalMatchupUIData matchup) {
+    final home = matchup.winType == 'Home';
+    final hasWinner = home || matchup.winType == 'Away';
+    final label = home ? 'Home' : 'Away';
+    return AppCell.text(
+      matchup.winningTeamName,
+      style: TextStyle(
+        fontWeight: matchup.winType == 'Draw'
+            ? FontWeight.normal
+            : FontWeight.w500,
+      ),
+      semanticLabel: hasWinner
+          ? '$label, ${matchup.winningTeamName}'
+          : matchup.winningTeamName,
+      leadingSize: hasWinner ? const Size(20, 20) : Size.zero,
+      leading: hasWinner
+          ? _buildTeamLogo(
+              home ? matchup.pastGame.homeTeam : matchup.pastGame.awayTeam,
+            )
+          : null,
+    );
+  }
 
   @override
   void initState() {
@@ -156,6 +255,7 @@ class _LeagueLadderHistoricalMatchupsState
       if (mounted) {
         setState(() {
           _historicalMatchups = displayData;
+          _applyHistoricalSort();
           _isLoadingHistoricalData = false;
         });
       }
@@ -193,312 +293,122 @@ class _LeagueLadderHistoricalMatchupsState
     setState(() {
       _historicalSortColumnIndex = columnIndex;
       _historicalSortAscending = ascending;
-
-      _historicalMatchups!.sort((a, b) {
-        int compareResult = 0;
-        switch (columnIndex) {
-          case 0:
-            compareResult = a.pastGame.startTimeUTC.compareTo(
-              b.pastGame.startTimeUTC,
-            );
-            break;
-          case 1:
-            compareResult = a.userTipTeamName.compareTo(b.userTipTeamName);
-            break;
-          case 2:
-            compareResult = a.winningTeamName.compareTo(b.winningTeamName);
-            break;
-          case 3:
-            final int aTotal =
-                (a.pastGame.scoring?.homeTeamScore ?? 0) +
-                (a.pastGame.scoring?.awayTeamScore ?? 0);
-            final int bTotal =
-                (b.pastGame.scoring?.homeTeamScore ?? 0) +
-                (b.pastGame.scoring?.awayTeamScore ?? 0);
-            compareResult = aTotal.compareTo(bTotal);
-            break;
-        }
-        return ascending ? compareResult : -compareResult;
-      });
+      _applyHistoricalSort();
     });
   }
 
-  Widget _buildTipOutcomeCell(HistoricalMatchupUIData matchup) {
-    if (matchup.userTipTeamName.isEmpty) {
-      return const Text(
-        'N/A',
-        style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
-      );
-    }
-
-    bool tipWasCorrect = false;
-    Color textColor = Colors.red;
-    Icon? icon;
-
-    if (matchup.winningTeamName == 'Draw' &&
-        matchup.userTipTeamName == 'Draw') {
-      tipWasCorrect = true;
-    } else if (matchup.winningTeamName != 'Draw' &&
-        matchup.userTipTeamName == matchup.winningTeamName) {
-      tipWasCorrect = true;
-    }
-
-    if (tipWasCorrect) {
-      textColor = Colors.green;
-      icon = const Icon(Icons.check_circle, size: 14, color: Colors.green);
-    } else {
-      textColor = Colors.red;
-      icon = const Icon(Icons.cancel, size: 14, color: Colors.red);
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        icon,
-        const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            matchup.userTipTeamName,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
-    );
+  /// Puts the rows in the order the heading claims they are in, rather than
+  /// trusting whatever order they arrived in to match.
+  void _applyHistoricalSort() {
+    final int? columnIndex = _historicalSortColumnIndex;
+    final List<HistoricalMatchupUIData>? matchups = _historicalMatchups;
+    if (columnIndex == null || matchups == null) return;
+    final bool ascending = _historicalSortAscending;
+    matchups.sort((a, b) {
+      int compareResult = 0;
+      switch (columnIndex) {
+        case 0:
+          compareResult = a.pastGame.startTimeUTC.compareTo(
+            b.pastGame.startTimeUTC,
+          );
+          break;
+        case 1:
+          compareResult = a.userTipTeamName.compareTo(b.userTipTeamName);
+          break;
+        case 2:
+          compareResult = a.winningTeamName.compareTo(b.winningTeamName);
+          break;
+        case 3:
+          final int aTotal =
+              (a.pastGame.scoring?.homeTeamScore ?? 0) +
+              (a.pastGame.scoring?.awayTeamScore ?? 0);
+          final int bTotal =
+              (b.pastGame.scoring?.homeTeamScore ?? 0) +
+              (b.pastGame.scoring?.awayTeamScore ?? 0);
+          compareResult = aTotal.compareTo(bTotal);
+          break;
+      }
+      return ascending ? compareResult : -compareResult;
+    });
   }
 
-  Widget _buildTeamLogo(String? logoURI) {
-    if (logoURI != null && logoURI.isNotEmpty) {
-      return SvgPicture.asset(
-        logoURI,
-        width: 20,
-        height: 20,
-        placeholderBuilder: (context) =>
-            const Icon(Icons.shield, size: 20, color: Colors.grey),
-      );
-    }
-    return const Icon(Icons.shield, size: 20, color: Colors.grey);
-  }
-
-  Widget _buildWinnerCell(HistoricalMatchupUIData matchup) {
-    final game = matchup.pastGame;
-    String? winnerLogoURI;
-    if (matchup.winType == 'Home') {
-      winnerLogoURI = game.homeTeam.logoURI;
-    } else if (matchup.winType == 'Away') {
-      winnerLogoURI = game.awayTeam.logoURI;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (matchup.winType != 'Draw' && matchup.winType != 'Unknown') ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: (matchup.winType == 'Home')
-                  ? Colors.blue.withValues(alpha: 0.1)
-                  : Colors.purple.withValues(alpha: 0.1),
-              border: Border.all(
-                color: (matchup.winType == 'Home')
-                    ? Colors.blue.withValues(alpha: 0.3)
-                    : Colors.purple.withValues(alpha: 0.3),
-                width: 1,
-              ),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              matchup.winType == 'Home' ? 'Home' : 'Away',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: (matchup.winType == 'Home')
-                    ? Colors.blue[700]
-                    : Colors.purple[700],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          _buildTeamLogo(winnerLogoURI),
-          const SizedBox(width: 6),
-        ],
-        Flexible(
-          child: Text(
-            matchup.winningTeamName,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontWeight: matchup.winType == 'Draw'
-                  ? FontWeight.normal
-                  : FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildTeamLogo(Team team) =>
+      TeamLogo(teamDbKey: team.dbkey, teamName: team.name, size: 20);
 
   @override
   Widget build(BuildContext context) {
-    final Orientation orientation = MediaQuery.of(context).orientation;
+    return AppTableFrame(
+      // A section of the comparison page, not the page itself: it keeps its
+      // heading beside its own table rather than borrowing the one above.
+      fill: false,
+      columns: columns,
+      rows: _tableRows(context),
+      frozenLeading: 1,
+      heading: const AppTableHeading(
+        leading: Icon(Icons.history, size: 50),
+        title: 'Historical Matchups',
+        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Shaded rows mark games you tipped correctly.',
+      ),
+      table: _matchupsTable(context),
+    );
+  }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+  Widget _matchupsTable(BuildContext context) {
+    if (_isLoadingHistoricalData) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    final String? error = _historicalDataError;
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Historical Matchups',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Icon(Icons.history, size: 50),
-                ],
+              Text(
+                'Error loading historical data: $error',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
               ),
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'Recent head-to-head history between these teams. Includes your tipping history (where available). Tap column headings to sort.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                  ),
-                ),
               const SizedBox(height: 8),
-              if (_isLoadingHistoricalData)
-                const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (_historicalDataError != null)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'Error loading historical data: $_historicalDataError',
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: _fetchHistoricalMatchups,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else if (_historicalMatchups == null ||
-                  _historicalMatchups!.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: Center(
-                    child: Text(
-                      'No historical matchups found between these teams.',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                )
-              else
-                SizedBox(
-                  height: 400,
-                  child: DataTable2(
-                    border: TableBorder.all(
-                      width: 1.0,
-                      color: Colors.grey.shade300,
-                    ),
-                    columnSpacing: 8,
-                    horizontalMargin: 8,
-                    fixedTopRows: 1,
-                    fixedLeftColumns: orientation == Orientation.portrait
-                        ? 1
-                        : 0,
-                    showCheckboxColumn: false,
-                    isHorizontalScrollBarVisible: true,
-                    isVerticalScrollBarVisible: true,
-                    sortColumnIndex: _historicalSortColumnIndex,
-                    sortAscending: _historicalSortAscending,
-                    dataRowHeight: 48.0,
-                    headingRowHeight: 40.0,
-                    columns: [
-                      DataColumn2(
-                        fixedWidth: 75,
-                        label: const Text(
-                          'Date',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        fixedWidth: 110,
-                        label: const Text(
-                          'Your Tip',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        size: ColumnSize.L,
-                        label: const Text(
-                          'Winner',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                      DataColumn2(
-                        fixedWidth: 70,
-                        label: const Text(
-                          'Score',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onSort: _onHistoricalSort,
-                      ),
-                    ],
-                    rows: _historicalMatchups!.map((matchup) {
-                      final game = matchup.pastGame;
-                      final String homeScore =
-                          game.scoring?.homeTeamScore?.toString() ?? '-';
-                      final String awayScore =
-                          game.scoring?.awayTeamScore?.toString() ?? '-';
-
-                      return DataRow2(
-                        cells: [
-                          DataCell(
-                            Text(
-                              matchup.isCurrentYear
-                                  ? matchup.month
-                                  : '${matchup.month} ${matchup.year}',
-                            ),
-                          ),
-                          DataCell(_buildTipOutcomeCell(matchup)),
-                          DataCell(_buildWinnerCell(matchup)),
-                          DataCell(
-                            Text(
-                              '$homeScore - $awayScore',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
+              ElevatedButton(
+                onPressed: _fetchHistoricalMatchups,
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-      ],
+      );
+    }
+    final matchups = _historicalMatchups;
+    if (matchups == null || matchups.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32.0),
+        child: Center(
+          child: Text(
+            'No historical matchups found between these teams.',
+            style: TextStyle(fontSize: 16),
+          ),
+        ),
+      );
+    }
+    final int? sortColumn = _historicalSortColumnIndex;
+    return Padding(
+      padding: const EdgeInsets.all(5.0),
+      child: AppTable(
+        columns: columns,
+        rows: _tableRows(context),
+        frozenLeading: 1,
+        sort: sortColumn == null
+            ? null
+            : AppSort(column: sortColumn, ascending: _historicalSortAscending),
+        onSort: _onHistoricalSort,
+        fitToRows: true,
+        // The AFL ladder keeps the AFL red; other tables take the nav green.
+        scrollbarColour: widget.league == League.afl ? League.afl.colour : null,
+      ),
     );
   }
 }

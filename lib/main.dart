@@ -1,27 +1,41 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth.dart';
+import 'package:daufootytipping/pages/user_auth/app_loading_screen.dart';
+import 'package:daufootytipping/pages/user_auth/app_root_navigator.dart';
+import 'package:daufootytipping/pages/user_auth/startup_connection_screen.dart';
 import 'package:daufootytipping/pages/user_auth/user_auth_login_issue_screen.dart';
 import 'package:daufootytipping/platform/firebase_app_check_debug_token.dart'
     as firebase_app_check_debug_token;
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
+import 'package:daufootytipping/widgets/connection_loss_notice.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
+import 'package:daufootytipping/services/core_view_model_registration.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/app_resume_data_refresher.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/analytics_service.dart';
+import 'package:daufootytipping/services/connection_loss_monitor.dart';
+import 'package:daufootytipping/services/retired_view_models.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/server_clock.dart';
 import 'package:daufootytipping/services/app_resume_refresh_coordinator.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
+import 'package:daufootytipping/view_models/team_logos_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flex_color_scheme/flex_color_scheme.dart';
@@ -30,10 +44,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'
     show GlobalMaterialLocalizations;
 import 'package:provider/provider.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watch_it/watch_it.dart';
+
 import 'firebase_options.dart';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/services/cached_tipper_store.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
+import 'package:daufootytipping/services/functions_identity_invoker.dart';
+import 'package:daufootytipping/services/identity_service.dart';
+import 'package:daufootytipping/services/linked_tipper_resolver.dart';
+import 'package:daufootytipping/services/tipper_link_service.dart';
 
 Future<void> main() async {
   StartupProfiling.instant('startup.main_entered');
@@ -42,6 +64,19 @@ Future<void> main() async {
   const bool useFirebaseEmulators = bool.fromEnvironment(
     'USE_FIREBASE_EMULATORS',
     defaultValue: true,
+  );
+  // Only the demo backend (`start_local_backend.sh --demo`) runs the Auth
+  // emulator; other local sessions keep signing in with real Firebase Auth.
+  const bool useAuthEmulator = bool.fromEnvironment(
+    'USE_AUTH_EMULATOR',
+    defaultValue: false,
+  );
+  // Opt-in: an emulator build that keeps the offline cache, as production does,
+  // so a write queued without a connection survives a restart. Off by default:
+  // a persistent cache outlives a demo restart that re-imports the data.
+  const bool emulatorPersistence = bool.fromEnvironment(
+    'EMULATOR_PERSISTENCE',
+    defaultValue: false,
   );
   const String webAppCheckDebugToken = String.fromEnvironment(
     'WEB_APP_CHECK_DEBUG_TOKEN',
@@ -64,32 +99,6 @@ Future<void> main() async {
   // Do not start running the application widget code until the Flutter framework is completely booted
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (!kIsWeb &&
-      defaultTargetPlatform == TargetPlatform.android &&
-      AppResumeDiagnostics.compileTimeEnabled) {
-    try {
-      final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      await AppResumeDiagnostics.initialize(
-        processDetails: <String, Object?>{
-          'platform': defaultTargetPlatform.name,
-          'buildMode': kReleaseMode
-              ? 'release'
-              : kProfileMode
-              ? 'profile'
-              : 'debug',
-          'version': packageInfo.version,
-          'buildNumber': packageInfo.buildNumber,
-        },
-      );
-    } catch (error, stackTrace) {
-      log(
-        'Android resume diagnostics initialization failed; continuing without diagnostics: $error',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
   // On web, the App Check debug token must be set before Firebase is initialized.
   if (kIsWeb && kDebugMode) {
     if (webAppCheckDebugToken.isNotEmpty) {
@@ -100,8 +109,8 @@ Future<void> main() async {
         'FIREBASE_APPCHECK_DEBUG_TOKEN set to a fixed token from WEB_APP_CHECK_DEBUG_TOKEN',
       );
     } else {
-      final Object? existingAppCheckDebugToken =
-          firebase_app_check_debug_token.getFirebaseAppCheckDebugToken();
+      final Object? existingAppCheckDebugToken = firebase_app_check_debug_token
+          .getFirebaseAppCheckDebugToken();
 
       if (existingAppCheckDebugToken is String &&
           existingAppCheckDebugToken.isNotEmpty) {
@@ -118,33 +127,42 @@ Future<void> main() async {
   // Initialize Firebase.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Configure Auth before any listener or repository can use the default app.
+  if (kDebugMode && useFirebaseEmulators && useAuthEmulator) {
+    await FirebaseAuth.instance.useAuthEmulator(firebaseEmulatorHost, 8099);
+  }
+
   // Configure Realtime Database immediately after Firebase init so persistence
   // is set before any downstream code can create references/listeners.
-  final FirebaseDatabase database = FirebaseDatabase.instance;
-  if (AppResumeDiagnostics.enabled) {
-    try {
-      database.setLoggingEnabled(true);
-      AppResumeDiagnostics.record(
-        'native_rtdb_logging_enabled',
-        attachToActiveAttempt: false,
-      );
-    } catch (error, stackTrace) {
-      log(
-        'Native RTDB diagnostic logging could not be enabled: $error',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    }
-  }
+  // The plugin applies only the first of "use the emulator" and "persist" that it
+  // is given, so a persistent emulator build names the emulator in the database
+  // address instead of calling useDatabaseEmulator.
+  final bool persistInEmulator =
+      kDebugMode && useFirebaseEmulators && emulatorPersistence && !kIsWeb;
+  final FirebaseDatabase database = persistInEmulator
+      ? FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL:
+              'http://$firebaseEmulatorHost:8000'
+              '?ns=${Firebase.app().options.projectId}-default-rtdb',
+        )
+      : FirebaseDatabase.instance;
   if (kDebugMode && useFirebaseEmulators) {
-    database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    if (persistInEmulator) {
+      configureRealtimeDatabasePersistence(
+        database,
+        platform: defaultTargetPlatform,
+      );
+    } else {
+      database.useDatabaseEmulator(firebaseEmulatorHost, 8000);
+    }
     FirebaseFunctions.instance.useFunctionsEmulator(firebaseEmulatorHost, 9229);
     StartupProfiling.instant(
       'startup.database_configured',
       arguments: <String, Object?>{
         'mode': 'emulator',
-        'persistenceEnabled': false,
-        'cacheMb': 0,
+        'persistenceEnabled': persistInEmulator,
+        'cacheMb': persistInEmulator ? 100 : 0,
       },
     );
   } else {
@@ -182,8 +200,8 @@ Future<void> main() async {
     };
 
     PlatformDispatcher.instance.onError = (error, stack) {
-      final bool fatal = CrashlyticsErrorClassifier
-          .shouldRecordPlatformErrorAsFatal(error);
+      final bool fatal =
+          CrashlyticsErrorClassifier.shouldRecordPlatformErrorAsFatal(error);
       FirebaseCrashlytics.instance.recordError(
         error,
         stack,
@@ -251,7 +269,7 @@ Future<void> main() async {
   if (kDebugMode && useFirebaseEmulators) {
     FirebaseFirestore.instance.useFirestoreEmulator(firebaseEmulatorHost, 8081);
     log(
-      'Firebase emulators configured: database=$firebaseEmulatorHost:8000, functions=$firebaseEmulatorHost:9229, firestore=$firebaseEmulatorHost:8081',
+      'Firebase emulators configured: auth=${useAuthEmulator ? '$firebaseEmulatorHost:8099' : 'live'}, database=$firebaseEmulatorHost:8000, functions=$firebaseEmulatorHost:9229, firestore=$firebaseEmulatorHost:8081',
     );
   } else if (kDebugMode) {
     log(
@@ -261,6 +279,20 @@ Future<void> main() async {
 
   di.allowReassignment = true;
   di.registerLazySingleton<PackageInfoService>(() => PackageInfoService());
+  di.registerSingleton<ServerClock>(ServerClock(serverTimeOffsets()));
+  di.registerLazySingleton<UnconfirmedTipsService>(
+    () => UnconfirmedTipsService(
+      connectionStates: realtimeDatabaseConnectionStates(),
+    ),
+  );
+
+  // The image cache's first use looks up the temp directory, which the
+  // path_provider plugins now answer synchronously over FFI/JNI, loading their
+  // native bindings on that first call. Left to the first avatar, that stall
+  // lands mid-paint on whichever page shows one; taken here, the splash hides it.
+  if (!kIsWeb) {
+    CachedNetworkImageProvider.defaultCacheManager;
+  }
 
   runApp(
     MultiProvider(
@@ -270,6 +302,9 @@ Future<void> main() async {
       ],
       child: MyApp(
         cloudFunctionsBaseURLOverride: cloudFunctionsBaseURLOverride,
+        identityEmulatorHost: kDebugMode && useFirebaseEmulators
+            ? firebaseEmulatorHost
+            : null,
       ),
     ),
   );
@@ -280,42 +315,62 @@ class MyApp extends StatefulWidget {
   const MyApp({
     super.key,
     this.cloudFunctionsBaseURLOverride,
+    this.identityEmulatorHost,
   });
 
   final String? cloudFunctionsBaseURLOverride;
+
+  /// The host of the local Functions emulator in a debug build that uses the
+  /// emulators; null otherwise, and the deployed identity callables are used.
+  final String? identityEmulatorHost;
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  String? _registeredActiveCompKey;
-  bool? _registeredCreateLinkedTipper;
+  final CoreViewModelRegistration _coreViewModels = CoreViewModelRegistration(
+    di,
+  );
   bool _coreWarmupScheduled = false;
   late final AppResumeDataRefresher _resumeDataRefresher;
   late final AppResumeRefreshCoordinator _resumeRefreshCoordinator;
+  late final ConnectionLossMonitor _connectionLossMonitor;
+  final AppControlsViewModel _appControlsViewModel = AppControlsViewModel();
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final RetiredViewModels _retiredViewModels = RetiredViewModels(di);
+  late final AppControlsObserver _appControlsObserver = AppControlsObserver(
+    _appControlsViewModel,
+  );
 
   @override
   void initState() {
     super.initState();
+    if (di.isRegistered<AppControlsViewModel>()) {
+      di.unregister<AppControlsViewModel>();
+    }
+    di.registerSingleton<AppControlsViewModel>(_appControlsViewModel);
+    if (di.isRegistered<AppRootNavigator>()) {
+      di.unregister<AppRootNavigator>();
+    }
+    di.registerSingleton<AppRootNavigator>(
+      AppRootNavigator(
+        navigatorKey: _navigatorKey,
+        rootBuilder: _buildRootPage,
+        onReturn: _forgetCoreViewModelRegistration,
+        onOldRoutesGone: _retiredViewModels.disposeRetired,
+      ),
+    );
     _resumeDataRefresher = AppResumeDataRefresher(
       platform: defaultTargetPlatform,
       reconnectRealtimeDatabase: _reconnectRealtimeDatabaseAfterResume,
       refreshFixtureData: _refreshFixtureDataAfterResume,
-      reconnectRetryDelays: const [
-        Duration(seconds: 1),
-        Duration(seconds: 2),
-      ],
+      reconnectRetryDelays: const [Duration(seconds: 1), Duration(seconds: 2)],
       onReconnectError: (error, stackTrace) {
         log(
           'Android resume RTDB reconnect failed; continuing with fixture refresh: $error',
           error: error,
           stackTrace: stackTrace,
-        );
-        AppResumeDiagnostics.record(
-          'reconnect_exhausted_continuing_to_fixture_refresh',
-          details: <String, Object?>{'error': error.toString()},
-          anomalous: true,
         );
       },
     );
@@ -331,118 +386,69 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           error: error,
           stackTrace: stackTrace,
         );
-        AppResumeDiagnostics.record(
-          'resume_refresh_failed',
-          details: <String, Object?>{'error': error.toString()},
-          anomalous: true,
-        );
       },
-      onLifecycleEvent: AppResumeDiagnostics.enabled
-          ? _recordResumeLifecycleEvent
-          : null,
-      onRefreshStarted: AppResumeDiagnostics.enabled
-          ? () {
-              AppResumeDiagnostics.beginAttempt(
-                database: configuredRealtimeDatabase,
-              );
-            }
-          : null,
-      onRefreshFinished: AppResumeDiagnostics.enabled
-          ? AppResumeDiagnostics.finishAttempt
-          : null,
     );
+    _connectionLossMonitor = ConnectionLossMonitor(
+      connectionStates: realtimeDatabaseConnectionStates(),
+      analytics: FirebaseAnalyticsService(),
+    );
+    // The Profile page shows the same state on a card that cannot be dismissed.
+    if (di.isRegistered<ConnectionLossMonitor>()) {
+      di.unregister<ConnectionLossMonitor>();
+    }
+    di.registerSingleton<ConnectionLossMonitor>(_connectionLossMonitor);
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _connectionLossMonitor.setForeground(state == AppLifecycleState.resumed);
     unawaited(_resumeRefreshCoordinator.handleLifecycleState(state));
+  }
+
+  /// Restarts the database transport, since a connection the server has ended
+  /// (for example over a rejected App Check token) never comes back on its own,
+  /// then loads the config again. If the connection does not come back, the
+  /// startup screen stays so the user can try again or reopen the app.
+  Future<void> _retryStartupConnection(ConfigViewModel configViewModel) async {
+    try {
+      await restartRealtimeDatabaseConnection();
+    } catch (error) {
+      log('Startup retry could not reconnect the database: $error');
+      return;
+    }
+    await configViewModel.retryInitialLoad();
   }
 
   Future<void> _reconnectRealtimeDatabaseAfterResume() async {
     final stopwatch = Stopwatch()..start();
     log('Android resume RTDB reconnect started');
-    AppResumeDiagnostics.recordReconnectStarted();
-    try {
-      await restartRealtimeDatabaseConnection();
-      log(
-        'Android resume RTDB reconnect completed in '
-        '${stopwatch.elapsedMilliseconds}ms',
-      );
-      AppResumeDiagnostics.record(
-        'reconnect_completed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-        },
-      );
-    } catch (error) {
-      AppResumeDiagnostics.record(
-        'reconnect_attempt_failed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-          'error': error.toString(),
-        },
-        anomalous: true,
-      );
-      rethrow;
-    }
+    await restartRealtimeDatabaseConnection();
+    log(
+      'Android resume RTDB reconnect completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
+    );
   }
 
   Future<void> _refreshFixtureDataAfterResume() async {
     if (!di.isRegistered<DAUCompsViewModel>()) {
       log('App resume fixture refresh skipped; DAUCompsViewModel not ready');
-      AppResumeDiagnostics.record(
-        'fixture_refresh_skipped_view_model_not_ready',
-        anomalous: true,
-      );
       return;
     }
     final stopwatch = Stopwatch()..start();
     log('App resume fixture refresh started');
-    AppResumeDiagnostics.record('fixture_refresh_started');
-    try {
-      await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
-      log(
-        'App resume fixture refresh completed in '
-        '${stopwatch.elapsedMilliseconds}ms',
-      );
-      AppResumeDiagnostics.record(
-        'fixture_refresh_completed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-        },
-      );
-    } catch (error) {
-      AppResumeDiagnostics.record(
-        'fixture_refresh_attempt_failed',
-        details: <String, Object?>{
-          'elapsedMs': stopwatch.elapsedMilliseconds,
-          'error': error.toString(),
-        },
-        anomalous: true,
-      );
-      rethrow;
-    }
-  }
-
-  void _recordResumeLifecycleEvent(AppResumeLifecycleEvent event) {
-    AppResumeDiagnostics.record(
-      'lifecycle_${event.decision.name}',
-      details: <String, Object?>{
-        'state': event.state.name,
-        'wasBackgrounded': event.wasBackgrounded,
-        'refreshInProgress': event.refreshInProgress,
-      },
-      anomalous: event.isAnomalous,
-      attachToActiveAttempt:
-          event.decision == AppResumeLifecycleDecision.refreshStarted ||
-          event.decision == AppResumeLifecycleDecision.refreshFinished,
+    await di<DAUCompsViewModel>().refreshFixtureDataFromServer();
+    log(
+      'App resume fixture refresh completed in '
+      '${stopwatch.elapsedMilliseconds}ms',
     );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _connectionLossMonitor.dispose();
+    _appControlsViewModel.dispose();
     super.dispose();
   }
 
@@ -455,7 +461,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     StartupProfiling.instant(
       'startup.core_viewmodels_warmup_scheduled',
       arguments: <String, Object?>{
-        'compDbKey': _registeredActiveCompKey ?? 'unknown',
+        'compDbKey': _coreViewModels.activeCompKey ?? 'unknown',
       },
     );
 
@@ -469,54 +475,162 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       StartupProfiling.instant(
         'startup.core_viewmodels_warmup_started',
         arguments: <String, Object?>{
-          'compDbKey': _registeredActiveCompKey ?? 'unknown',
+          'compDbKey': _coreViewModels.activeCompKey ?? 'unknown',
         },
       );
 
       di<TeamsViewModel>();
+      di<TeamLogosViewModel>();
       di<TippersViewModel>();
       di<DAUCompsViewModel>();
     });
   }
 
+  /// Makes the next root page register fresh core view models, so whoever
+  /// signs in next does not see the last user's tipper or comp state. The old
+  /// ones are disposed once the screens that used them have gone.
+  void _forgetCoreViewModelRegistration() {
+    _retiredViewModels
+      ..retire<TippersViewModel>()
+      ..retire<DAUCompsViewModel>();
+    _coreViewModels.forget();
+  }
+
   void _registerCoreViewModelsIfNeeded(ConfigViewModel configViewModel) {
     final String activeCompKey = configViewModel.activeDAUComp!;
-    final bool createLinkedTipper = configViewModel.createLinkedTipper!;
 
     if (!di.isRegistered<TeamsViewModel>()) {
       di.registerLazySingleton<TeamsViewModel>(() => TeamsViewModel());
     }
+    if (!di.isRegistered<TeamLogosViewModel>()) {
+      di.registerLazySingleton<TeamLogosViewModel>(() => TeamLogosViewModel());
+    }
 
-    final bool needsRegistration =
-        !di.isRegistered<DAUCompsViewModel>() ||
-        !di.isRegistered<TippersViewModel>() ||
-        _registeredActiveCompKey != activeCompKey ||
-        _registeredCreateLinkedTipper != createLinkedTipper;
+    _coreViewModels.register(
+      activeCompKey: activeCompKey,
+      createTippers: TippersViewModel.new,
+      createDauComps: () => DAUCompsViewModel(
+        activeCompKey,
+        false,
+        cloudFunctionsBaseURLOverride: widget.cloudFunctionsBaseURLOverride,
+        cloudFunctionsBaseURLProvider: () =>
+            configViewModel.cloudFunctionsBaseURL,
+        adminScoringRescoreURLProvider: () =>
+            configViewModel.adminScoringRescoreURL,
+        adminScoringRescoreURLLoader:
+            configViewModel.loadAdminScoringRescoreURL,
+      ),
+    );
 
-    if (needsRegistration) {
-      _registeredActiveCompKey = activeCompKey;
-      _registeredCreateLinkedTipper = createLinkedTipper;
-
-      di.registerLazySingleton<TippersViewModel>(
-        () => TippersViewModel(createLinkedTipper),
+    if (!di.isRegistered<IdentityService>()) {
+      di.registerLazySingleton<IdentityService>(
+        () => _buildIdentityService(configViewModel),
       );
-      di.registerLazySingleton<DAUCompsViewModel>(
-        () => DAUCompsViewModel(
-          activeCompKey,
-          false,
-          cloudFunctionsBaseURLOverride:
-              widget.cloudFunctionsBaseURLOverride,
-          cloudFunctionsBaseURLProvider:
-              () => configViewModel.cloudFunctionsBaseURL,
-          adminScoringRescoreURLProvider:
-              () => configViewModel.adminScoringRescoreURL,
-          adminScoringRescoreURLLoader:
-              configViewModel.loadAdminScoringRescoreURL,
-        ),
+    }
+    if (!di.isRegistered<TipperLinkService>()) {
+      di.registerLazySingleton<TipperLinkService>(
+        () => _buildTipperLinkService(),
       );
     }
 
     _scheduleCoreViewModelWarmup();
+  }
+
+  /// The identity callables (DESIGN-database-rules-phase4.md): linking the signed-in
+  /// account to its tipper, and the administrators' edits and merges. The address of
+  /// the callables is read when a call is made, so an override in `AppConfig`
+  /// applies without a restart.
+  IdentityService _buildIdentityService(ConfigViewModel configViewModel) {
+    IdentityEndpoints endpoints() {
+      final String? configured = configViewModel.identityFunctionsUrlPattern;
+      if (configured != null) {
+        try {
+          return IdentityEndpoints(pattern: configured);
+        } on ArgumentError catch (error) {
+          log(
+            'Ignoring a bad identityFunctionsURLPattern in AppConfig: $error',
+          );
+        }
+      }
+      return IdentityEndpoints();
+    }
+
+    return IdentityService(
+      FunctionsIdentityCallableInvoker(
+        endpoints: endpoints,
+        emulatorHost: widget.identityEmulatorHost,
+      ),
+    );
+  }
+
+  /// Links the signed-in account to its tipper (DESIGN-database-rules-phase4.md,
+  /// P3).
+  TipperLinkService _buildTipperLinkService() {
+    return TipperLinkService(
+      resolver: LinkedTipperResolver(
+        reads: DatabaseIdentityReads(),
+        identity: di<IdentityService>(),
+        resolveComps: (List compKeys) =>
+            di<DAUCompsViewModel>().resolveCompsList(compKeys),
+      ),
+      cache: CachedTipperStore(),
+    );
+  }
+
+  /// The app's first screen: the config gate, then the startup screens or
+  /// sign-in. [AppRootNavigator] shows it again after signing out.
+  Widget _buildRootPage(BuildContext context) {
+    return Consumer<ConfigViewModel>(
+      builder: (context, configViewModel, child) {
+        return FutureBuilder<void>(
+          future: configViewModel.initialLoadComplete,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const AppLoadingScreen();
+            }
+
+            if (snapshot.error is ConfigConnectionFailure) {
+              return StartupConnectionScreen(
+                monitor: _connectionLossMonitor,
+                onRetry: () => _retryStartupConnection(configViewModel),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return LoginIssueScreen(
+                message: 'Unexpected startup error. ${snapshot.error}',
+                displaySignOutButton: false,
+                onRetry: () {
+                  configViewModel.retryInitialLoad();
+                },
+              );
+            }
+
+            // if required config is missing, display error
+            if (!configViewModel.hasRequiredBootstrapConfig) {
+              // display LoginErrorScreen
+              return LoginIssueScreen(
+                message:
+                    'Unexpected startup error. Contact support: ${p.supportUrl}',
+                displaySignOutButton: false,
+                onRetry: () {
+                  configViewModel.retryInitialLoad();
+                },
+              );
+            } else {
+              _registerCoreViewModelsIfNeeded(configViewModel);
+
+              return UserAuthPage(
+                configViewModel.minAppVersion,
+                isUserLoggingOut: false,
+                createLinkedTipper: configViewModel.createLinkedTipper!,
+                googleClientId: configViewModel.googleClientId ?? '',
+              );
+            }
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -525,93 +639,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       restorationScopeId: 'app',
-      theme: FlexThemeData.light(scheme: FlexScheme.green),
-      darkTheme: FlexThemeData.dark(scheme: FlexScheme.green),
+      theme: withNavGreenControls(
+        withCardCornerButtons(
+          FlexThemeData.light(
+            scheme: FlexScheme.green,
+            fontFamily: appFontFamily,
+          ),
+        ),
+      ),
+      darkTheme: withNavGreenControls(
+        withCardCornerButtons(
+          FlexThemeData.dark(
+            scheme: FlexScheme.green,
+            fontFamily: appFontFamily,
+          ),
+        ),
+      ),
       themeMode: ThemeMode.system,
       title: 'DAU Tips',
-      home: LayoutBuilder(
-        builder: (context, constraints) {
-          // Set the maximum width of the app
-          const maxWidth = 500.0; // Adjust this value as needed
-          // Calculate the width to be used, ensuring it does not exceed maxWidth
-          final width = constraints.maxWidth > maxWidth
-              ? maxWidth
-              : constraints.maxWidth;
-
-          return Center(
-            child: SizedBox(
-              width: width,
-              child: Consumer<ConfigViewModel>(
-                builder: (context, configViewModel, child) {
-                  return FutureBuilder<void>(
-                    future: configViewModel.initialLoadComplete,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return _StartupLoadingScreen(
-                          spinnerColor: League.afl.colour,
-                        );
-                      }
-
-                      if (snapshot.hasError) {
-                        return LoginIssueScreen(
-                          message:
-                              'Unexpected startup error. ${snapshot.error}',
-                          displaySignOutButton: false,
-                          onRetry: () {
-                            configViewModel.retryInitialLoad();
-                          },
-                        );
-                      }
-
-                      // if required config is missing, display error
-                      if (!configViewModel.hasRequiredBootstrapConfig) {
-                        // display LoginErrorScreen
-                        return LoginIssueScreen(
-                          message:
-                              'Unexpected startup error. Contact support: https://interview.coach/tipping',
-                          displaySignOutButton: false,
-                          onRetry: () {
-                            configViewModel.retryInitialLoad();
-                          },
-                        );
-                      } else {
-                        _registerCoreViewModelsIfNeeded(configViewModel);
-
-                        return UserAuthPage(
-                          configViewModel.minAppVersion,
-                          isUserLoggingOut: false,
-                          createLinkedTipper:
-                              configViewModel.createLinkedTipper!,
-                          googleClientId: configViewModel.googleClientId ?? '',
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-          );
-        },
+      navigatorKey: _navigatorKey,
+      navigatorObservers: [_appControlsObserver],
+      builder: (context, navigator) => AppControlsHost(
+        viewModel: _appControlsViewModel,
+        observer: _appControlsObserver,
+        notice: ConnectionLossNotice(monitor: _connectionLossMonitor),
+        child: navigator!,
       ),
-    );
-  }
-}
-
-class _StartupLoadingScreen extends StatelessWidget {
-  const _StartupLoadingScreen({required this.spinnerColor});
-
-  final Color spinnerColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset('assets/grass_background_blurred.webp', fit: BoxFit.cover),
-        Center(
-          child: CircularProgressIndicator(color: spinnerColor),
-        ),
-      ],
+      // The shell no longer caps the app. Each screen owns its width, so the
+      // tips list can use a tablet's display while forms stay readable.
+      home: Builder(builder: _buildRootPage),
     );
   }
 }

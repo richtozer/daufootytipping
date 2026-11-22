@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+/// Formats a round start date in UTC without time of day, for example
+/// `Thu 5/3` or `Thu 12/11`.
+String formatRoundDateTime(DateTime dateTime) {
+  final utcDate = dateTime.toUtc();
+  return DateFormat('E d/M').format(utcDate);
+}
+
 class DateTimePickerField extends StatelessWidget {
   final TextEditingController controller;
   final DateTime initialDate;
@@ -30,30 +37,27 @@ class DateTimePickerField extends StatelessWidget {
       decoration: const InputDecoration(isDense: true),
       onTap: () async {
         FocusScope.of(context).requestFocus(FocusNode());
-        DateTime? date = await showDatePicker(
+        final utcInitial = initialDate.toUtc();
+        final firstUtc = firstDate.toUtc();
+        final lastUtc = lastDate.toUtc();
+        final DateTime? picked = await showDatePicker(
           context: context,
-          initialDate: initialDate,
-          firstDate: firstDate,
-          lastDate: lastDate,
+          initialDate: DateTime.utc(
+            utcInitial.year,
+            utcInitial.month,
+            utcInitial.day,
+          ),
+          firstDate: DateTime.utc(firstUtc.year, firstUtc.month, firstUtc.day),
+          lastDate: DateTime.utc(lastUtc.year, lastUtc.month, lastUtc.day),
         );
-        if (date != null) {
-          if (!context.mounted) return;
-          TimeOfDay? time = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(initialDate),
+        if (picked != null) {
+          final selectedDate = DateTime.utc(
+            picked.year,
+            picked.month,
+            picked.day,
           );
-          if (time != null) {
-            DateTime selectedDateTime = DateTime(
-              date.year,
-              date.month,
-              date.day,
-              time.hour,
-              time.minute,
-            );
-            controller.text =
-                '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-            onDateTimeChanged(selectedDateTime);
-          }
+          controller.text = formatRoundDateTime(selectedDate);
+          onDateTimeChanged(selectedDate);
         }
       },
     );

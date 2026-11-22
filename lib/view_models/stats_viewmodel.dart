@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
 import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
+import 'package:daufootytipping/services/live_score_history_entry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/scoring_gamestats.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
@@ -67,13 +71,7 @@ class StatsViewModel extends ChangeNotifier {
   String get _liveScoresReadRoot => p.liveScoresBackendRoot;
   String get _gameStatsReadRoot => p.gameStatsBackendRoot;
 
-  final Completer<void> _initialLiveScoreLoadCompleter = Completer();
-  Future<void> get initialLiveScoreLoadComplete =>
-      _initialLiveScoreLoadCompleter.future;
-
   final Completer<void> _initialRoundPointsLoadCompleted = Completer();
-  Future<void> get initialRoundPointsComplete =>
-      _initialRoundPointsLoadCompleted.future;
 
   List<LeaderboardEntry> _compLeaderboard = [];
   List<LeaderboardEntry> get compLeaderboard => _compLeaderboard;
@@ -86,7 +84,6 @@ class StatsViewModel extends ChangeNotifier {
   GamesViewModel? gamesViewModel;
 
   bool? _isSelectedTipperPaidUpMember;
-  bool get isSelectedTipperPaidUpMember => _isSelectedTipperPaidUpMember!;
 
   // Constructor
   StatsViewModel(
@@ -94,6 +91,7 @@ class StatsViewModel extends ChangeNotifier {
     this.gamesViewModel, {
     DatabaseReference? database,
     bool autoInitialize = true,
+    Stream<bool> Function()? signedIn,
     List<Duration> gameStatsRetryDelays = const [
       Duration(milliseconds: 250),
       Duration(seconds: 1),
@@ -101,6 +99,7 @@ class StatsViewModel extends ChangeNotifier {
     ],
     Future<void> Function()? refreshProtectedResourceAccess,
   }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
        _gameStatsRetryDelays = gameStatsRetryDelays,
        _refreshProtectedResourceAccess =
            refreshProtectedResourceAccess ??
@@ -117,6 +116,8 @@ class StatsViewModel extends ChangeNotifier {
       _initialize();
     }
   }
+
+  final Stream<bool> Function() _signedIn;
 
   void _initialize() async {
     // make sure the tippers viewmodel is initialized
@@ -136,12 +137,15 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Future<void> _listenToScores() async {
-    _allRoundPointsStream = _db
-        .child(
-          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
-        )
-        .onValue
-        .listen(
+    _allRoundPointsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_roundStatsReadRoot',
+              )
+              .onValue,
+        ).listen(
           _handleEventRoundPoints,
           onError: (error) {
             log('StatsViewModel() Error listening to round points: $error');
@@ -149,12 +153,15 @@ class StatsViewModel extends ChangeNotifier {
         );
     _hasRoundPointsListener = true;
 
-    _liveScoresStream = _db
-        .child(
-          '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
-        )
-        .onValue
-        .listen(
+    _liveScoresStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '$statsPathRootLocal/${selectedDAUComp.dbkey}/$_liveScoresReadRoot',
+              )
+              .onValue,
+        ).listen(
           _handleEventLiveScores,
           onError: (error) {
             log('StatsViewModel() Error listening to live scores: $error');
@@ -176,8 +183,7 @@ class StatsViewModel extends ChangeNotifier {
         selectedDAUComp,
       );
       final subKey = isPaid ? 'paid' : 'free';
-      if (_hasGameStatsListener &&
-          _gameStatsListenerSubKey == subKey) {
+      if (_hasGameStatsListener && _gameStatsListenerSubKey == subKey) {
         _isSelectedTipperPaidUpMember = isPaid;
         return;
       }
@@ -201,13 +207,16 @@ class StatsViewModel extends ChangeNotifier {
 
       _isSelectedTipperPaidUpMember = isPaid;
       _gameStatsListenerSubKey = subKey;
-      _gameStatsStream = _db
-          .child(statsPathRootLocal)
-          .child(selectedDAUComp.dbkey!)
-          .child(_gameStatsReadRoot)
-          .child(subKey)
-          .onValue
-          .listen(
+      _gameStatsStream =
+          authAwareStream<DatabaseEvent>(
+            signedIn: _signedIn,
+            open: () => _db
+                .child(statsPathRootLocal)
+                .child(selectedDAUComp.dbkey!)
+                .child(_gameStatsReadRoot)
+                .child(subKey)
+                .onValue,
+          ).listen(
             (event) {
               if (_disposed) {
                 return;
@@ -238,9 +247,7 @@ class StatsViewModel extends ChangeNotifier {
 
           for (final entry in roundPointsJson.entries) {
             roundPoints[entry.key.toString()] = RoundStats.fromJson(
-              Map<String, dynamic>.from(
-                entry.value as Map<dynamic, dynamic>,
-              ),
+              Map<String, dynamic>.from(entry.value as Map<dynamic, dynamic>),
               fallbackRoundNumber: roundIndex + 1,
             );
           }
@@ -433,9 +440,8 @@ class StatsViewModel extends ChangeNotifier {
           final currentLiveScore = liveScoreEntry['current'] is Map
               ? Map<String, dynamic>.from(liveScoreEntry['current'] as Map)
               : liveScoreEntry;
-          final crowdSourcedScores = Scoring.fromJson(
-            currentLiveScore,
-          ).crowdSourcedScores;
+          final crowdSourcedScores = Scoring.fromJson(currentLiveScore)
+              .crowdSourcedScores;
           if (crowdSourcedScores != null && crowdSourcedScores.isNotEmpty) {
             nextLiveScoresByGameDbKey[gameDbKey] = crowdSourcedScores;
           }
@@ -453,10 +459,6 @@ class StatsViewModel extends ChangeNotifier {
         'StatsViewModel._handleEventLiveScores() Error listening to /$statsPathRootLocal/live_scores: $e',
       );
       rethrow;
-    } finally {
-      if (!_initialLiveScoreLoadCompleter.isCompleted) {
-        _initialLiveScoreLoadCompleter.complete();
-      }
     }
   }
 
@@ -583,10 +585,6 @@ class StatsViewModel extends ChangeNotifier {
     return _handleEventGameStats(event);
   }
 
-  bool get isUpdateScoringRunning => false;
-  String? get scoringProgressMessage => null;
-  double? get scoringProgressValue => null;
-
   Map<Tipper, RoundStats> getRoundLeaderBoard(int roundNumber) {
     if (_allTipperRoundStats.isEmpty) {
       return {};
@@ -614,8 +612,7 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   GameStatsLoadState gameStatsLoadStateFor(Game game) {
-    return _gameStatsLoadStates[game.dbkey] ??
-        GameStatsLoadState.notRequested;
+    return _gameStatsLoadStates[game.dbkey] ?? GameStatsLoadState.notRequested;
   }
 
   void getGamesStatsEntry(Game game, bool forceUpdate) {
@@ -657,15 +654,17 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     GameStatsEntry? dbEntry;
-    for (var attempt = 0;; attempt++) {
+    for (var attempt = 0; ; attempt++) {
       try {
         dbEntry = await _getGameStatsEntry(game);
         break;
       } catch (error, stackTrace) {
         final isProtectedResourceError =
             StartupAppCheckSupport.isRetryableProtectedResourceError(error);
-        final isTransientDisconnect = CrashlyticsErrorClassifier
-            .isTransientRealtimeDatabaseDisconnect(error);
+        final isTransientDisconnect =
+            CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+              error,
+            );
         if (!isProtectedResourceError && !isTransientDisconnect) {
           rethrow;
         }
@@ -723,7 +722,8 @@ class StatsViewModel extends ChangeNotifier {
         .child(_gameStatsReadRoot)
         .child(subKey)
         .child(game.dbkey);
-    final snapshot = await gameStatsReference.get();
+    // The cohort's stats are listened to, so read the game's with readOnce.
+    final snapshot = await readOnce(gameStatsReference);
 
     return _gameStatsEntryFromSnapshot(snapshot);
   }
@@ -904,14 +904,18 @@ class StatsViewModel extends ChangeNotifier {
     // Use the scoring data itself to identify the current ladder round. Round
     // schedules can overlap the completion grace period, and backend snapshots
     // can contain all-zero structural rows for future rounds.
-    final previousRankRound = _latestScoredRoundNumber() - 1;
+    final latestScoredRound = _latestScoredRoundNumber();
+    // A tip writes an all-zero round row; wait for a scored game (live too).
+    if (latestScoredRound == 0) {
+      _compLeaderboard = [];
+      return;
+    }
+    final previousRankRound = latestScoredRound - 1;
 
     // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};
     if (previousRankRound > 0) {
-      previousRoundRanks = _calculateCumulativeRankUpToRound(
-        previousRankRound,
-      );
+      previousRoundRanks = _calculateCumulativeRankUpToRound(previousRankRound);
     }
 
     // Calculate the leaderboard for the current comp
@@ -944,8 +948,7 @@ class StatsViewModel extends ChangeNotifier {
             total: 0,
             nRL: 0,
             aFL: 0,
-            numRoundsWon:
-                0, // to be replaced later with actual numRoundsWon calculation
+            numRoundsWon: 0, // counted later from the round winners
             aflMargins: 0,
             aflUPS: 0,
             nrlMargins: 0,
@@ -989,16 +992,11 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     // Sort by rank and then by tipper name
-    leaderboard.sort((a, b) {
-      int rankComparison = a.rank.compareTo(b.rank);
-      if (rankComparison == 0) {
-        return (a.tipper.name.toLowerCase()).compareTo(
-          b.tipper.name.toLowerCase(),
-        );
-      } else {
-        return rankComparison;
-      }
-    });
+    leaderboard.sort(
+      (a, b) => a.rank != b.rank
+          ? a.rank.compareTo(b.rank)
+          : a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()),
+    );
 
     _compLeaderboard = leaderboard;
   }
@@ -1107,12 +1105,13 @@ class StatsViewModel extends ChangeNotifier {
     required DAUComp selectedDAUComp,
   }) async {
     await _submitLock.synchronized(() async {
-      final currentHomeScore = tip.game.scoring?.currentScore(
-        ScoringTeam.home,
-      );
-      final currentAwayScore = tip.game.scoring?.currentScore(
-        ScoringTeam.away,
-      );
+      if (tippingIsOpen(tip.game.startTimeUTC)) {
+        throw StateError(
+          'Live scoring is not open yet. Please try again in a moment.',
+        );
+      }
+      final currentHomeScore = tip.game.scoring?.currentScore(ScoringTeam.home);
+      final currentAwayScore = tip.game.scoring?.currentScore(ScoringTeam.away);
       final homeScoreChanged = homeScore != originalHomeScore;
       final awayScoreChanged = awayScore != originalAwayScore;
 
@@ -1155,6 +1154,10 @@ class StatsViewModel extends ChangeNotifier {
     });
   }
 
+  /// Records [submittedScores] for [game], one create-only entry each under the
+  /// game's `history`. That is all a client may write: the running score
+  /// (`current`) is built from the history by the server and arrives through the
+  /// live scores listener.
   Future<void> _writeLiveScoreToDb(
     Game game,
     List<CrowdSourcedScore> submittedScores,
@@ -1164,13 +1167,10 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     final updates = <String, Object?>{
-      '${game.dbkey}/current': _liveScoreCurrentPayload(game),
+      for (final score in submittedScores)
+        '${game.dbkey}/history/${liveScoreHistoryKey(score)}':
+            liveScoreHistoryEntry(score),
     };
-    for (final score in submittedScores) {
-      final historyKey =
-          '${score.submittedTimeUTC.microsecondsSinceEpoch}-${score.scoreTeam.name}';
-      updates['${game.dbkey}/history/$historyKey'] = score.toJson();
-    }
 
     await _db
         .child(statsPathRootLocal)
@@ -1178,30 +1178,8 @@ class StatsViewModel extends ChangeNotifier {
         .child(p.liveScoresBackendRoot)
         .update(updates);
     log(
-      'StatsViewModel._writeLiveScoreToDb() Wrote live score current snapshot for game ${game.dbkey}',
+      'StatsViewModel._writeLiveScoreToDb() Wrote ${submittedScores.length} live score entries for game ${game.dbkey}',
     );
-  }
-
-  Map<String, Object?> _liveScoreCurrentPayload(Game game) {
-    final scoring = game.scoring;
-    CrowdSourcedScore? latestScore;
-    for (final score in scoring?.crowdSourcedScores ?? <CrowdSourcedScore>[]) {
-      if (latestScore == null ||
-          score.submittedTimeUTC.isAfter(latestScore.submittedTimeUTC)) {
-        latestScore = score;
-      }
-    }
-
-    return <String, Object?>{
-      'homeInterimScore': scoring?.currentScore(ScoringTeam.home),
-      'awayInterimScore': scoring?.currentScore(ScoringTeam.away),
-      'submittedTimeUTC': latestScore?.submittedTimeUTC.toIso8601String(),
-      'tipperID': latestScore?.tipperID,
-      'gameComplete': latestScore?.gameComplete ?? false,
-      'crowdSourcedScores': scoring?.crowdSourcedScores
-          ?.map((score) => score.toJson())
-          .toList(),
-    };
   }
 
   bool _hasOfficialFixtureScores(Game? game) {

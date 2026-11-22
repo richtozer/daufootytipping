@@ -1,15 +1,22 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_roundstats.dart';
+import 'package:daufootytipping/models/scoring_roundwinners.dart';
 import 'package:daufootytipping/models/scoring_leaderboard.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historical.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_compleaderboard.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
@@ -26,7 +33,12 @@ import 'package:flex_color_scheme/flex_color_scheme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+
+import '../../support/load_tips_fonts.dart';
+import '../../support/app_controls_test_app.dart';
+import '../../support/seed_team_logos.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -38,7 +50,13 @@ class MockTeamsViewModel extends Mock implements TeamsViewModel {}
 
 class MockTippersViewModel extends Mock implements TippersViewModel {}
 
+class MockTableTipsViewModel extends Mock implements TipsViewModel {}
+
 void main() {
+  setUpAll(() {
+    registerFallbackValue(<Game>[]);
+    return loadTipsFonts(includeFallbacks: true);
+  });
   late MockDAUCompsViewModel dauCompsViewModel;
   late MockGamesViewModel gamesViewModel;
   late MockStatsViewModel statsViewModel;
@@ -51,6 +69,8 @@ void main() {
 
   setUp(() async {
     await di.reset();
+    registerAppControlsViewModel();
+    registerSeedTeamLogos();
     di.allowReassignment = true;
 
     dauCompsViewModel = MockDAUCompsViewModel();
@@ -105,30 +125,833 @@ void main() {
     await di.reset();
   });
 
-  testWidgets('competition leaderboard renders its DataTable2', (tester) async {
+  Map<Tipper, RoundStats> populateRound() {
+    final data = <Tipper, RoundStats>{};
+    for (var i = 0; i < 24; i++) {
+      final tipper = i == 0
+          ? selectedTipper
+          : Tipper(
+              dbkey: 'member-$i',
+              compsPaidFor: <DAUComp>[],
+              authuid: 'auth-member-$i',
+              email: 'member-$i@example.com',
+              name: i == 1 ? 'Alexandra Long Tipper Name' : 'Member $i',
+              tipperRole: TipperRole.tipper,
+            );
+      data[tipper] = RoundStats.fromJson({
+        'aS': 24 - i,
+        'nS': 30 - i,
+        'aMt': i % 4,
+        'nMt': i % 3,
+        'aMu': i % 2,
+        'nMu': i % 3,
+      })..rank = i + 1;
+    }
+    when(() => statsViewModel.getRoundLeaderBoard(any()))
+        .thenAnswer((_) => data);
+    return data;
+  }
+
+  Future<void> pumpRound(
+    WidgetTester tester, {
+    double width = 360,
+    double height = 800,
+    double scale = 1,
+    int round = 1,
+    Widget? page,
+  }) async {
+    tester.view.physicalSize = Size(width, height);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Roboto'),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+        home: RepaintBoundary(
+          key: const Key('round-page'),
+          child: page ?? StatRoundLeaderboard(round),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round leaderboard golden $width/$scale', (tester) async {
+        populateRound();
+        await pumpRound(tester, width: width, scale: scale);
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/round-leaderboard-${width.toInt()}-$scale.png',
+          ),
+        );
+      });
+    }
+  }
+
+  testWidgets(
+    'round rows survive resize and unchanged ticks, refresh changed values',
+    (tester) async {
+      final data = populateRound();
+      await pumpRound(tester);
+      AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+      final original = table().rows;
+      final listeners = verify(() => statsViewModel.addListener(captureAny()))
+          .captured
+          .cast<VoidCallback>();
+      void notify() {
+        for (final listener in listeners) {
+          listener();
+        }
+      }
+
+      notify();
+      await tester.pump();
+      expect(identical(table().rows, original), isTrue);
+      await pumpRound(tester, width: 1280);
+      expect(identical(table().rows, original), isTrue);
+      data[selectedTipper]!.nrlPoints = 99;
+      notify();
+      await tester.pump();
+      expect(identical(table().rows, original), isFalse);
+      expect(table().rows.first.cells[3].text, '99');
+      expect(
+        table().rows.first.colour,
+        appSelectionColor(tester.element(find.byType(AppTable))),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'round sorting preserves rank and league rules after notifications',
+    (tester) async {
+      populateRound();
+      await pumpRound(tester, width: 768);
+      AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+      expect(table().rows.first.cells.first.text, 'Test Tipper');
+      await tester.tap(find.text('Rank'));
+      await tester.pump();
+      expect(table().rows.first.cells[1].text, '24');
+      // A figures column answers "who has the most" on the first tap.
+      await tester.tap(find.text('NRL'));
+      await tester.pump();
+      expect(table().rows.first.cells[3].text, '30');
+      final listeners = verify(() => statsViewModel.addListener(captureAny()))
+          .captured;
+      for (final listener in listeners.cast<VoidCallback>()) {
+        listener();
+      }
+      await tester.pump();
+      expect(table().rows.first.cells[3].text, '30');
+      // ...and the second gives the other direction, as it always has.
+      await tester.tap(find.text('NRL'));
+      await tester.pump();
+      expect(table().rows.first.cells[3].text, '7');
+      await tester.tap(find.text('Total'));
+      await tester.pump();
+      expect(table().rows.first.cells[1].text, '1');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('whole round row opens the correct tipper and round', (
+    tester,
+  ) async {
+    populateRound();
+    await pumpRound(tester, width: 768, round: 25);
+    // Tap the numeric total, not the name; the entire row is interactive.
+    await tester.tap(find.text('54'));
+    await tester.pumpAndSettle();
+    final destination = tester.widget<StatRoundGameScoresForTipper>(
+      find.byType(StatRoundGameScoresForTipper),
+    );
+    expect(destination.statsTipper, selectedTipper);
+    expect(destination.roundNumberToDisplay, 25);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round change refreshes the retained page state', (tester) async {
+    populateRound();
+    await pumpRound(tester);
+    await pumpRound(tester, round: 2);
+    verify(() => statsViewModel.getRoundLeaderBoard(2)).called(1);
+    expect(find.text('Round 2 Leaderboard'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('narrow round page keeps names frozen and headings pinned', (
+    tester,
+  ) async {
+    populateRound();
+    await pumpRound(tester, scale: 1.5);
+    final nameX = tester.getTopLeft(find.text('Name')).dx;
+    final nameY = tester.getTopLeft(find.text('Name')).dy;
+    final totalX = tester.getTopLeft(find.text('Total')).dx;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+        .controller!;
+    expect(horizontal.position.maxScrollExtent, greaterThan(0));
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dx, nameX);
+    expect(tester.getTopLeft(find.text('Total')).dx, lessThan(totalX));
+    expect(tester.getRect(find.text('UPS')).right, lessThan(346));
+    final vertical = tester.widget<ListView>(find.byType(ListView)).controller!;
+    vertical.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dy, nameY);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('competition leaderboard renders its AppTable', (tester) async {
+    when(() => statsViewModel.compLeaderboard).thenReturn([
+      LeaderboardEntry(
+        rank: 1,
+        tipper: selectedTipper,
+        total: 10,
+        nRL: 6,
+        aFL: 4,
+        numRoundsWon: 0,
+        aflMargins: 0,
+        nrlMargins: 0,
+        aflUPS: 0,
+        nrlUPS: 0,
+      ),
+    ]);
     await _expectPageRendersTable(tester, const StatCompLeaderboard());
   });
 
-  testWidgets('round leaderboard renders its DataTable2', (tester) async {
+  testWidgets('round leaderboard renders its AppTable', (tester) async {
     await _expectPageRendersTable(tester, const StatRoundLeaderboard(1));
   });
 
-  testWidgets('round winners renders its DataTable2', (tester) async {
+  Map<int, List<RoundWinnerEntry>> populateWinners() {
+    final tippers = populateRound().keys.take(2).toList();
+    final winners = <int, List<RoundWinnerEntry>>{
+      for (var round = 24; round >= 1; round--)
+        round: [
+          for (final tipper in tippers)
+            RoundWinnerEntry(
+              roundNumber: round,
+              tipper: tipper,
+              total: 54,
+              nRL: 30,
+              aFL: 24,
+              aflMargins: 2,
+              nrlMargins: 3,
+              aflUPS: 1,
+              nrlUPS: 2,
+            ),
+        ],
+    };
+    when(() => statsViewModel.roundWinners).thenAnswer((_) => winners);
+    return winners;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round winners golden $width/$scale', (tester) async {
+        populateWinners();
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: const StatRoundWinners(),
+        );
+        final table = tester.widget<AppTable>(find.byType(AppTable));
+        expect(table.frozenLeading, 2);
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/round-winners-${width.toInt()}-$scale.png',
+          ),
+        );
+      });
+    }
+  }
+
+  testWidgets('winners cache, grouping, sorting and navigation', (
+    tester,
+  ) async {
+    final winners = populateWinners();
+    await pumpRound(tester, width: 680, page: const StatRoundWinners());
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final listeners = verify(() => statsViewModel.addListener(captureAny()))
+        .captured
+        .cast<VoidCallback>();
+    void notify() {
+      for (final listener in listeners) {
+        listener();
+      }
+    }
+
+    notify();
+    await tester.pump();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, width: 360, page: const StatRoundWinners());
+    expect(identical(original, table().rows), isTrue);
+    winners[24]!.first.total = 99;
+    notify();
+    await tester.pump();
+    expect(table().rows.first.cells[2].text, '99');
+    expect(table().rows[1].colour, isNot(table().rows[3].colour));
+    when(() => statsViewModel.sortRoundWinnersByTotal(any()))
+        .thenAnswer((_) {});
+    table().onSort!(2, true);
+    await tester.pump();
+    verify(() => statsViewModel.sortRoundWinnersByTotal(true)).called(1);
+    expect(table().sort!.column, 2);
+    // Total and name both lead to the same round leaderboard.
+    table().rows.first.onTap!();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<StatRoundLeaderboard>(find.byType(StatRoundLeaderboard))
+          .roundNumberToDisplay,
+      24,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'winners band rounds in pale green and mark the tipper in selection green',
+    (tester) async {
+      final other = populateRound().keys.firstWhere(
+        (tipper) => tipper != selectedTipper,
+      );
+      RoundWinnerEntry entry(int round, Tipper tipper) => RoundWinnerEntry(
+        roundNumber: round,
+        tipper: tipper,
+        total: 54,
+        nRL: 30,
+        aFL: 24,
+        aflMargins: 2,
+        nrlMargins: 3,
+        aflUPS: 1,
+        nrlUPS: 2,
+      );
+      when(() => statsViewModel.roundWinners).thenAnswer(
+        (_) => {
+          3: [entry(3, other)],
+          2: [entry(2, selectedTipper), entry(2, other)],
+          1: [entry(1, other)],
+        },
+      );
+      await pumpRound(tester, width: 680, page: const StatRoundWinners());
+      final context = tester.element(find.byType(AppTable));
+      final band = Theme.of(context).colorScheme.surfaceContainerHigh;
+      final colours = tester
+          .widget<AppTable>(find.byType(AppTable))
+          .rows
+          .map((row) => row.colour)
+          .toList();
+      expect(colours, [
+        Colors.transparent,
+        appSelectionColor(context),
+        band,
+        Colors.transparent,
+      ]);
+      expect(band, isNot(appSelectionColor(context)));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('winners freeze two columns and expose UPS clear of scrollbar', (
+    tester,
+  ) async {
+    populateWinners();
+    await pumpRound(tester, scale: 1.5, page: const StatRoundWinners());
+    final roundX = tester.getTopLeft(find.text('Round')).dx;
+    final winnerX = tester.getTopLeft(find.text('Winner')).dx;
+    final headerY = tester.getTopLeft(find.text('Round')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dx, roundX);
+    expect(tester.getTopLeft(find.text('Winner')).dx, winnerX);
+    expect(
+      tester.getRect(find.text('UPS')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dy, headerY);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round winners renders its AppTable', (tester) async {
+    populateWinners();
     await _expectPageRendersTable(tester, const StatRoundWinners());
   });
 
-  testWidgets('missing tips renders its DataTable2', (tester) async {
+  testWidgets('with no round scored yet the winners page says they are coming '
+      'instead of showing an empty table', (tester) async {
+    await pumpRound(tester, page: const StatRoundWinners());
+
+    expect(find.text('Round winners coming soon'), findsOneWidget);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.text('Round Winners'), findsOneWidget);
+  });
+
+  Map<Tipper, RoundStats> populateMissing() {
+    final data = populateRound();
+    var i = 0;
+    for (final stats in data.values) {
+      stats.nrlTipsOutstanding = i % 5;
+      stats.aflTipsOutstanding = i % 7;
+      i++;
+    }
+    return data;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('missing tips golden $width/$scale', (tester) async {
+        populateMissing();
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: const RoundMissingTipsStats(24),
+        );
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/missing-tips-${width.toInt()}-$scale.png'),
+        );
+      });
+    }
+  }
+
+  testWidgets(
+    'missing tips filter, cache and sort refresh after notifications',
+    (tester) async {
+      final data = populateMissing();
+      await pumpRound(
+        tester,
+        width: 680,
+        page: const RoundMissingTipsStats(24),
+      );
+      AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+      final original = table().rows;
+      expect(original.every((row) => row.onTap == null), isTrue);
+      expect(
+        original.any((row) => row.cells.first.text == selectedTipper.name),
+        isFalse,
+      );
+      final listeners = verify(() => statsViewModel.addListener(captureAny()))
+          .captured
+          .cast<VoidCallback>();
+      void notify() {
+        for (final listener in listeners) {
+          listener();
+        }
+      }
+
+      notify();
+      await tester.pump();
+      expect(identical(original, table().rows), isTrue);
+      await pumpRound(tester, page: const RoundMissingTipsStats(24));
+      expect(identical(original, table().rows), isTrue);
+      data[selectedTipper]!.nrlTipsOutstanding = 99;
+      notify();
+      await tester.pump();
+      expect(table().rows.first.cells[1].text, '99');
+      for (var column = 1; column < 4; column++) {
+        for (final ascending in [true, false]) {
+          table().onSort!(column, ascending);
+          await tester.pump();
+          notify();
+          await tester.pump();
+          final values = table().rows
+              .map((row) => int.parse(row.cells[column].text!))
+              .toList();
+          final expected = List.of(values)..sort();
+          expect(values, ascending ? expected : expected.reversed.toList());
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('missing tips keep names frozen and AFL outside scrollbar lane', (
+    tester,
+  ) async {
+    populateMissing();
+    await pumpRound(tester, scale: 3.2, page: const RoundMissingTipsStats(24));
+    final x = tester.getTopLeft(find.text('Name')).dx;
+    final y = tester.getTopLeft(find.text('Name')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dx, x);
+    expect(
+      tester.getRect(find.text('AFL')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Name')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('missing tips renders its AppTable', (tester) async {
+    populateMissing();
     await _expectPageRendersTable(tester, const RoundMissingTipsStats(1));
   });
 
-  testWidgets('tipper round points renders its DataTable2', (tester) async {
+  testWidgets('missing tips with nothing outstanding is just a note', (
+    tester,
+  ) async {
+    final data = populateMissing();
+    for (final stats in data.values) {
+      stats.nrlTipsOutstanding = 0;
+      stats.aflTipsOutstanding = 0;
+    }
+    await pumpRound(tester, page: const RoundMissingTipsStats(24));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.textContaining('No missing tips'), findsOneWidget);
+  });
+
+  List<RoundStats> populatePoints() {
+    selectedComp.daurounds.add(
+      DAURound(
+        dAUroundNumber: 24,
+        firstGameKickOffUTC: DateTime.utc(2025),
+        lastGameKickOffUTC: DateTime.utc(2025),
+      ),
+    );
+    final points = [
+      for (var round = 1; round <= 24; round++)
+        RoundStats.fromJson({
+          'nbr': round,
+          'aS': round,
+          'nS': 30 - round,
+          'aMt': round % 3,
+          'nMt': round % 4,
+          'aMu': round % 2,
+          'nMu': round % 5,
+        }),
+    ];
+    // The view model ranks each round after loading them.
+    for (final point in points) {
+      point.rank = point.roundNumber % 5 + 1;
+    }
+    when(() => statsViewModel.getTipperRoundPointsForComp(selectedTipper))
+        .thenAnswer((_) => List.of(points));
+    return points;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round points golden $width/$scale', (tester) async {
+        populatePoints();
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: StatRoundPointsForTipper(selectedTipper),
+        );
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/round-points-${width.toInt()}-$scale.png'),
+        );
+      });
+    }
+  }
+
+  testWidgets('round points sorting, cache and navigation survive updates', (
+    tester,
+  ) async {
+    final points = populatePoints();
+    await pumpRound(
+      tester,
+      width: 680,
+      page: StatRoundPointsForTipper(selectedTipper),
+    );
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    final listeners = verify(() => statsViewModel.addListener(captureAny()))
+        .captured
+        .cast<VoidCallback>();
+    void notify() {
+      for (final listener in listeners) {
+        listener();
+      }
+    }
+
+    notify();
+    await tester.pump();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, page: StatRoundPointsForTipper(selectedTipper));
+    expect(identical(original, table().rows), isTrue);
+    points.last.nrlPoints = 99;
+    notify();
+    await tester.pump();
+    expect(table().rows.first.cells[3].text, '99');
+    for (var column = 0; column < 8; column++) {
+      table().onSort!(column, true);
+      await tester.pump();
+      notify();
+      await tester.pump();
+      final values = table().rows
+          .map((row) => int.parse(row.cells[column].text!))
+          .toList();
+      expect(values, orderedEquals(List.of(values)..sort()));
+    }
+    // Latest round first again: its season total is every round's points.
+    table().onSort!(0, false);
+    await tester.pump();
+    final everyRoundsPoints = points.fold<int>(
+      0,
+      (total, point) => total + point.nrlPoints + point.aflPoints,
+    );
+    expect(table().rows.first.cells[7].text, everyRoundsPoints.toString());
+    expect(table().rows.first.cells[1].text, '${24 % 5 + 1}');
+    final targetRound = int.parse(table().rows.first.cells.first.text!);
+    table().rows.first.onTap!();
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<StatRoundGameScoresForTipper>(
+            find.byType(StatRoundGameScoresForTipper),
+          )
+          .roundNumberToDisplay,
+      targetRound,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('round points freeze the round and clear the scrollbar', (
+    tester,
+  ) async {
+    populatePoints();
+    await pumpRound(
+      tester,
+      scale: 3.2,
+      page: StatRoundPointsForTipper(selectedTipper),
+    );
+    final x = tester.getTopLeft(find.text('Round')).dx;
+    final y = tester.getTopLeft(find.text('Round')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dx, x);
+    expect(
+      tester.getRect(find.text('UPS')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Round')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tipper round points renders its AppTable', (tester) async {
     await _expectPageRendersTable(
       tester,
       StatRoundPointsForTipper(selectedTipper),
     );
   });
 
-  testWidgets('tipper round games renders its DataTable2', (tester) async {
+  (Widget, List<Game>, MockTableTipsViewModel) populateGameScores({
+    DateTime? kickoff,
+  }) {
+    final start = kickoff ?? DateTime.utc(2025);
+    final tips = MockTableTipsViewModel();
+    when(() => tips.addListener(any())).thenAnswer((_) {});
+    when(() => tips.removeListener(any())).thenAnswer((_) {});
+    when(() => tips.dispose()).thenAnswer((_) {});
+    when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
+    when(() => tips.watchGames(any())).thenAnswer((_) async {});
+    final games = [
+      for (var i = 0; i < 20; i++)
+        Game(
+          dbkey: 'game-$i',
+          league: i < 10 ? League.nrl : League.afl,
+          homeTeam: homeTeam,
+          awayTeam: awayTeam,
+          location: 'Test Ground',
+          startTimeUTC: start,
+          fixtureRoundNumber: 1,
+          fixtureMatchNumber: i + 1,
+          scoring: Scoring(homeTeamScore: 40 + i, awayTeamScore: 10),
+        ),
+    ];
+    for (final game in games) {
+      final tip = Tip(
+        game: game,
+        tipper: selectedTipper,
+        tip: GameResult.a,
+        submittedTimeUTC: DateTime.utc(2024),
+      );
+      when(() => tips.findTip(game, selectedTipper))
+          .thenAnswer((_) async => tip);
+    }
+    final round = DAURound(
+      dAUroundNumber: 1,
+      firstGameKickOffUTC: start,
+      lastGameKickOffUTC: start,
+      games: games,
+    );
+    selectedComp.daurounds.add(round);
+    when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    when(() => dauCompsViewModel.groupGamesIntoLeagues(round)).thenAnswer(
+      (_) => {
+        League.nrl: games.take(10).toList(),
+        League.afl: games.skip(10).toList(),
+      },
+    );
+    return (
+      StatRoundGameScoresForTipper(
+        selectedTipper,
+        1,
+        createTipsViewModel: (_, _) => tips,
+      ),
+      games,
+      tips,
+    );
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('round game scores golden $width/$scale', (tester) async {
+        final (page, _, _) = populateGameScores();
+        await pumpRound(tester, width: width, scale: scale, page: page);
+        expect(find.text('40 - 10'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/round-game-scores-${width.toInt()}-$scale.png',
+          ),
+        );
+      });
+    }
+  }
+
+  testWidgets('game scores retain cache and update both league results', (
+    tester,
+  ) async {
+    final (page, games, tips) = populateGameScores();
+    await pumpRound(tester, width: 680, page: page);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    expect(original[1].cells[1].text, 'Home 13+');
+    expect(original[12].cells[1].text, 'Home 31+');
+    expect(original[1].cells.first.maxLines, 2);
+    expect(original[1].cells.first.text, contains('\n40 - 10'));
+    expect(table().onSort, isNull);
+    expect(original.every((row) => row.onTap == null), isTrue);
+    final listeners = verify(() => tips.addListener(captureAny())).captured
+        .cast<VoidCallback>();
+    for (final listener in listeners) {
+      listener();
+    }
+    await tester.pumpAndSettle();
+    expect(identical(original, table().rows), isTrue);
+    await pumpRound(tester, page: page);
+    expect(identical(original, table().rows), isTrue);
+    games.first.scoring!.homeTeamScore = 0;
+    for (final listener in listeners) {
+      listener();
+    }
+    await tester.pumpAndSettle();
+    expect(table().rows[1].cells.first.text, contains('\n0 - 10'));
+    expect(table().rows[1].cells[1].text, 'Away');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'another tipper\'s tips are asked for one started game at a time',
+    (tester) async {
+      final (page, games, tips) = populateGameScores();
+      await pumpRound(tester, width: 680, page: page);
+
+      final watched =
+          verify(() => tips.watchGames(captureAny())).captured.last
+              as Iterable<Game>;
+      expect(
+        watched.map((game) => game.dbkey).toSet(),
+        games.map((game) => game.dbkey).toSet(),
+      );
+    },
+  );
+
+  testWidgets('game scores freeze teams and clear max-points scrollbar lane', (
+    tester,
+  ) async {
+    final (page, _, _) = populateGameScores();
+    await pumpRound(tester, scale: 1.5, page: page);
+    final x = tester.getTopLeft(find.text('Teams / Scores')).dx;
+    final y = tester.getTopLeft(find.text('Teams / Scores')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Teams / Scores')).dx, x);
+    expect(
+      tester.getRect(find.text('Max Points')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Teams / Scores')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tipper round games renders its AppTable', (tester) async {
     // A null competition deliberately avoids constructing a Firebase-backed
     // TipsViewModel; this smoke case only guards the table's Material ancestry.
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(null);
@@ -139,7 +962,174 @@ void main() {
     );
   });
 
-  testWidgets('historical matchups renders its DataTable2', (tester) async {
+  testWidgets('a round still open for tipping says its games show at '
+      'kickoff, not that the round has none', (tester) async {
+    final (page, _, _) = populateGameScores(
+      kickoff: DateTime.now().toUtc().add(const Duration(days: 90)),
+    );
+    await pumpRound(tester, width: 680, page: page);
+
+    expect(find.text('No games this round'), findsNothing);
+    expect(find.text('Games show here once they kick off'), findsNWidgets(2));
+  });
+
+  testWidgets('a league with no games in the round says so', (tester) async {
+    when(() => dauCompsViewModel.selectedDAUComp).thenReturn(null);
+
+    await _expectPageRendersTable(
+      tester,
+      StatRoundGameScoresForTipper(selectedTipper, 1),
+    );
+
+    expect(find.text('No games this round'), findsNWidgets(2));
+  });
+
+  Widget populateMatchups() {
+    final games = List.generate(
+      24,
+      (i) => Game(
+        dbkey: 'past-$i',
+        league: League.nrl,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        location: 'Test Ground',
+        startTimeUTC: DateTime.utc(2025, 5, i + 1),
+        fixtureRoundNumber: i + 1,
+        fixtureMatchNumber: 1,
+        scoring: i % 4 == 3
+            ? null
+            : Scoring(
+                homeTeamScore: i % 4 == 0 ? 30 : 10,
+                awayTeamScore: i % 4 == 1 ? 30 : 10,
+              ),
+      ),
+    );
+    when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    when(() => gamesViewModel.initialLoadComplete).thenAnswer((_) async {});
+    when(() => gamesViewModel.teamsViewModel).thenReturn(teamsViewModel);
+    when(() => teamsViewModel.initialLoadComplete).thenAnswer((_) async {});
+    when(() => teamsViewModel.findTeam(homeTeam.dbkey)).thenReturn(homeTeam);
+    when(() => teamsViewModel.findTeam(awayTeam.dbkey)).thenReturn(awayTeam);
+    // GamesViewModel hands these back newest first; so does this.
+    when(
+      () => gamesViewModel.getCompleteMatchupHistory(
+        homeTeam,
+        awayTeam,
+        League.nrl,
+      ),
+    ).thenAnswer((_) async => games.reversed.toList());
+    final tips = MockTableTipsViewModel();
+    final comps = [selectedComp];
+    when(() => dauCompsViewModel.daucomps).thenReturn(comps);
+    when(() => dauCompsViewModel.selectedTipperTipsViewModel).thenReturn(tips);
+    when(() => tips.initialLoadCompleted).thenAnswer((_) async {});
+    for (final game in games) {
+      when(() => tips.findTipAcrossCompetitions(game, selectedTipper, comps))
+          .thenAnswer(
+            (_) async => game.scoring == null
+                ? null
+                : Tip(
+                    game: game,
+                    tipper: selectedTipper,
+                    tip: GameResult.a,
+                    submittedTimeUTC: DateTime.utc(2024),
+                  ),
+          );
+    }
+    // A section of a page that scrolls as a whole, as it is on the comparison.
+    return Scaffold(
+      body: SingleChildScrollView(
+        child: LeagueLadderHistoricalMatchups(
+          league: League.nrl,
+          teamDbKeys: [homeTeam.dbkey, awayTeam.dbkey],
+        ),
+      ),
+    );
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('matchup history golden $width/$scale', (tester) async {
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: populateMatchups(),
+        );
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile(
+            'goldens/matchup-history-${width.toInt()}-$scale.png',
+          ),
+        );
+      });
+    }
+  }
+
+  testWidgets('matchup cache, tip shading and tip outcome semantics', (
+    tester,
+  ) async {
+    final page = populateMatchups();
+    await pumpRound(tester, width: 680, page: page);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    // Newest first, which the heading now says and the page now does.
+    expect(table().sort!.column, 0);
+    expect(table().sort!.ascending, isFalse);
+    expect(original[0].cells[1].text, 'N/A');
+    expect(original[0].cells[2].text, 'Unknown');
+    expect(original[1].cells[2].text, 'Draw');
+    expect(original[2].cells[1].semanticLabel, 'Home Team, incorrect tip');
+    expect(original[3].cells[1].semanticLabel, 'Home Team, correct tip');
+    expect(original[3].cells[2].semanticLabel, 'Home, Home Team');
+    // Only a correctly tipped game is shaded.
+    expect(original[3].colour, isNotNull);
+    expect(original[2].colour, isNull);
+    expect(original[0].colour, isNull);
+    await pumpRound(tester, page: page);
+    expect(identical(original, table().rows), isTrue);
+    expect(table().rows.every((row) => row.onTap == null), isTrue);
+    for (var column = 0; column < 4; column++) {
+      for (final ascending in [true, false]) {
+        table().onSort!(column, ascending);
+        await tester.pump();
+        expect(table().sort!.column, column);
+        expect(table().sort!.ascending, ascending);
+      }
+    }
+    expect(table().rows.first.cells[3].text, '30 - 10');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('matchup dates stay frozen and scores clear the edge', (
+    tester,
+  ) async {
+    await pumpRound(tester, scale: 1.5, page: populateMatchups());
+    final x = tester.getTopLeft(find.text('Date')).dx;
+    final y = tester.getTopLeft(find.text('Date')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dx, x);
+    // As tall as its rows, it never scrolls them, so it keeps no lane for a bar.
+    expect(
+      tester.getRect(find.text('Score')).right,
+      lessThanOrEqualTo(tester.getRect(find.byType(AppTable)).right),
+    );
+    expect(tester.getTopLeft(find.text('Date')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('historical matchups renders its AppTable', (tester) async {
     final game = Game(
       dbkey: 'nrl-01-001',
       league: League.nrl,
@@ -176,9 +1166,140 @@ void main() {
     );
   });
 
-  testWidgets('team game history renders its DataTable2', (tester) async {
+  List<TeamGameHistoryItem> populateHistory() {
+    final items = List.generate(
+      24,
+      (i) => TeamGameHistoryItem(
+        opponentName: i.isEven ? 'Long Opponent Team Name' : 'Away Team',
+        opponentDbKey: i.isEven ? 'nrl-Long Opponent' : 'nrl-Away',
+        teamScore: 20 + i,
+        opponentScore: 10 + i,
+        result: ['Won', 'Lost', 'Draw'][i % 3],
+        ladderPoints: i % 3,
+        gameDate: DateTime.utc(2025, 5, i + 1),
+        roundNumber: i + 1,
+        isHomeGame: i.isEven,
+      ),
+    );
+    when(() => dauCompsViewModel.gamesViewModel).thenReturn(gamesViewModel);
+    // GamesViewModel hands these back newest first; so does this.
+    final ordered = items.reversed.toList();
+    when(() => gamesViewModel.getCompleteTeamGameHistory(homeTeam, League.nrl))
+        .thenAnswer((_) async => ordered);
+    return ordered;
+  }
+
+  for (final width in [360.0, 680.0, 768.0, 1280.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('team history golden $width/$scale', (tester) async {
+        populateHistory();
+        await pumpRound(
+          tester,
+          width: width,
+          scale: scale,
+          page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+        );
+        expect(tester.takeException(), isNull);
+        await expectLater(
+          find.byKey(const Key('round-page')),
+          matchesGoldenFile('goldens/team-history-${width.toInt()}-$scale.png'),
+        );
+      });
+    }
+  }
+
+  testWidgets('team history cache and sorting hold across rebuilds', (
+    tester,
+  ) async {
+    populateHistory();
+    final page = TeamGamesHistoryPage(team: homeTeam, league: League.nrl);
+    await pumpRound(tester, width: 680, page: page);
+    AppTable table() => tester.widget<AppTable>(find.byType(AppTable));
+    final original = table().rows;
+    await pumpRound(tester, page: page);
+    expect(identical(original, table().rows), isTrue);
+    // Newest first, which the heading now says and the page now does.
+    expect(table().sort!.column, 0);
+    expect(table().sort!.ascending, isFalse);
+    expect(table().rows.first.cells.last.semanticLabel, 'R24');
+    expect(table().rows.every((row) => row.onTap == null), isTrue);
+    for (var column = 0; column < 4; column++) {
+      for (final ascending in [true, false]) {
+        table().onSort!(column, ascending);
+        await tester.pump();
+        expect(table().sort!.column, column);
+        expect(table().sort!.ascending, ascending);
+      }
+    }
+    expect(table().rows.first.cells.last.semanticLabel, 'R24');
+    table().onSort!(3, true);
+    await tester.pump();
+    expect(table().rows.first.cells.last.semanticLabel, 'R1');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'team history shows home or away beside the opponent and shades wins',
+    (tester) async {
+      populateHistory();
+      await pumpRound(
+        tester,
+        width: 680,
+        page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+      );
+      final rows = tester.widget<AppTable>(find.byType(AppTable)).rows;
+      for (final row in rows) {
+        final opponent = row.cells[1].text!;
+        final home = row.cells[1].semanticLabel.startsWith('Home');
+        expect(opponent.startsWith(home ? 'v ' : '@ '), isTrue);
+        final won = row.cells[2].semanticLabel.startsWith('Won');
+        expect(row.colour != null, won);
+      }
+      expect(rows.any((row) => row.colour != null), isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('team history freezes dates and keeps final badge clear', (
+    tester,
+  ) async {
+    populateHistory();
+    await pumpRound(
+      tester,
+      scale: 1.5,
+      page: TeamGamesHistoryPage(team: homeTeam, league: League.nrl),
+    );
+    final x = tester.getTopLeft(find.text('Date')).dx;
+    final y = tester.getTopLeft(find.text('Date')).dy;
+    final horizontal = tester
+        .widget<SingleChildScrollView>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.horizontal,
+          ),
+        )
+        .controller!;
+    horizontal.jumpTo(horizontal.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dx, x);
+    expect(
+      tester.getRect(find.text('Round')).right,
+      lessThanOrEqualTo(
+        tester.getRect(find.byType(AppTable)).right -
+            AppTableLayout.scrollbarLane,
+      ),
+    );
+    tester.widget<ListView>(find.byType(ListView)).controller!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Date')).dy, y);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('team game history renders its AppTable', (tester) async {
     final historyItem = TeamGameHistoryItem(
       opponentName: awayTeam.name,
+      opponentDbKey: awayTeam.dbkey,
       teamScore: 20,
       opponentScore: 10,
       result: 'Won',
@@ -199,17 +1320,61 @@ void main() {
     );
   });
 
-  testWidgets('DataTable2 text uses the app theme, not a light fallback', (
+  for (final screen in [
+    'winners',
+    'points',
+    'missing',
+    'games',
+    'history',
+    'matchups',
+  ]) {
+    testWidgets('$screen retains rows when rotated into a 680px short pane', (
+      tester,
+    ) async {
+      late Widget page;
+      switch (screen) {
+        case 'winners':
+          populateWinners();
+          page = const StatRoundWinners();
+        case 'points':
+          populatePoints();
+          page = StatRoundPointsForTipper(selectedTipper);
+        case 'missing':
+          populateMissing();
+          page = const RoundMissingTipsStats(24);
+        case 'games':
+          page = populateGameScores().$1;
+        case 'history':
+          populateHistory();
+          page = TeamGamesHistoryPage(team: homeTeam, league: League.nrl);
+        case 'matchups':
+          // This section is embedded in the ladder's vertically scrolling page.
+          final section = populateMatchups() as Scaffold;
+          page = Scaffold(body: SingleChildScrollView(child: section.body!));
+      }
+      await pumpRound(tester, scale: 1.5, page: page);
+      final before = tester.widget<AppTable>(find.byType(AppTable)).rows;
+      await pumpRound(tester, width: 680, height: 360, scale: 1.5, page: page);
+      expect(
+        identical(before, tester.widget<AppTable>(find.byType(AppTable)).rows),
+        isTrue,
+      );
+      expect(tester.getSize(find.byType(ListView)).height, greaterThan(40));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('AppTable text uses the app theme, not a light fallback', (
     tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: FlexThemeData.dark(scheme: FlexScheme.green),
         home: Scaffold(
-          body: DataTable2(
-            columns: const <DataColumn>[DataColumn(label: Text('Tipper'))],
-            rows: const <DataRow>[
-              DataRow(cells: <DataCell>[DataCell(Text('Rich'))]),
+          body: AppTable(
+            columns: const [AppColumn.text('Tipper')],
+            rows: const [
+              AppRow(cells: [AppCell.text('Rich')]),
             ],
           ),
         ),
@@ -219,8 +1384,83 @@ void main() {
     expect(tester.takeException(), isNull);
     final BuildContext cellTextContext = tester.element(find.text('Rich'));
     expect(
-      DefaultTextStyle.of(cellTextContext).style.color,
+      tester.widget<Text>(find.text('Rich')).style?.color,
       Theme.of(cellTextContext).textTheme.bodyMedium?.color,
+    );
+  });
+  Future<void> pumpStatsTab(
+    WidgetTester tester,
+    Size size, {
+    double scale = 1,
+  }) async {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(fontFamily: 'Roboto'),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+        home: ChangeNotifierProvider<DAUCompsViewModel>.value(
+          value: dauCompsViewModel,
+          child: const Scaffold(body: StatsTab()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('league ladders pair side by side on one line', (tester) async {
+    await pumpStatsTab(tester, const Size(900, 1400));
+    final nrl = tester.getRect(find.text('NRL Ladder\nTeam rankings'));
+    final afl = tester.getRect(find.text('AFL Ladder\nTeam rankings'));
+    expect(nrl.top, afl.top);
+    expect(afl.left, greaterThan(nrl.right));
+    // Each takes about half, so neither spans the full content width.
+    expect(nrl.width, lessThan(kFormContentWidth / 2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('paired ladders survive a narrow pane at large text', (
+    tester,
+  ) async {
+    await pumpStatsTab(tester, const Size(360, 900), scale: 1.5);
+    expect(tester.takeException(), isNull);
+    final nrl = tester.getRect(find.text('NRL Ladder\nTeam rankings'));
+    final afl = tester.getRect(find.text('AFL Ladder\nTeam rankings'));
+    expect(nrl.top, afl.top);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stats menu scrolls on a short viewport instead of overflowing', (
+    tester,
+  ) async {
+    await pumpStatsTab(tester, const Size(900, 420));
+    expect(tester.takeException(), isNull);
+    final last = find.text('AFL Ladder\nTeam rankings');
+    await tester.scrollUntilVisible(
+      last,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(last, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stats menu stays bottom aligned when the viewport is tall', (
+    tester,
+  ) async {
+    await pumpStatsTab(tester, const Size(900, 1400));
+    expect(tester.takeException(), isNull);
+    // Bottom-focused layout: the final row sits near the bottom edge rather
+    // than floating to the top of a tall pane.
+    expect(
+      tester.getRect(find.text('AFL Ladder\nTeam rankings')).bottom,
+      greaterThan(1400 - 200),
     );
   });
 }
@@ -242,5 +1482,5 @@ Future<void> _expectPageRendersTable(
   }
 
   expect(tester.takeException(), isNull);
-  expect(find.byType(DataTable2), findsOneWidget);
+  expect(find.byType(AppTable), findsOneWidget);
 }

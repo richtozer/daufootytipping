@@ -1,0 +1,128 @@
+{
+  "_about": "Test vectors for normaliseAlias, normaliseEmail and logonIndexKey. Generated with Node (regex engine and crypto) and asserted by the Dart tests in packages/dau_shared and functions_dart. Dart is authoritative for alias keys: where the plain JavaScript toLowerCase differs (U+0130 and a final capital sigma, in aliases and in email addresses) the entry carries nodeNormalised; Node code must lower-case per code point like Dart (see lowerCaseLikeDart in scripts/audit_identity.mjs) and must not compute index keys otherwise. logonIndexKey is base64url(SHA-256(normalisedEmail)) without padding.",
+  "aliases": [
+    {
+      "input": "Reisy",
+      "normalised": "reisy"
+    },
+    {
+      "input": "R e i s y",
+      "normalised": "reisy"
+    },
+    {
+      "input": "Reisy🏈",
+      "normalised": "reisy"
+    },
+    {
+      "input": "Réisy",
+      "normalised": "réisy"
+    },
+    {
+      "input": "  Big  Fan ",
+      "normalised": "bigfan"
+    },
+    {
+      "input": "😀😀",
+      "normalised": ""
+    },
+    {
+      "input": "Tipper #1",
+      "normalised": "tipper1"
+    },
+    {
+      "input": "ÀÉÎ",
+      "normalised": "àéî"
+    },
+    {
+      "input": "老虎",
+      "normalised": "老虎"
+    },
+    {
+      "input": "Team 9",
+      "normalised": "team9"
+    },
+    {
+      "input": "İstanbul",
+      "normalised": "istanbul",
+      "nodeNormalised": "i̇stanbul"
+    },
+    {
+      "input": "ΟΔΥΣΣΕΥΣ",
+      "normalised": "οδυσσευσ",
+      "nodeNormalised": "οδυσσευς"
+    },
+    {
+      "input": "O’Brien",
+      "normalised": "obrien"
+    },
+    {
+      "input": "a b",
+      "normalised": "ab"
+    },
+    {
+      "input": "Mc.Gee",
+      "normalised": "mcgee"
+    },
+    {
+      "input": "",
+      "normalised": ""
+    },
+    {
+      "input": "   ",
+      "normalised": ""
+    },
+    {
+      "input": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "normalised": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "emails": [
+    {
+      "input": "tipper@example.com",
+      "normalised": "tipper@example.com",
+      "logonIndexKey": "3NcA8KmsEK3-fr8hgVyp3Kt-0rSz-hChQfVHIjlrbFQ"
+    },
+    {
+      "input": "Tipper@Example.COM",
+      "normalised": "tipper@example.com",
+      "logonIndexKey": "3NcA8KmsEK3-fr8hgVyp3Kt-0rSz-hChQfVHIjlrbFQ"
+    },
+    {
+      "input": "  tipper@example.com  ",
+      "normalised": "tipper@example.com",
+      "logonIndexKey": "3NcA8KmsEK3-fr8hgVyp3Kt-0rSz-hChQfVHIjlrbFQ"
+    },
+    {
+      "input": "first.last+tag@sub.example.co.uk",
+      "normalised": "first.last+tag@sub.example.co.uk",
+      "logonIndexKey": "Ndd9UHOYxbi3tlvWcvVwTBrIpydcQj8R9Pt_P8fApx0"
+    },
+    {
+      "input": "ÜBER@example.com",
+      "normalised": "über@example.com",
+      "logonIndexKey": "N6iw7AvIdRo63R_ywtlZUnPNgZ_jnu-cgGrz5vp2K28"
+    },
+    {
+      "input": "a@b.c",
+      "normalised": "a@b.c",
+      "logonIndexKey": "1kiyQ6PoF-qjMJ4A4YNIPyhnuq31IgmfDCEhdwU2slo"
+    },
+    {
+      "input": "İSTANBUL@example.com",
+      "normalised": "istanbul@example.com",
+      "nodeNormalised": "i̇stanbul@example.com",
+      "logonIndexKey": "b9Bf3YlcuNHq8HHDxs1cb3LNFhYzU98i-_gOS4GoaKI"
+    },
+    {
+      "input": "ΟΔΥΣΣΕΥΣ@example.com",
+      "normalised": "οδυσσευσ@example.com",
+      "nodeNormalised": "οδυσσευς@example.com",
+      "logonIndexKey": "GvxL4-avHTAnkk4kfjlAoyNJGBzf0OBuDc5cEXZfSV0"
+    },
+    {
+      "input": "Σ@example.com",
+      "normalised": "σ@example.com",
+      "logonIndexKey": "YiDzJ6S-WQdn4smrIqi7GDsvey3JIVDLGC1mZFUAbgM"
+    }
+  ]
+}

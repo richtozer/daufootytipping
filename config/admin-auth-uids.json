@@ -1,0 +1,4 @@
+{
+  "_comment": "R1 admin allowlist (DESIGN-database-rules.md D12). Firebase Auth UIDs verified independently with scripts/verify_admin_auth_uids.mjs and signed off by the owner. Empty until verified. Regenerate the rules and Dart constant with: node scripts/build_admin_allowlist.mjs. Retired when the AuthIndex check goes live (R2).",
+  "adminAuthUids": ["pxxLNwpafXPsHOcKEiWk6JOtudi2","UTKZKKqcGkcWvc8xv8zaoGwVFkg1","7sjTXDkaYoRFwLSWzrCgcXuyTSD2","2lnOuVShdqdEhnGp28GZYcViuok1"]
+}

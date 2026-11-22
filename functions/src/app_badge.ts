@@ -3,6 +3,11 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import {getDatabase} from "firebase-admin/database";
 import {getMessaging, Message, Messaging} from "firebase-admin/messaging";
 import {resolveLocalDartFunctionUrl} from "./local_emulator_functions";
+import {
+  GameCompCutoffs,
+  isGameWithinCompCutoff,
+  parseFirebaseUtcTimestamp,
+} from "./services/game_comp_eligibility";
 
 interface SnapshotLike {
   exists(): boolean;
@@ -75,6 +80,16 @@ interface BadgeCountResponse {
   counts: Record<string, number>;
 }
 
+interface BadgeRoundWindow {
+  activationMs: number;
+  endMs: number;
+}
+
+interface BadgeSchedule {
+  rounds: BadgeRoundWindow[];
+  cutoffs: GameCompCutoffs;
+}
+
 const REGION = "asia-southeast1";
 const TIPS_PATH = "/AllTips";
 const TIPPERS_PATH = "/AllTippers";
@@ -88,6 +103,8 @@ const COMMAND_SECRET_HEADER = "x-app-badge-secret";
 const MESSAGE_TYPE = "outstanding_tips_badge";
 const COLLAPSE_ID = "outstanding-tips-badge";
 const MAX_FCM_BATCH_SIZE = 500;
+const BADGE_ACTIVATION_LEAD_MS = 48 * 60 * 60 * 1000;
+const SCHEDULE_BOUNDARY_WINDOW_MS = 60 * 1000;
 const COMMAND_URL_ENV_KEYS = [
   "APP_BADGE_COUNT_URL",
   "DART_APP_BADGE_COUNT_URL",
@@ -123,8 +140,8 @@ export const tipperTokenCreatedAppBadge = appBadgeFunctions.database
 
 export const kickoffOutstandingTipsAppBadge = onSchedule(
   {schedule: "* * * * *", timeZone: "UTC", region: REGION},
-  async () => {
-    await handleKickoffAppBadgeSweep();
+  async (event) => {
+    await handleKickoffAppBadgeSweep({now: new Date(event.scheduleTime)});
   },
 );
 
@@ -183,11 +200,14 @@ export async function handleKickoffAppBadgeSweep(
   if (!await appBadgePushEnabled(deps)) return;
   const compKey = await currentCompKey(deps);
   if (compKey == null) return;
-  const reachedKickoff = await hasRecentKickoff(compKey, deps);
-  const reachedActivation = reachedKickoff ? false :
-    await hasRecentBadgeActivation(compKey, deps);
+  const nowMs = (deps.now ?? new Date()).getTime();
+  const schedule = await loadBadgeSchedule(compKey, deps);
+  if (!isWithinBadgeSyncWindow(schedule, nowMs)) return;
+  const reachedActivation = hasRecentBadgeActivation(schedule, nowMs);
+  const reachedKickoff = reachedActivation ? false :
+    await hasRecentKickoff(compKey, schedule.cutoffs, nowMs, deps);
   if (!reachedKickoff && !reachedActivation) return;
-  await syncAppBadges(compKey, undefined, deps, undefined, true);
+  await sendAppBadges(compKey, undefined, deps);
 }
 
 export async function handleAppBadgeReconciliation(
@@ -202,10 +222,21 @@ export async function syncAppBadges(
   tipperIds: string[] | undefined,
   deps: AppBadgeDependencies = {},
   tokenOverride?: {tipperId: string; token: string},
-  alreadyEnabled = false,
+): Promise<void> {
+  if (!await appBadgePushEnabled(deps)) return;
+  const nowMs = (deps.now ?? new Date()).getTime();
+  const schedule = await loadBadgeSchedule(compKey, deps);
+  if (!isWithinBadgeSyncWindow(schedule, nowMs)) return;
+  await sendAppBadges(compKey, tipperIds, deps, tokenOverride);
+}
+
+async function sendAppBadges(
+  compKey: string,
+  tipperIds: string[] | undefined,
+  deps: AppBadgeDependencies,
+  tokenOverride?: {tipperId: string; token: string},
 ): Promise<void> {
   const logger = deps.logger ?? functions.logger;
-  if (!alreadyEnabled && !await appBadgePushEnabled(deps)) return;
   const result = await requestBadgeCounts(compKey, tipperIds, deps);
   const messages: Message[] = [];
   const messageOwners: Array<{tipperId: string; token: string}> = [];
@@ -289,8 +320,27 @@ export function tipperEligibilityChanged(
   before: unknown,
   after: unknown,
 ): boolean {
-  return JSON.stringify(eligibilityFields(before)) !==
-    JSON.stringify(eligibilityFields(after));
+  if (!isRecord(before) || !isRecord(after)) {
+    // A record was created or deleted.
+    return isRecord(before) !== isRecord(after);
+  }
+  return JSON.stringify(before.compsParticipatedIn ?? null) !==
+    JSON.stringify(after.compsParticipatedIn ?? null) ||
+    anonymityChanged(before.isAnonymous, after.isAnonymous);
+}
+
+/**
+ * `isAnonymous` moves to /TipperPrivate when the public records are purged
+ * (DESIGN-database-rules-phase4.md, M3b). A flag that has simply left the
+ * record has not changed, so the purge touches no tipper's badge. Only a flag
+ * that is still here and now says something different is a change.
+ * @param {unknown} before The flag before the write.
+ * @param {unknown} after The flag after the write.
+ * @return {boolean} Whether the tipper's anonymity changed.
+ */
+function anonymityChanged(before: unknown, after: unknown): boolean {
+  if (typeof after !== "boolean") return false;
+  return (before === true) !== after;
 }
 
 async function requestBadgeCounts(
@@ -377,51 +427,133 @@ async function allTokensByTipper(
 
 async function hasRecentKickoff(
   compKey: string,
+  compCutoffs: GameCompCutoffs,
+  nowMs: number,
   deps: AppBadgeDependencies,
 ): Promise<boolean> {
-  const snapshot = await appBadgeDatabase(deps)
+  const gamesSnapshot = await appBadgeDatabase(deps)
     .ref(`${GAMES_PATH}/${compKey}`).once("value");
-  const games = snapshot.val();
+  const games = gamesSnapshot.val();
   if (!isRecord(games)) return false;
-  const nowMs = (deps.now ?? new Date()).getTime();
-  const windowStartMs = nowMs - 2 * 60 * 1000;
-  return Object.values(games).some((game) => {
+  return Object.entries(games).some(([gameKey, game]) => {
     if (!isRecord(game) || typeof game.DateUtc !== "string") return false;
-    const kickoffMs = Date.parse(game.DateUtc);
-    return Number.isFinite(kickoffMs) &&
-      kickoffMs > windowStartMs && kickoffMs <= nowMs;
+    const kickoffMs = parseFirebaseUtcTimestamp(game.DateUtc);
+    return isInScheduledBoundaryWindow(kickoffMs, nowMs) &&
+      isGameWithinCompCutoff(
+        gameKey,
+        game.DateUtc,
+        compCutoffs,
+      );
   });
 }
 
-async function hasRecentBadgeActivation(
+function hasRecentBadgeActivation(
+  schedule: BadgeSchedule,
+  nowMs: number,
+): boolean {
+  return schedule.rounds.some((round) =>
+    isInScheduledBoundaryWindow(round.activationMs, nowMs),
+  );
+}
+
+async function loadBadgeSchedule(
   compKey: string,
   deps: AppBadgeDependencies,
-): Promise<boolean> {
-  const snapshot = await appBadgeDatabase(deps)
-    .ref(`${COMPS_PATH}/${compKey}/${COMBINED_ROUNDS_PATH}`).once("value");
-  const rounds = snapshot.val();
+): Promise<BadgeSchedule> {
+  const db = appBadgeDatabase(deps);
+  const [roundsSnapshot, aflCutoffSnapshot, nrlCutoffSnapshot] =
+    await Promise.all([
+      db.ref(`${COMPS_PATH}/${compKey}/${COMBINED_ROUNDS_PATH}`)
+        .once("value"),
+      db.ref(`${COMPS_PATH}/${compKey}/aflRegularCompEndDateUTC`)
+        .once("value"),
+      db.ref(`${COMPS_PATH}/${compKey}/nrlRegularCompEndDateUTC`)
+        .once("value"),
+    ]);
+  const cutoffs: GameCompCutoffs = {
+    aflRegularCompEndDateUTC: aflCutoffSnapshot.val(),
+    nrlRegularCompEndDateUTC: nrlCutoffSnapshot.val(),
+  };
+  const latestCutoffMs = latestRegularCompCutoffMs(cutoffs);
+  const rounds = roundsSnapshot.val();
   const rawRounds = Array.isArray(rounds) ? rounds :
     isRecord(rounds) ? Object.values(rounds) : [];
-  const nowMs = (deps.now ?? new Date()).getTime();
-  const windowStartMs = nowMs - 2 * 60 * 1000;
-  const activationLeadMs = 48 * 60 * 60 * 1000;
-  return rawRounds.some((round) => {
-    if (!isRecord(round) || typeof round.roundStartDate !== "string") {
-      return false;
+  const parsedRounds: BadgeRoundWindow[] = [];
+  for (const round of rawRounds) {
+    if (!isRecord(round) || typeof round.roundStartDate !== "string" ||
+        typeof round.roundEndDate !== "string") {
+      continue;
     }
-    const firstKickoffMs = Date.parse(round.roundStartDate);
-    const activationMs = firstKickoffMs - activationLeadMs;
-    return Number.isFinite(activationMs) &&
-      activationMs > windowStartMs && activationMs <= nowMs;
-  });
+    const storedStartMs = parseFirebaseUtcTimestamp(round.roundStartDate);
+    const storedEndMs = parseFirebaseUtcTimestamp(round.roundEndDate);
+    if (!Number.isFinite(storedStartMs) || !Number.isFinite(storedEndMs)) {
+      continue;
+    }
+    const overrideStartMs = typeof round.adminOverrideRoundStartDate ===
+      "string" ?
+      parseFirebaseUtcTimestamp(round.adminOverrideRoundStartDate) : NaN;
+    const rawStartMs = Number.isFinite(overrideStartMs) ?
+      overrideStartMs : storedStartMs;
+    const effectiveStartMs = startOfUtcDayMs(rawStartMs);
+    const effectiveEndMs = storedEndMs;
+    if (!Number.isFinite(effectiveStartMs) ||
+        !Number.isFinite(effectiveEndMs)) {
+      continue;
+    }
+    if (effectiveEndMs <= effectiveStartMs) continue;
+    if (latestCutoffMs != null && effectiveStartMs > latestCutoffMs) continue;
+    parsedRounds.push({
+      activationMs: effectiveStartMs - BADGE_ACTIVATION_LEAD_MS,
+      endMs: effectiveEndMs,
+    });
+  }
+  return {rounds: parsedRounds, cutoffs};
 }
 
-function eligibilityFields(value: unknown): unknown {
-  if (!isRecord(value)) return null;
-  return {
-    isAnonymous: value.isAnonymous === true,
-    compsParticipatedIn: value.compsParticipatedIn ?? null,
-  };
+function startOfUtcDayMs(timestampMs: number): number {
+  const date = new Date(timestampMs);
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+  );
+}
+
+function isWithinBadgeSyncWindow(
+  schedule: BadgeSchedule,
+  nowMs: number,
+): boolean {
+  return schedule.rounds.some((round) =>
+    nowMs >= round.activationMs && nowMs <= round.endMs,
+  );
+}
+
+function latestRegularCompCutoffMs(cutoffs: GameCompCutoffs): number | null {
+  const aflRaw = cutoffs.aflRegularCompEndDateUTC;
+  const nrlRaw = cutoffs.nrlRegularCompEndDateUTC;
+  if (
+    typeof aflRaw !== "string" ||
+    aflRaw.trim() === "" ||
+    typeof nrlRaw !== "string" ||
+    nrlRaw.trim() === ""
+  ) {
+    return null;
+  }
+  const aflMs = parseFirebaseUtcTimestamp(aflRaw);
+  const nrlMs = parseFirebaseUtcTimestamp(nrlRaw);
+  if (!Number.isFinite(aflMs) || !Number.isFinite(nrlMs)) {
+    return null;
+  }
+  return Math.max(aflMs, nrlMs);
+}
+
+function isInScheduledBoundaryWindow(
+  boundaryMs: number,
+  scheduledTimeMs: number,
+): boolean {
+  return Number.isFinite(boundaryMs) &&
+    boundaryMs > scheduledTimeMs - SCHEDULE_BOUNDARY_WINDOW_MS &&
+    boundaryMs <= scheduledTimeMs;
 }
 
 function sameSnapshotValue(before: SnapshotLike, after: SnapshotLike): boolean {

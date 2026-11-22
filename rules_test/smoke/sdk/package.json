@@ -1,0 +1,8 @@
+{
+  "name": "smoke-firebase-js-sdk",
+  "private": true,
+  "description": "The Firebase JS SDK files the released app loads from Google's CDN, served locally for the smoke test. The version must equal what the release build asks for; up.sh checks this.",
+  "dependencies": {
+    "firebase": "12.18.0"
+  }
+}

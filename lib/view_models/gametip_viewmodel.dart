@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
-import 'package:carousel_slider/carousel_controller.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -11,6 +11,10 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/package_info_service.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
+import 'package:daufootytipping/services/tipping_deadline.dart';
+import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
@@ -18,7 +22,6 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
@@ -73,7 +76,22 @@ class GameTipViewModel extends ChangeNotifier {
   final DatabaseReference _db;
   final TipAnalyticsLogger _logAnalyticsEvent;
   final TipLogWriter? _writeTipLog;
+  final Duration _writeAcknowledgementLimit;
+  final UnconfirmedTipsService? _unconfirmedTips;
   bool _disposed = false;
+  Timer? _tipDeadlineTimer;
+  ConfigViewModel? _deadlineConfig;
+
+  void _scheduleTipDeadline() {
+    _tipDeadlineTimer?.cancel();
+    final remaining = tippingDeadline(game.startTimeUTC)
+        .difference(tippingNow());
+    if (remaining > Duration.zero) {
+      _tipDeadlineTimer = Timer(remaining, _notifyListenersIfAlive);
+    }
+    _notifyListenersIfAlive();
+  }
+
   late final bool _listensToGamesViewModel;
 
   bool _savingTip = false;
@@ -82,17 +100,6 @@ class GameTipViewModel extends ChangeNotifier {
   final Completer<void> _initialLoadCompleter = Completer();
   Future<bool> get initialLoadCompleted async =>
       _initialLoadCompleter.isCompleted;
-
-  int historicalTotalTipsOnCombination = 0;
-  int historicalWinsOnCombination = 0;
-  int historicalLossesOnCombination = 0;
-  int historicalDrawsOnCombination = 0;
-  String historicalInsightsString = "";
-
-  int currentIndex = 0;
-
-  final CarouselSliderController _controller = CarouselSliderController();
-  CarouselSliderController get controller => _controller;
 
   //constructor
   GameTipViewModel(
@@ -103,9 +110,13 @@ class GameTipViewModel extends ChangeNotifier {
     DatabaseReference? database,
     TipAnalyticsLogger? logAnalyticsEvent,
     TipLogWriter? writeTipLog,
-  })  : _db = database ?? configuredDatabaseRef(),
-        _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
-        _writeTipLog = writeTipLog {
+    Duration writeAcknowledgementLimit = defaultWriteAcknowledgementLimit,
+    UnconfirmedTipsService? unconfirmedTips,
+  }) : _db = database ?? configuredDatabaseRef(),
+       _logAnalyticsEvent = logAnalyticsEvent ?? _defaultLogAnalyticsEvent,
+       _writeTipLog = writeTipLog,
+       _writeAcknowledgementLimit = writeAcknowledgementLimit,
+       _unconfirmedTips = unconfirmedTips {
     _homeTeamScore = game.scoring?.currentScore(ScoringTeam.home);
     _awayTeamScore = game.scoring?.currentScore(ScoringTeam.away);
     _gameState = game.gameState;
@@ -124,6 +135,11 @@ class GameTipViewModel extends ChangeNotifier {
 
     _findTip();
     _gameStartedTrigger();
+    if (di.isRegistered<ConfigViewModel>()) {
+      _deadlineConfig = di<ConfigViewModel>();
+      _deadlineConfig!.addListener(_scheduleTipDeadline);
+    }
+    _scheduleTipDeadline();
   }
 
   // this method will delay returning until the game has started,
@@ -192,9 +208,14 @@ class GameTipViewModel extends ChangeNotifier {
     final previousAwayScore = _awayTeamScore;
     final previousGameState = _gameState;
 
+    final previousKickoff = game.startTimeUTC;
     game = (await allTipsViewModel.gamesViewModel.findGame(game.dbkey))!;
     if (_disposed) {
       return;
+    }
+    if (game.startTimeUTC != previousKickoff) {
+      // The fixture was moved: tipping now closes at a different time.
+      _scheduleTipDeadline();
     }
     _tip?.game.scoring = game.scoring; //update the tip scoring
 
@@ -238,107 +259,10 @@ class GameTipViewModel extends ChangeNotifier {
     }
 
     _notifyListenersIfAlive();
-
-    // Fetch historical stats after the main tip is found and initial load is complete
-    if (_initialLoadCompleter.isCompleted) {
-      await _fetchHistoricalTipStats();
-    }
   }
 
   void _syncTipGameScoring() {
     _tip?.game.scoring = game.scoring;
-  }
-
-  Future<void> _fetchHistoricalTipStats() async {
-    // Reset stats before recalculating
-    historicalTotalTipsOnCombination = 0;
-    historicalWinsOnCombination = 0;
-    historicalLossesOnCombination = 0;
-    historicalDrawsOnCombination = 0;
-    historicalInsightsString = "";
-
-    // Ensure allTipsViewModel has completed its initial load.
-    // GameTipViewModel's _findTip already awaits allTipsViewModel.initialLoadCompleted
-    // so it should be safe here.
-
-    List<Tip?> tipperPastTips = allTipsViewModel.getTipsForTipper(
-      currentTipper,
-    );
-
-    if (tipperPastTips.isEmpty) {
-      historicalInsightsString = "No past tips for this team combination.";
-      _notifyListenersIfAlive();
-      return;
-    }
-
-    for (Tip? pastTip in tipperPastTips) {
-      if (pastTip == null) {
-        // Should not happen if game is valid
-        continue;
-      }
-
-      // Exclude current game
-      if (pastTip.game.dbkey == game.dbkey) {
-        continue;
-      }
-
-      bool sameCombination =
-          (pastTip.game.homeTeam.dbkey == game.homeTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.awayTeam.dbkey) ||
-          (pastTip.game.homeTeam.dbkey == game.awayTeam.dbkey &&
-              pastTip.game.awayTeam.dbkey == game.homeTeam.dbkey);
-
-      if (sameCombination) {
-        historicalTotalTipsOnCombination++;
-
-        if (pastTip.game.scoring == null) {
-          continue;
-        }
-
-        GameResult? actualGameResult = pastTip.game.scoring!
-            .getGameResultCalculated(pastTip.game.league);
-
-        bool isActualGameDraw =
-            (pastTip.game.league == League.afl &&
-                actualGameResult == GameResult.c) ||
-            (pastTip.game.league == League.nrl &&
-                actualGameResult == GameResult.c);
-
-        bool isTipperPickedDraw =
-            (pastTip.game.league == League.afl &&
-                pastTip.tip == GameResult.c) ||
-            (pastTip.game.league == League.nrl && pastTip.tip == GameResult.c);
-
-        bool isWin = pastTip.tip == actualGameResult;
-
-        if (isWin) {
-          historicalWinsOnCombination++;
-          if (isActualGameDraw && isTipperPickedDraw) {
-            // Tipper correctly predicted a draw
-            historicalDrawsOnCombination++;
-          }
-        } else {
-          // Not a win
-          // It's a loss if it's not a win AND it's not the specific case of (actual draw AND tipper picked draw)
-          // The case (actual draw AND tipper picked draw) is already handled under "isWin"
-          // So, if it's not a "Win" (meaning tip != actualResult), it's a Loss.
-          historicalLossesOnCombination++;
-        }
-      }
-    }
-
-    if (historicalTotalTipsOnCombination == 0) {
-      historicalInsightsString = "No past tips for this team combination.";
-    } else {
-      historicalInsightsString =
-          "Previously on this matchup ($historicalTotalTipsOnCombination games): $historicalWinsOnCombination Wins, $historicalLossesOnCombination Losses, $historicalDrawsOnCombination Draws.";
-    }
-    _notifyListenersIfAlive();
-  }
-
-  // Test hook for unit tests
-  Future<void> testHookFetchHistoricalTipStats() async {
-    await _fetchHistoricalTipStats();
   }
 
   Future<Tip?> getTip() async {
@@ -365,7 +289,50 @@ class GameTipViewModel extends ChangeNotifier {
       final Map<String, Map> updates = {};
       updates['${p.tipsPathRoot}/${_currentDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}'] =
           tipJson;
-      await _db.update(updates);
+      final UnconfirmedTipsService? unconfirmedTips = _unconfirmedTipsService();
+      final UnconfirmedTip unconfirmed = _unconfirmedRecord(tip);
+      // Kept on the device before the write is handed to the database, not
+      // after the wait: the database holds a write it cannot send across a
+      // restart, and if the app closes before the screen stops waiting, this is
+      // the only record that a tip is outstanding.
+      await unconfirmedTips?.queued(unconfirmed);
+      final Future<void> write = _db.update(updates);
+      final WriteAcknowledgement acknowledgement;
+      try {
+        acknowledgement = await awaitAcknowledgement(
+          write,
+          limit: _writeAcknowledgementLimit,
+          onLateError: (Object error, StackTrace stackTrace) {
+            log(
+              'GameTipsViewModel.addTip() queued tip was rejected: $error',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            // The screen has stopped waiting, so this is the only way the user
+            // hears that the tip did not count.
+            unawaited(unconfirmedTips?.rejected(unconfirmed));
+          },
+        );
+      } on Object {
+        // Refused while the screen was still waiting: the screen reports it.
+        await unconfirmedTips?.answered(unconfirmed);
+        rethrow;
+      }
+      if (acknowledgement == WriteAcknowledgement.stillPending) {
+        // The database keeps the write and sends it when the connection
+        // recovers. The record stays on the device, so that a rejection or a
+        // closed app is still reported; the Firestore record of the tip waits
+        // for the write to be sent.
+        unawaited(
+          write.then<void>((_) async {
+            await unconfirmedTips?.answered(unconfirmed);
+            await (_writeTipLog ?? _addLogOfTipToFirestore)(tip);
+          }, onError: (Object _) {}),
+        );
+        log('GameTipsViewModel.addTip() tip not confirmed within the limit');
+        throw const WriteNotConfirmedException('tip submission');
+      }
+      await unconfirmedTips?.answered(unconfirmed);
       log('new tip submitted: ${updates.toString()}');
 
       _tip = tip; // update the tip with the new tip
@@ -404,6 +371,25 @@ class GameTipViewModel extends ChangeNotifier {
       _notifyListenersIfAlive();
     }
   }
+
+  UnconfirmedTipsService? _unconfirmedTipsService() =>
+      _unconfirmedTips ??
+      (di.isRegistered<UnconfirmedTipsService>()
+          ? di<UnconfirmedTipsService>()
+          : null);
+
+  UnconfirmedTip _unconfirmedRecord(Tip tip) => UnconfirmedTip(
+    compKey: _currentDAUComp.dbkey ?? '',
+    tipperKey: tip.tipper.dbkey ?? '',
+    gameKey: tip.game.dbkey,
+    choice: tip.tip.name,
+    submittedUtcSeconds: tip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
+    gameLabel: '${tip.game.homeTeam.name} v ${tip.game.awayTeam.name}',
+    deadlineUtcMs: tippingDeadline(tip.game.startTimeUTC)
+        .toUtc()
+        .millisecondsSinceEpoch,
+    queuedAtUtcMs: DateTime.now().toUtc().millisecondsSinceEpoch,
+  );
 
   void _notifyListenersIfAlive() {
     if (_disposed) {
@@ -480,105 +466,12 @@ class GameTipViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _tipDeadlineTimer?.cancel();
+    _deadlineConfig?.removeListener(_scheduleTipDeadline);
     if (_listensToGamesViewModel) {
       allTipsViewModel.gamesViewModel.removeListener(_gamesViewModelUpdated);
     }
     allTipsViewModel.removeListener(_tipsUpdated);
     super.dispose();
-  }
-
-  Future<List<HistoricalMatchupUIData>> getFormattedHistoricalMatchups() async {
-    log(
-      'GameTipViewModel.getFormattedHistoricalMatchups() called for game ${game.dbkey}',
-    );
-    final List<HistoricalMatchupUIData> formattedMatchups = [];
-
-    // 1. Get GamesViewModel
-    final gamesViewModel = allTipsViewModel.gamesViewModel;
-    await gamesViewModel.initialLoadComplete; // Ensure games are loaded
-
-    // 2. Get historical matchups
-    final List<Game> historicalGames = await gamesViewModel
-        .getCompleteMatchupHistory(game.homeTeam, game.awayTeam, game.league);
-
-    log(
-      'Found ${historicalGames.length} historical games for ${game.homeTeam.name} vs ${game.awayTeam.name}',
-    );
-
-    // 3. For each past game, format the data
-    for (final pastGame in historicalGames) {
-      if (pastGame.scoring == null ||
-          pastGame.scoring!.homeTeamScore == null ||
-          pastGame.scoring!.awayTeamScore == null) {
-        log('Skipping game ${pastGame.dbkey} due to missing scores.');
-        continue;
-      }
-
-      // a. Get user's tip for the past game
-      final Tip? pastTip = await allTipsViewModel.findTipAcrossCompetitions(
-        pastGame,
-        currentTipper,
-        di<DAUCompsViewModel>().daucomps,
-      );
-
-      // b. Determine winning team and winType
-      String winningTeamName = '';
-      String winType = ''; // "Home", "Away", "Draw"
-
-      if (pastGame.scoring!.homeTeamScore! > pastGame.scoring!.awayTeamScore!) {
-        winningTeamName = pastGame.homeTeam.name;
-        winType = 'Home';
-      } else if (pastGame.scoring!.awayTeamScore! >
-          pastGame.scoring!.homeTeamScore!) {
-        winningTeamName = pastGame.awayTeam.name;
-        winType = 'Away';
-      } else {
-        winningTeamName = 'Draw'; // Or "Nobody" or handle as per UI needs
-        winType = 'Draw';
-      }
-
-      // c. Determine userTipTeamName
-      String userTipTeamName = ''; // Default to empty
-      if (pastTip != null && !pastTip.isDefaultTip()) {
-        // New stricter condition
-        if (pastTip.tip == GameResult.a || pastTip.tip == GameResult.b) {
-          // Home tip
-          userTipTeamName = pastGame.homeTeam.name;
-        } else if (pastTip.tip == GameResult.d || pastTip.tip == GameResult.e) {
-          // Away tip
-          userTipTeamName = pastGame.awayTeam.name;
-        } else if (pastTip.tip == GameResult.c) {
-          // Draw tip
-          userTipTeamName = 'Draw';
-        }
-      }
-      // If pastTip is null or pastTip.isDefaultTip() is true, userTipTeamName remains empty.
-
-      // d. Determine date components
-      final gameDateLocal = pastGame.startTimeUTC.toLocal();
-      final String year = DateFormat('yyyy').format(gameDateLocal);
-      final String month = DateFormat('MMM').format(gameDateLocal);
-      final bool isCurrentYear = gameDateLocal.year == DateTime.now().year;
-
-      formattedMatchups.add(
-        HistoricalMatchupUIData(
-          year: year,
-          month: month,
-          winningTeamName: winningTeamName,
-          winType: winType,
-          userTipTeamName: userTipTeamName,
-          isCurrentYear: isCurrentYear,
-          pastGame: pastGame,
-          location: pastGame.location, // Populate new field
-        ),
-      );
-      log(
-        'Added historical matchup: ${pastGame.dbkey}, Winner: $winningTeamName, User Tip: $userTipTeamName, Location: ${pastGame.location}',
-      );
-    }
-    log(
-      'Finished formatting ${formattedMatchups.length} historical match-ups.',
-    );
-    return formattedMatchups;
   }
 }

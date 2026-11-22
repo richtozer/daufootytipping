@@ -6,16 +6,37 @@ import 'package:mocktail/mocktail.dart';
 import 'package:firebase_dart/database.dart';
 import 'package:firebase_dart/standalone_database.dart';
 import 'package:dau_shared/dau_shared.dart';
+import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/rtdb/rest_database.dart';
 import '../bin/server.dart';
 
 class MockDatabase extends Mock {
-  DatabaseReference ref([String? path]) => noSuchMethod(
-        Invocation.method(#ref, [path]),
-      ) as DatabaseReference;
+  DatabaseReference ref([String? path]) =>
+      noSuchMethod(Invocation.method(#ref, [path])) as DatabaseReference;
 }
+
 class MockDatabaseReference extends Mock implements DatabaseReference {}
+
 class MockDataSnapshot extends Mock implements DataSnapshot {}
+
 class MockTransactionResult extends Mock implements TransactionResult {}
+
+/// The scoring loaders also read `/TipperPrivate`. These tests run before any
+/// private records exist, so both nodes are empty.
+void _stubNoPrivateTippers(MockDatabase mockDb, {String? tipperId}) {
+  void stubEmpty(String path) {
+    final reference = MockDatabaseReference();
+    final snapshot = MockDataSnapshot();
+    when(() => mockDb.ref(path)).thenReturn(reference);
+    when(() => reference.once()).thenAnswer((_) async => snapshot);
+    when(() => snapshot.value).thenReturn(null);
+  }
+
+  stubEmpty('/TipperPrivate');
+  if (tipperId != null) {
+    stubEmpty('/TipperPrivate/$tipperId');
+  }
+}
 
 class DuckTypedDatabase {
   DuckTypedDatabase(this.values);
@@ -38,6 +59,41 @@ class DuckTypedSnapshot {
 
   final Object? value;
 }
+
+class _RecordingDatabase {
+  _RecordingDatabase(this.paths);
+
+  final List<String> paths;
+
+  DuckTypedReference ref(String path) {
+    paths.add(path);
+    return DuckTypedReference(null);
+  }
+}
+
+class _ThrowingDatabase {
+  _ThrowingDatabase(this.onRead);
+
+  final void Function() onRead;
+
+  Never ref(String path) {
+    onRead();
+    throw StateError('The database could not be read');
+  }
+}
+
+/// A database in which [uid] is linked to a tipper whose private record has [role].
+DuckTypedDatabase administratorsDb({
+  String uid = 'admin-uid',
+  String role = 'admin',
+  String recordedUid = 'admin-uid',
+}) => DuckTypedDatabase({
+  '/AuthIndex/$uid': 'tipper-admin',
+  '/TipperPrivate/tipper-admin': {'authuid': recordedUid, 'tipperRole': role},
+});
+
+/// An administrator check for tests of what happens after authorization.
+Future<void> _allowAnyone(String authUid) async {}
 
 DAUComp _badgeTestComp(
   DateTime now, {
@@ -75,11 +131,7 @@ Game _badgeTestGame(String key, DateTime startTime) {
   );
 }
 
-Tipper _badgeTestTipper(
-  String key, {
-  DAUComp? comp,
-  bool isAnonymous = false,
-}) {
+Tipper _badgeTestTipper(String key, {DAUComp? comp, bool isAnonymous = false}) {
   return Tipper(
     dbkey: key,
     compsPaidFor: comp == null ? [] : [comp],
@@ -93,25 +145,26 @@ Tipper _badgeTestTipper(
 
 void main() {
   late MockDatabase mockDb;
-  late MockDataSnapshot mockRoleSnapshot;
 
   setUp(() {
     mockDb = MockDatabase();
-    mockRoleSnapshot = MockDataSnapshot();
   });
 
   group('configuration resolution', () {
-    test('resolveDatabaseUrl uses RTDB emulator host with default namespace', () {
-      expect(
-        resolveDatabaseUrl(
-          environment: {
-            'FIREBASE_DATABASE_EMULATOR_HOST': '127.0.0.1:8000',
-            'GCLOUD_PROJECT': 'dau-footy-tipping-f8a42',
-          },
-        ),
-        'http://127.0.0.1:8000/?ns=dau-footy-tipping-f8a42-default-rtdb',
-      );
-    });
+    test(
+      'resolveDatabaseUrl uses RTDB emulator host with default namespace',
+      () {
+        expect(
+          resolveDatabaseUrl(
+            environment: {
+              'FIREBASE_DATABASE_EMULATOR_HOST': '127.0.0.1:8000',
+              'GCLOUD_PROJECT': 'dau-footy-tipping-f8a42',
+            },
+          ),
+          'http://127.0.0.1:8000/?ns=dau-footy-tipping-f8a42-default-rtdb',
+        );
+      },
+    );
 
     test('resolveDatabaseUrl uses namespace override for RTDB emulator', () {
       expect(
@@ -181,102 +234,100 @@ void main() {
 
     test('resolveBackendScoringCommandSecret uses configured env keys', () {
       expect(
-        resolveBackendScoringCommandSecret(environment: {
-          'BACKEND_SCORING_COMMAND_SECRET': 'secret-123',
-        }),
+        resolveBackendScoringCommandSecret(
+          environment: {'BACKEND_SCORING_COMMAND_SECRET': 'secret-123'},
+        ),
         'secret-123',
       );
       expect(
-        resolveBackendScoringCommandSecret(environment: {
-          'DART_BACKEND_SCORING_COMMAND_SECRET': 'secret-456',
-        }),
+        resolveBackendScoringCommandSecret(
+          environment: {'DART_BACKEND_SCORING_COMMAND_SECRET': 'secret-456'},
+        ),
         'secret-456',
       );
     });
 
     test('resolveBackendScoringCommandSecrets supports key rotation', () {
       expect(
-        resolveBackendScoringCommandSecrets(environment: {
-          'BACKEND_SCORING_COMMAND_SECRET': 'new-secret',
-          'DART_BACKEND_SCORING_COMMAND_SECRET': 'old-secret',
-        }),
+        resolveBackendScoringCommandSecrets(
+          environment: {
+            'BACKEND_SCORING_COMMAND_SECRET': 'new-secret',
+            'DART_BACKEND_SCORING_COMMAND_SECRET': 'old-secret',
+          },
+        ),
         ['new-secret', 'old-secret'],
       );
     });
 
     test('resolveBackendScoringCommandUrl uses configured env keys', () {
       expect(
-        resolveBackendScoringCommandUrl(environment: {
-          'BACKEND_SCORING_COMMAND_URL': 'https://backend.example.com',
-        }),
+        resolveBackendScoringCommandUrl(
+          environment: {
+            'BACKEND_SCORING_COMMAND_URL': 'https://backend.example.com',
+          },
+        ),
         'https://backend.example.com',
       );
       expect(
-        resolveBackendScoringCommandUrl(environment: {
-          'DART_BACKEND_SCORING_COMMAND_URL': 'https://dart.example.com',
-        }),
+        resolveBackendScoringCommandUrl(
+          environment: {
+            'DART_BACKEND_SCORING_COMMAND_URL': 'https://dart.example.com',
+          },
+        ),
         'https://dart.example.com',
       );
     });
 
     test('resolveBackendScoringCommandUrl prefers local emulator endpoint', () {
       expect(
-        resolveBackendScoringCommandUrl(environment: {
-          'FUNCTIONS_EMULATOR': 'true',
-          'GCLOUD_PROJECT': 'demo-project',
-          'BACKEND_SCORING_COMMAND_URL': 'https://backend.example.com',
-        }),
+        resolveBackendScoringCommandUrl(
+          environment: {
+            'FUNCTIONS_EMULATOR': 'true',
+            'GCLOUD_PROJECT': 'demo-project',
+            'BACKEND_SCORING_COMMAND_URL': 'https://backend.example.com',
+          },
+        ),
         'http://127.0.0.1:9229/demo-project/asia-southeast1/backend-scoring-command',
       );
     });
 
     test('resolveBackendScoringCommandUrl supports local emulator overrides', () {
       expect(
-        resolveBackendScoringCommandUrl(environment: {
-          'FUNCTIONS_EMULATOR': 'true',
-          'LOCAL_FUNCTIONS_EMULATOR_ORIGIN': 'localhost:5001/',
-          'FIREBASE_PROJECT': 'project-one',
-          'FUNCTION_REGION': 'us-central1',
-        }),
+        resolveBackendScoringCommandUrl(
+          environment: {
+            'FUNCTIONS_EMULATOR': 'true',
+            'LOCAL_FUNCTIONS_EMULATOR_ORIGIN': 'localhost:5001/',
+            'FIREBASE_PROJECT': 'project-one',
+            'FUNCTION_REGION': 'us-central1',
+          },
+        ),
         'http://localhost:5001/project-one/us-central1/backend-scoring-command',
       );
     });
 
     test('isBackendScoringCommandAuthorized matches the shared secret', () {
       expect(
-        isBackendScoringCommandAuthorized(
-          {
-            'X-Backend-Scoring-Secret': 'secret-123',
-          },
-          expectedSecret: 'secret-123',
-        ),
+        isBackendScoringCommandAuthorized({
+          'X-Backend-Scoring-Secret': 'secret-123',
+        }, expectedSecret: 'secret-123'),
         isTrue,
       );
       expect(
-        isBackendScoringCommandAuthorized(
-          {
-            'x-backend-scoring-secret': 'wrong',
-          },
-          expectedSecret: 'secret-123',
-        ),
+        isBackendScoringCommandAuthorized({
+          'x-backend-scoring-secret': 'wrong',
+        }, expectedSecret: 'secret-123'),
         isFalse,
       );
       expect(
-        isBackendScoringCommandAuthorized(
-          {
-            'x-backend-scoring-secret': 'secret-124',
-          },
-          expectedSecret: 'secret-123',
-        ),
+        isBackendScoringCommandAuthorized({
+          'x-backend-scoring-secret': 'secret-124',
+        }, expectedSecret: 'secret-123'),
         isFalse,
       );
       expect(
-        isBackendScoringCommandAuthorized(
-          {
-            'x-backend-scoring-secret': 'secret-123-extra',
-          },
-          expectedSecret: 'secret-123',
-        ),
+        isBackendScoringCommandAuthorized({
+          'x-backend-scoring-secret': 'secret-123-extra',
+        }, expectedSecret: 'secret-123'),
         isFalse,
       );
     });
@@ -293,10 +344,12 @@ void main() {
 
     test('app badge command secret supports rollover and header casing', () {
       expect(
-        resolveAppBadgeCommandSecrets(environment: {
-          'APP_BADGE_COMMAND_SECRET': 'new-secret',
-          'DART_APP_BADGE_COMMAND_SECRET': 'old-secret',
-        }),
+        resolveAppBadgeCommandSecrets(
+          environment: {
+            'APP_BADGE_COMMAND_SECRET': 'new-secret',
+            'DART_APP_BADGE_COMMAND_SECRET': 'old-secret',
+          },
+        ),
         ['new-secret', 'old-secret'],
       );
       expect(
@@ -322,10 +375,7 @@ void main() {
           'multiple': <String>['one', 'two'],
           1: 'ignored',
         }),
-        <String, String>{
-          'single': 'value',
-          'multiple': 'one,two',
-        },
+        <String, String>{'single': 'value', 'multiple': 'one,two'},
       );
       expect(normalizeHttpHeaders(null), isEmpty);
     });
@@ -341,27 +391,30 @@ void main() {
       );
     });
 
-    test('extractAdminFixtureDownloadCompKey accepts platform-channel maps', () {
-      expect(
-        extractAdminFixtureDownloadCompKey(<Object?, Object?>{
-          'compKey': 'comp2026',
-        }),
-        'comp2026',
-      );
-      expect(
-        extractAdminFixtureDownloadCompKey(<String, dynamic>{
-          'compKey': 'comp2026',
-        }),
-        'comp2026',
-      );
-      expect(extractAdminFixtureDownloadCompKey(null), isNull);
-      expect(
-        extractAdminFixtureDownloadCompKey(<Object?, Object?>{
-          'compKey': 2026,
-        }),
-        isNull,
-      );
-    });
+    test(
+      'extractAdminFixtureDownloadCompKey accepts platform-channel maps',
+      () {
+        expect(
+          extractAdminFixtureDownloadCompKey(<Object?, Object?>{
+            'compKey': 'comp2026',
+          }),
+          'comp2026',
+        );
+        expect(
+          extractAdminFixtureDownloadCompKey(<String, dynamic>{
+            'compKey': 'comp2026',
+          }),
+          'comp2026',
+        );
+        expect(extractAdminFixtureDownloadCompKey(null), isNull);
+        expect(
+          extractAdminFixtureDownloadCompKey(<Object?, Object?>{
+            'compKey': 2026,
+          }),
+          isNull,
+        );
+      },
+    );
 
     test('extractAdminCheckFixtureUrlUrl accepts platform-channel maps', () {
       expect(
@@ -447,37 +500,38 @@ void main() {
       );
     });
 
-    test('targeted requests return zero for ineligible and missing tippers', () {
-      expect(
-        calculateOutstandingTipCounts(
-          comp: comp,
-          games: games,
-          allTippers: tippers,
-          tipsByTipperRaw: const {},
-          now: now,
-          requestedTipperIds: {'unpaid', 'anonymous', 'missing'},
-        ),
-        {'unpaid': 0, 'anonymous': 0, 'missing': 0},
-      );
-    });
+    test(
+      'targeted requests return zero for ineligible and missing tippers',
+      () {
+        expect(
+          calculateOutstandingTipCounts(
+            comp: comp,
+            games: games,
+            allTippers: tippers,
+            tipsByTipperRaw: const {},
+            now: now,
+            requestedTipperIds: {'unpaid', 'anonymous', 'missing'},
+          ),
+          {'unpaid': 0, 'anonymous': 0, 'missing': 0},
+        );
+      },
+    );
 
     test('returns zero before the round reaches its 48-hour badge window', () {
       final futureComp = _badgeTestComp(
         now,
-        firstKickoff: now.add(const Duration(hours: 49)),
-        lastKickoff: now.add(const Duration(days: 4)),
+        firstKickoff: DateTime.utc(2026, 8, 7, 13),
+        lastKickoff: DateTime.utc(2026, 8, 9, 16),
       );
       final futureGames = <Game>[
-        _badgeTestGame('future', now.add(const Duration(hours: 50))),
+        _badgeTestGame('future', DateTime.utc(2026, 8, 7, 14)),
       ];
 
       expect(
         calculateOutstandingTipCounts(
           comp: futureComp,
           games: futureGames,
-          allTippers: <Tipper>[
-            _badgeTestTipper('paid', comp: futureComp),
-          ],
+          allTippers: <Tipper>[_badgeTestTipper('paid', comp: futureComp)],
           tipsByTipperRaw: const {},
           now: now,
           requestedTipperIds: {'paid'},
@@ -485,49 +539,243 @@ void main() {
         {'paid': 0},
       );
     });
+
+    test(
+      'sums outstanding tips across overlapping badge rounds before and after postponed kickoff',
+      () {
+        final nowBeforePostponed = DateTime.parse('2030-01-01T12:00:00Z');
+        final nowAfterPostponed = DateTime.parse('2030-01-01T23:00:00Z');
+
+        final round1 = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: nowBeforePostponed.subtract(
+            const Duration(days: 3),
+          ),
+          lastGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 13)),
+        );
+        final round2 = DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: nowBeforePostponed.add(
+            const Duration(hours: 40),
+          ),
+          lastGameKickOffUTC: nowBeforePostponed.add(const Duration(days: 5)),
+        );
+        final overlapComp = DAUComp(
+          dbkey: 'comp-2030',
+          name: '2030',
+          aflFixtureJsonURL: Uri.parse('https://example.invalid/afl.json'),
+          nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl.json'),
+          daurounds: <DAURound>[round1, round2],
+        );
+        final overlapGames = <Game>[
+          _badgeTestGame(
+            'nrl-01-001',
+            nowBeforePostponed.add(const Duration(hours: 10)),
+          ),
+          _badgeTestGame(
+            'afl-02-001',
+            nowBeforePostponed.add(const Duration(hours: 40)),
+          ),
+          _badgeTestGame(
+            'afl-02-002',
+            nowBeforePostponed.add(const Duration(hours: 45)),
+          ),
+        ];
+        final paidTipper = _badgeTestTipper('paid', comp: overlapComp);
+
+        expect(
+          calculateOutstandingTipCounts(
+            comp: overlapComp,
+            games: overlapGames,
+            allTippers: <Tipper>[paidTipper],
+            tipsByTipperRaw: const {},
+            now: nowBeforePostponed,
+            requestedTipperIds: {'paid'},
+          ),
+          {'paid': 3},
+        );
+        expect(
+          calculateOutstandingTipCounts(
+            comp: overlapComp,
+            games: overlapGames,
+            allTippers: <Tipper>[paidTipper],
+            tipsByTipperRaw: const {},
+            now: nowAfterPostponed,
+            requestedTipperIds: {'paid'},
+          ),
+          {'paid': 2},
+        );
+      },
+    );
+
+    test('ignores an empty round whose end is at or before its start', () {
+      final start = DateTime.utc(2026, 8, 5);
+      final emptyRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: start,
+        lastGameKickOffUTC: start,
+      );
+      final activeRound = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: now.add(const Duration(hours: 30)),
+        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+      );
+      final testComp = DAUComp(
+        dbkey: 'comp-2026',
+        name: '2026',
+        aflFixtureJsonURL: Uri.parse('https://example.invalid/afl.json'),
+        nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl.json'),
+        daurounds: <DAURound>[emptyRound, activeRound],
+      );
+      final testGames = <Game>[
+        _badgeTestGame('nrl-02-001', now.add(const Duration(hours: 30))),
+      ];
+
+      expect(
+        calculateOutstandingTipCounts(
+          comp: testComp,
+          games: testGames,
+          allTippers: <Tipper>[_badgeTestTipper('paid', comp: testComp)],
+          tipsByTipperRaw: const {},
+          now: now,
+          requestedTipperIds: {'paid'},
+        ),
+        {'paid': 1},
+      );
+    });
   });
 
   group('executeFixtureDownload tests', () {
-    test('resolves the matching tipper role from the full config snapshot', () {
-      final rawTippers = {
-        'otherTipper': {
-          'authuid': 'other-user',
-          'tipperRole': 'admin',
-        },
-        'requestedTipper': {
-          'authuid': 'user123',
-          'tipperRole': 'tipper',
-        },
-      };
+    // The administrator check is the validated private role, by the same test as
+    // the identity callables and the R2 rules (admin_gate_test.dart covers the
+    // gate itself); these prove each older endpoint goes through it.
+    test(
+      'a database record saying admin does not make a caller admin',
+      () async {
+        // The old authorization trusted authuid + tipperRole in publicly
+        // writable data. A forged public record must grant nothing.
+        final db = DuckTypedDatabase({
+          '/AllTippers': {
+            'forged': {'authuid': 'attacker-uid', 'tipperRole': 'admin'},
+          },
+        });
 
-      expect(
-        resolveTipperRoleForAuthUid(rawTippers, 'user123'),
-        'tipper',
+        await expectLater(
+          executeFixtureDownload(
+            authUid: 'attacker-uid',
+            compKey: 'comp2026',
+            db: db,
+            fetchFixtureJson: (_) async => [],
+            now: DateTime.now().toUtc(),
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
+        await expectLater(
+          executeAdminScoringRescore(
+            authUid: 'attacker-uid',
+            compKey: 'comp2026',
+            db: db,
+            now: DateTime.parse('2026-07-19T12:00:00Z'),
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
+        await expectLater(
+          checkFixtureUrlActive(
+            authUid: 'attacker-uid',
+            url: 'https://example.com/fixture.json',
+            db: db,
+            checkUrl: (_) async => true,
+          ),
+          throwsA(isA<PermissionDeniedError>()),
+        );
+      },
+    );
+
+    test(
+      'an ordinary tipper, or a record naming someone else, is refused',
+      () async {
+        for (final db in [
+          administratorsDb(role: 'tipper'),
+          administratorsDb(recordedUid: 'someone-else'),
+          DuckTypedDatabase({'/AuthIndex/admin-uid': 'tipper-admin'}),
+        ]) {
+          await expectLater(
+            executeAdminScoringRescore(
+              authUid: 'admin-uid',
+              compKey: 'comp2026',
+              db: db,
+              now: DateTime.parse('2026-07-19T12:00:00Z'),
+            ),
+            throwsA(isA<PermissionDeniedError>()),
+          );
+        }
+      },
+    );
+
+    test('each endpoint lets a validated administrator through', () async {
+      final db = administratorsDb();
+      var commands = 0;
+
+      await executeAdminScoringRescore(
+        authUid: 'admin-uid',
+        compKey: 'comp2026',
+        db: db,
+        now: DateTime.parse('2026-07-19T12:00:00Z'),
+        executeCommand: ({required db, required command, required now}) async {
+          commands++;
+          return BackendScoringCommandResult(
+            status: 'completed',
+            skipped: false,
+            commandId: command.commandId,
+            commandType: command.commandType.apiValue,
+            scopeKey: command.scopeKey,
+            compKey: command.compKey,
+            message: 'done',
+          );
+        },
       );
-      expect(
-        resolveTipperRoleForAuthUid(rawTippers, 'missing-user'),
-        isNull,
+      final active = await checkFixtureUrlActive(
+        authUid: 'admin-uid',
+        url: 'https://example.com/fixture.json',
+        db: db,
+        checkUrl: (_) async => true,
+        resolveHost: (_) async => [InternetAddress('93.184.216.34')],
       );
-      expect(
-        resolveTipperRoleForAuthUid({
-          'malformed': {'authuid': 'user123', 'tipperRole': null},
-        }, 'user123'),
-        isNull,
-      );
-      expect(
-        resolveTipperRoleForAuthUid({
-          'duplicateAdmin': {
-            'authuid': 'user123',
-            'tipperRole': 'admin',
-          },
-          'duplicateTipper': {
-            'authuid': 'user123',
-            'tipperRole': 'tipper',
-          },
-        }, 'user123'),
-        isNull,
-      );
+
+      expect(commands, 1);
+      expect(active, isTrue);
     });
+
+    test('authorization reads only the two identity records', () async {
+      final read = <String>[];
+      final db = _RecordingDatabase(read);
+
+      await expectLater(
+        executeAdminScoringRescore(
+          authUid: 'not-an-admin',
+          compKey: 'comp2026',
+          db: db,
+          now: DateTime.parse('2026-07-19T12:00:00Z'),
+        ),
+        throwsA(isA<PermissionDeniedError>()),
+      );
+      expect(read, ['/AuthIndex/not-an-admin']);
+    });
+
+    test(
+      'a failed read refuses the call: nobody is admin by accident',
+      () async {
+        await expectLater(
+          executeAdminScoringRescore(
+            authUid: 'admin-uid',
+            compKey: 'comp2026',
+            db: _ThrowingDatabase(() {}),
+            now: DateTime.parse('2026-07-19T12:00:00Z'),
+          ),
+          throwsA(isA<StateError>()),
+        );
+      },
+    );
 
     test('REST timeouts identify the operation and path', () async {
       await expectLater(
@@ -551,12 +799,11 @@ void main() {
       final mockIdempotencyRef = MockDatabaseReference();
       final mockSnapshot = MockDataSnapshot();
       when(
-        () => mockDb.ref(
-          '/Stats/comp2026/scoring_idempotency_backend_v1',
-        ),
+        () => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1'),
       ).thenReturn(mockIdempotencyRef);
-      when(() => mockIdempotencyRef.once())
-          .thenAnswer((_) async => mockSnapshot);
+      when(
+        () => mockIdempotencyRef.once(),
+      ).thenAnswer((_) async => mockSnapshot);
       when(() => mockSnapshot.value).thenReturn({
         'expired-command': {
           'status': 'completed',
@@ -569,17 +816,16 @@ void main() {
       });
       when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
 
-      final prunedCount =
-          await pruneExpiredBackendScoringIdempotencyRecords(
+      final prunedCount = await pruneExpiredBackendScoringIdempotencyRecords(
         compKey: 'comp2026',
         db: mockDb,
         now: DateTime.parse('2026-07-12T12:00:00Z'),
       );
 
       expect(prunedCount, 1);
-      final capturedUpdates = verify(
-        () => mockIdempotencyRef.update(captureAny()),
-      ).captured.single as Map<dynamic, dynamic>;
+      final capturedUpdates =
+          verify(() => mockIdempotencyRef.update(captureAny())).captured.single
+              as Map<dynamic, dynamic>;
       expect(capturedUpdates, {'expired-command': null});
     });
 
@@ -587,12 +833,11 @@ void main() {
       final mockIdempotencyRef = MockDatabaseReference();
       final mockSnapshot = MockDataSnapshot();
       when(
-        () => mockDb.ref(
-          '/Stats/comp2026/scoring_idempotency_backend_v1',
-        ),
+        () => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1'),
       ).thenReturn(mockIdempotencyRef);
-      when(() => mockIdempotencyRef.once())
-          .thenAnswer((_) async => mockSnapshot);
+      when(
+        () => mockIdempotencyRef.once(),
+      ).thenAnswer((_) async => mockSnapshot);
       when(() => mockSnapshot.value).thenReturn({
         'event': {
           'with': {
@@ -605,37 +850,29 @@ void main() {
       });
       when(() => mockIdempotencyRef.update(any())).thenAnswer((_) async {});
 
-      final prunedCount =
-          await pruneExpiredBackendScoringIdempotencyRecords(
+      final prunedCount = await pruneExpiredBackendScoringIdempotencyRecords(
         compKey: 'comp2026',
         db: mockDb,
         now: DateTime.parse('2026-07-12T12:00:00Z'),
       );
 
       expect(prunedCount, 1);
-      final capturedUpdates = verify(
-        () => mockIdempotencyRef.update(captureAny()),
-      ).captured.single as Map<dynamic, dynamic>;
+      final capturedUpdates =
+          verify(() => mockIdempotencyRef.update(captureAny())).captured.single
+              as Map<dynamic, dynamic>;
       expect(capturedUpdates, {'event/with/slash': null});
     });
 
     test('non-admin role throws PermissionDeniedError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'user', // Not admin
-        }
-      });
-
       expect(
         executeFixtureDownload(
           authUid: 'user123',
           compKey: 'comp2026',
-          db: mockDb,
+          db: administratorsDb(
+            uid: 'user123',
+            role: 'tipper',
+            recordedUid: 'user123',
+          ),
           fetchFixtureJson: (_) async => [],
           now: DateTime.now().toUtc(),
         ),
@@ -644,17 +881,6 @@ void main() {
     });
 
     test('missing DAUComp config throws NotFoundError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -664,6 +890,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
+          requireAdministrator: _allowAnyone,
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -674,17 +901,6 @@ void main() {
     });
 
     test('active lock throws AbortedError', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -696,15 +912,22 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
-      
+      when(
+        () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+      ).thenReturn(mockLockRef);
+
       final lockTime = DateTime.now().toUtc();
       final mockTransactionResult = MockTransactionResult();
       when(() => mockTransactionResult.committed).thenReturn(false);
 
-      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
-        final mutableData = MutableData('downloadLock', lockTime.toIso8601String());
+        final mutableData = MutableData(
+          'downloadLock',
+          lockTime.toIso8601String(),
+        );
         final result = await handler(mutableData);
         if (result == null) {
           return mockTransactionResult;
@@ -717,6 +940,7 @@ void main() {
       expect(
         executeFixtureDownload(
           authUid: 'user123',
+          requireAdministrator: _allowAnyone,
           compKey: 'comp2026',
           db: mockDb,
           fetchFixtureJson: (_) async => [],
@@ -727,17 +951,6 @@ void main() {
     });
 
     test('expired fixture download lock can be reacquired', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -749,14 +962,21 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
+      when(
+        () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+      ).thenReturn(mockLockRef);
       final mockTransactionResult = MockTransactionResult();
       when(() => mockTransactionResult.committed).thenReturn(true);
 
       final lockTime = DateTime.parse('2026-05-25T12:00:00Z');
-      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
-        final mutableData = MutableData('downloadLock', lockTime.toIso8601String());
+        final mutableData = MutableData(
+          'downloadLock',
+          lockTime.toIso8601String(),
+        );
         final result = await handler(mutableData);
         if (result == null) {
           final abortResult = MockTransactionResult();
@@ -765,11 +985,17 @@ void main() {
         }
         return mockTransactionResult;
       });
-      when(() => mockLockRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockLockRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockStatusRef = MockDatabaseReference();
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/scoring_status'),
+      ).thenReturn(mockStatusRef);
+      when(
+        () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockRootRef = MockDatabaseReference();
       when(() => mockDb.ref('/')).thenReturn(mockRootRef);
@@ -778,11 +1004,24 @@ void main() {
       final mockTeamsRef = MockDatabaseReference();
       final mockTeamsSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-      when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+      when(
+        () => mockTeamsRef.once(),
+      ).thenAnswer((_) async => mockTeamsSnapshot);
       when(() => mockTeamsSnapshot.value).thenReturn({});
+
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
 
       final result = await executeFixtureDownload(
         authUid: 'user123',
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (_) async => [],
@@ -794,17 +1033,6 @@ void main() {
     });
 
     test('successful fixture update workflow', () async {
-      final mockTippersRef = MockDatabaseReference();
-
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'tipper123': {
-          'authuid': 'user123',
-          'tipperRole': 'admin',
-        }
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -816,10 +1044,14 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
+      when(
+        () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+      ).thenReturn(mockLockRef);
       final mockTransactionResult = MockTransactionResult();
       when(() => mockTransactionResult.committed).thenReturn(true);
-      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
         final mutableData = MutableData('downloadLock', null);
         final result = await handler(mutableData);
@@ -830,11 +1062,17 @@ void main() {
         }
         return mockTransactionResult;
       });
-      when(() => mockLockRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockLockRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockStatusRef = MockDatabaseReference();
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/scoring_status'),
+      ).thenReturn(mockStatusRef);
+      when(
+        () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockRootRef = MockDatabaseReference();
       when(() => mockDb.ref('/')).thenReturn(mockRootRef);
@@ -846,17 +1084,23 @@ void main() {
       final mockTeamsRef = MockDatabaseReference();
       final mockTeamsSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-      when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+      when(
+        () => mockTeamsRef.once(),
+      ).thenAnswer((_) async => mockTeamsSnapshot);
       when(() => mockTeamsSnapshot.value).thenReturn({
-        'nrl-broncos': {
-          'name': 'Broncos',
-          'league': 'nrl',
-        },
-        'afl-collingwood': {
-          'name': 'Collingwood',
-          'league': 'afl',
-        }
+        'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+        'afl-collingwood': {'name': 'Collingwood', 'league': 'afl'},
       });
+
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
 
       final mockAflGames = [
         {
@@ -868,7 +1112,21 @@ void main() {
           'AwayTeamScore': 70,
           'KickOffTime': '2026-06-01T19:00:00Z',
           'DateUtc': '2026-06-01T19:00:00Z',
-        }
+        },
+        {
+          'RoundNumber': 2,
+          'MatchNumber': 1,
+          'HomeTeam': 'Richmond',
+          'AwayTeam': 'Collingwood',
+          'DateUtc': '2026-06-08T19:00:00Z',
+        },
+        {
+          'RoundNumber': 3,
+          'MatchNumber': 1,
+          'HomeTeam': '1st',
+          'AwayTeam': '4th',
+          'DateUtc': '2026-06-15T19:00:00Z',
+        },
       ];
       final mockNrlGames = [
         {
@@ -880,11 +1138,12 @@ void main() {
           'AwayTeamScore': 18,
           'KickOffTime': '2026-06-02T19:00:00Z',
           'DateUtc': '2026-06-02T19:00:00Z',
-        }
+        },
       ];
 
       final resultMsg = await executeFixtureDownload(
         authUid: 'user123',
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -897,196 +1156,307 @@ void main() {
         },
       );
 
-      expect(resultMsg, contains('Found 1 NRL games and 1 AFL games'));
+      expect(resultMsg, contains('Found 1 NRL games and 3 AFL games'));
       expect(afterSuccessfulDownloadCalls, 1);
 
       // Verify that lock was acquired and then released
       verify(() => mockLockRef.runTransaction(any())).called(1);
-      verify(() => mockLockRef.set(null, priority: any(named: 'priority'))).called(1);
+      verify(
+        () => mockLockRef.set(null, priority: any(named: 'priority')),
+      ).called(1);
 
       // Verify status transitions
-      verify(() => mockStatusRef.set(any(that: isA<Map>()), priority: any(named: 'priority'))).called(3);
+      verify(
+        () => mockStatusRef.set(
+          any(that: isA<Map>()),
+          priority: any(named: 'priority'),
+        ),
+      ).called(3);
 
       // Verify updates were written to root database reference
-      final capturedUpdates = verify(() => mockRootRef.update(captureAny())).captured.single as Map<String, dynamic>;
+      final capturedUpdates =
+          verify(() => mockRootRef.update(captureAny())).captured.single
+              as Map<String, dynamic>;
       expect(capturedUpdates, contains('/AllDAUComps/comp2026/lastFixtureUTC'));
-      expect(capturedUpdates, contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'));
-      expect(capturedUpdates, contains('/DAUCompsGames/comp2026/afl-01-001/HomeTeamScore'));
+      // Rounds are built from games inside the cutoffs: AFL round 1, NRL
+      // round 1 and AFL round 2 make three, and the placeholder final none.
+      expect(
+        capturedUpdates,
+        contains('/AllDAUComps/comp2026/combinedRounds2/2/roundStartDate'),
+      );
+      expect(
+        capturedUpdates,
+        isNot(contains('/AllDAUComps/comp2026/combinedRounds2/3/roundStartDate')),
+      );
+      // The comp's first download fills its empty cutoffs: AFL ends where its
+      // placeholder finals start; NRL, where no team plays twice, gets none.
       expect(
         capturedUpdates,
         containsPair(
-          '/Stats/comp2026/live_scores_backend_v1/nrl-01-001',
-          null,
+          '/AllDAUComps/comp2026/aflRegularCompEndDateUTC',
+          '2026-06-15T00:00:00.000Z',
+        ),
+      );
+      expect(
+        capturedUpdates,
+        isNot(contains('/AllDAUComps/comp2026/nrlRegularCompEndDateUTC')),
+      );
+      expect(
+        capturedUpdates,
+        contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'),
+      );
+      expect(
+        capturedUpdates,
+        contains('/DAUCompsGames/comp2026/afl-01-001/HomeTeamScore'),
+      );
+      // The numeric kickoff goes in the same atomic update as DateUtc, for
+      // every game, and agrees with it.
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/DAUCompsGames/comp2026/nrl-01-001/DateUtc',
+          '2026-06-02T19:00:00Z',
         ),
       );
       expect(
         capturedUpdates,
         containsPair(
-          '/Stats/comp2026/live_scores_backend_v1/afl-01-001',
-          null,
+          '/DAUCompsGames/comp2026/nrl-01-001/DateUtcEpochMs',
+          1780426800000,
         ),
       );
-    });
-
-    test('scheduled fixture download records nothing_to_do when started games already have results', () async {
-      final mockConfigRef = MockDatabaseReference();
-      final mockConfigSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/AppConfig/currentDAUComp')).thenReturn(mockConfigRef);
-      when(() => mockConfigRef.once()).thenAnswer((_) async => mockConfigSnapshot);
-      when(() => mockConfigSnapshot.value).thenReturn('comp2026');
-
-      final mockCompRef = MockDatabaseReference();
-      final mockCompSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
-      when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
-      when(() => mockCompSnapshot.value).thenReturn({
-        'name': 'Comp 2026',
-        'aflFixtureJsonURL': 'https://afl.example.com',
-        'nrlFixtureJsonURL': 'https://nrl.example.com',
-        'daurounds': [],
-      });
-
-      final mockGamesRef = MockDatabaseReference();
-      final mockGamesSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/DAUCompsGames/comp2026')).thenReturn(mockGamesRef);
-      when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
-      when(() => mockGamesSnapshot.value).thenReturn({
-        'nrl-01-001': {
-          'DateUtc': '2026-06-01T19:00:00Z',
-          'HomeTeamScore': 24,
-          'AwayTeamScore': 18,
-        },
-      });
-
-      final mockStatusRef = MockDatabaseReference();
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
-
-      final result = await executeScheduledFixtureDownload(
-        db: mockDb,
-        fetchFixtureJson: (_) async => throw StateError('fetch should not run'),
-        now: DateTime.parse('2026-07-01T12:00:00Z'),
+      expect(
+        capturedUpdates,
+        containsPair(
+          '/DAUCompsGames/comp2026/afl-01-001/DateUtcEpochMs',
+          1780340400000,
+        ),
       );
-
-      expect(result.outcome, FixtureDownloadOutcome.nothingToDo);
-      expect(result.message, contains('Nothing to do'));
-      final capturedStatus = verify(
-        () => mockStatusRef.set(captureAny(), priority: any(named: 'priority')),
-      ).captured.single as Map<String, dynamic>;
-      expect(capturedStatus['state'], 'nothing_to_do');
-      expect(capturedStatus['triggeredBy'], 'scheduler');
-      expect(capturedStatus['lastAppliedAt'], isNull);
-    });
-
-    test('scheduled fixture download applies fixture changes when a started game has no result', () async {
-      final mockConfigRef = MockDatabaseReference();
-      final mockConfigSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/AppConfig/currentDAUComp')).thenReturn(mockConfigRef);
-      when(() => mockConfigRef.once()).thenAnswer((_) async => mockConfigSnapshot);
-      when(() => mockConfigSnapshot.value).thenReturn('comp2026');
-
-      final mockCompRef = MockDatabaseReference();
-      final mockCompSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
-      when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
-      when(() => mockCompSnapshot.value).thenReturn({
-        'name': 'Comp 2026',
-        'aflFixtureJsonURL': 'https://afl.example.com',
-        'nrlFixtureJsonURL': 'https://nrl.example.com',
-        'daurounds': [],
-      });
-
-      final mockGamesRef = MockDatabaseReference();
-      final mockGamesSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/DAUCompsGames/comp2026')).thenReturn(mockGamesRef);
-      when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
-      when(() => mockGamesSnapshot.value).thenReturn({
-        'nrl-01-001': {
-          'DateUtc': '2026-06-01T19:00:00Z',
-          'HomeTeamScore': null,
-          'AwayTeamScore': null,
-        },
-      });
-
-      final mockLockRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
-      final mockTransactionResult = MockTransactionResult();
-      when(() => mockTransactionResult.committed).thenReturn(true);
-      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
-        final handler = invocation.positionalArguments[0] as TransactionHandler;
-        final mutableData = MutableData('downloadLock', null);
-        final result = await handler(mutableData);
-        if (result == null) {
-          final abortResult = MockTransactionResult();
-          when(() => abortResult.committed).thenReturn(false);
-          return abortResult;
-        }
-        return mockTransactionResult;
-      });
-      when(() => mockLockRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
-
-      final mockStatusRef = MockDatabaseReference();
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
-
-      final mockRootRef = MockDatabaseReference();
-      when(() => mockDb.ref('/')).thenReturn(mockRootRef);
-      when(() => mockRootRef.update(any())).thenAnswer((_) async {});
-
-      final mockTeamsRef = MockDatabaseReference();
-      final mockTeamsSnapshot = MockDataSnapshot();
-      when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-      when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
-      when(() => mockTeamsSnapshot.value).thenReturn({});
-
-      var afterSuccessfulDownloadCalls = 0;
-
-      final mockNrlGames = [
-        {
-          'RoundNumber': 1,
-          'MatchNumber': 1,
-          'HomeTeam': ' Broncos ',
-          'AwayTeam': ' Roosters ',
-          'HomeTeamScore': 24,
-          'AwayTeamScore': 18,
-          'KickOffTime': '2026-06-02T19:00:00Z',
-          'DateUtc': '2026-06-02T19:00:00Z',
-        }
-      ];
-
-      final result = await executeScheduledFixtureDownload(
-        db: mockDb,
-        fetchFixtureJson: (url) async {
-          if (url.toString().contains('afl')) return [];
-          return mockNrlGames;
-        },
-        now: DateTime.parse('2026-07-01T12:00:00Z'),
-        afterSuccessfulDownload: (_, _) async {
-          afterSuccessfulDownloadCalls += 1;
-        },
+      expect(
+        capturedUpdates,
+        containsPair('/Stats/comp2026/live_scores_backend_v1/nrl-01-001', null),
       );
-
-      expect(result.outcome, FixtureDownloadOutcome.applied);
-      expect(result.outcome.apiValue, 'applied');
-      expect(result.message, contains('Found 1 NRL games and 0 AFL games'));
-      expect(afterSuccessfulDownloadCalls, 1);
-      verify(() => mockLockRef.runTransaction(any())).called(1);
-      verify(() => mockLockRef.set(null, priority: any(named: 'priority'))).called(1);
-      verify(() => mockStatusRef.set(any(that: isA<Map>()), priority: any(named: 'priority'))).called(3);
-      final capturedUpdates = verify(() => mockRootRef.update(captureAny())).captured.single as Map<String, dynamic>;
-      expect(capturedUpdates, contains('/AllDAUComps/comp2026/lastFixtureUTC'));
-      expect(capturedUpdates, contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'));
+      expect(
+        capturedUpdates,
+        containsPair('/Stats/comp2026/live_scores_backend_v1/afl-01-001', null),
+      );
     });
+
+    test(
+      'scheduled fixture download records nothing_to_do when started games already have results',
+      () async {
+        final mockConfigRef = MockDatabaseReference();
+        final mockConfigSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/AppConfig/currentDAUComp'),
+        ).thenReturn(mockConfigRef);
+        when(
+          () => mockConfigRef.once(),
+        ).thenAnswer((_) async => mockConfigSnapshot);
+        when(() => mockConfigSnapshot.value).thenReturn('comp2026');
+
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'daurounds': [],
+        });
+
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'DateUtc': '2026-06-01T19:00:00Z',
+            'HomeTeamScore': 24,
+            'AwayTeamScore': 18,
+          },
+        });
+
+        final mockStatusRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final result = await executeScheduledFixtureDownload(
+          db: mockDb,
+          fetchFixtureJson: (_) async =>
+              throw StateError('fetch should not run'),
+          now: DateTime.parse('2026-07-01T12:00:00Z'),
+        );
+
+        expect(result.outcome, FixtureDownloadOutcome.nothingToDo);
+        expect(result.message, contains('Nothing to do'));
+        final capturedStatus =
+            verify(
+                  () => mockStatusRef.set(
+                    captureAny(),
+                    priority: any(named: 'priority'),
+                  ),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(capturedStatus['state'], 'nothing_to_do');
+        expect(capturedStatus['triggeredBy'], 'scheduler');
+        expect(capturedStatus['lastAppliedAt'], isNull);
+      },
+    );
+
+    test(
+      'scheduled fixture download applies fixture changes when a started game has no result',
+      () async {
+        final mockConfigRef = MockDatabaseReference();
+        final mockConfigSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/AppConfig/currentDAUComp'),
+        ).thenReturn(mockConfigRef);
+        when(
+          () => mockConfigRef.once(),
+        ).thenAnswer((_) async => mockConfigSnapshot);
+        when(() => mockConfigSnapshot.value).thenReturn('comp2026');
+
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'daurounds': [],
+        });
+
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'DateUtc': '2026-06-01T19:00:00Z',
+            'HomeTeamScore': null,
+            'AwayTeamScore': null,
+          },
+        });
+
+        final mockLockRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+        ).thenReturn(mockLockRef);
+        final mockTransactionResult = MockTransactionResult();
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockLockRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('downloadLock', null);
+          final result = await handler(mutableData);
+          if (result == null) {
+            final abortResult = MockTransactionResult();
+            when(() => abortResult.committed).thenReturn(false);
+            return abortResult;
+          }
+          return mockTransactionResult;
+        });
+        when(
+          () => mockLockRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockStatusRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockRootRef = MockDatabaseReference();
+        when(() => mockDb.ref('/')).thenReturn(mockRootRef);
+        when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({});
+
+        var afterSuccessfulDownloadCalls = 0;
+
+        final mockNrlGames = [
+          {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': ' Broncos ',
+            'AwayTeam': ' Roosters ',
+            'HomeTeamScore': 24,
+            'AwayTeamScore': 18,
+            'KickOffTime': '2026-06-02T19:00:00Z',
+            'DateUtc': '2026-06-02T19:00:00Z',
+          },
+        ];
+
+        final result = await executeScheduledFixtureDownload(
+          db: mockDb,
+          fetchFixtureJson: (url) async {
+            if (url.toString().contains('afl')) return [];
+            return mockNrlGames;
+          },
+          now: DateTime.parse('2026-07-01T12:00:00Z'),
+          afterSuccessfulDownload: (_, _) async {
+            afterSuccessfulDownloadCalls += 1;
+          },
+        );
+
+        expect(result.outcome, FixtureDownloadOutcome.applied);
+        expect(result.outcome.apiValue, 'applied');
+        expect(result.message, contains('Found 1 NRL games and 0 AFL games'));
+        expect(afterSuccessfulDownloadCalls, 1);
+        verify(() => mockLockRef.runTransaction(any())).called(1);
+        verify(
+          () => mockLockRef.set(null, priority: any(named: 'priority')),
+        ).called(1);
+        verify(
+          () => mockStatusRef.set(
+            any(that: isA<Map>()),
+            priority: any(named: 'priority'),
+          ),
+        ).called(3);
+        final capturedUpdates =
+            verify(() => mockRootRef.update(captureAny())).captured.single
+                as Map<String, dynamic>;
+        expect(
+          capturedUpdates,
+          contains('/AllDAUComps/comp2026/lastFixtureUTC'),
+        );
+        expect(
+          capturedUpdates,
+          contains('/DAUCompsGames/comp2026/nrl-01-001/HomeTeamScore'),
+        );
+      },
+    );
 
     test('reuses existing team keys case-insensitively', () async {
-      final mockRoleSnapshot = MockDataSnapshot();
-      final mockTippersRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllTippers')).thenReturn(mockTippersRef);
-      when(() => mockTippersRef.once()).thenAnswer((_) async => mockRoleSnapshot);
-      when(() => mockRoleSnapshot.value).thenReturn({
-        'adminTipper': {'authuid': 'user123', 'tipperRole': 'admin'}
-      });
-
       final mockCompRef = MockDatabaseReference();
       final mockCompSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
@@ -1098,10 +1468,14 @@ void main() {
       });
 
       final mockLockRef = MockDatabaseReference();
-      when(() => mockDb.ref('/AllDAUComps/comp2026/downloadLock')).thenReturn(mockLockRef);
+      when(
+        () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+      ).thenReturn(mockLockRef);
       final mockTransactionResult = MockTransactionResult();
       when(() => mockTransactionResult.committed).thenReturn(true);
-      when(() => mockLockRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockLockRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
         final mutableData = MutableData('downloadLock', null);
         final result = await handler(mutableData);
@@ -1112,11 +1486,17 @@ void main() {
         }
         return mockTransactionResult;
       });
-      when(() => mockLockRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockLockRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockStatusRef = MockDatabaseReference();
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any(), priority: any(named: 'priority'))).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/scoring_status'),
+      ).thenReturn(mockStatusRef);
+      when(
+        () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+      ).thenAnswer((_) async {});
 
       final mockRootRef = MockDatabaseReference();
       when(() => mockDb.ref('/')).thenReturn(mockRootRef);
@@ -1125,7 +1505,9 @@ void main() {
       final mockTeamsRef = MockDatabaseReference();
       final mockTeamsSnapshot = MockDataSnapshot();
       when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-      when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+      when(
+        () => mockTeamsRef.once(),
+      ).thenAnswer((_) async => mockTeamsSnapshot);
       when(() => mockTeamsSnapshot.value).thenReturn({
         'nrl-Broncos': {
           'league': 'nrl',
@@ -1134,6 +1516,16 @@ void main() {
         },
       });
 
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn(null);
+
       final mockNrlGames = [
         {
           'RoundNumber': 1,
@@ -1144,11 +1536,12 @@ void main() {
           'AwayTeamScore': 18,
           'KickOffTime': '2026-06-02T19:00:00Z',
           'DateUtc': '2026-06-02T19:00:00Z',
-        }
+        },
       ];
 
       await executeFixtureDownload(
         authUid: 'user123',
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: mockDb,
         fetchFixtureJson: (url) async {
@@ -1158,29 +1551,431 @@ void main() {
         now: DateTime.parse('2026-05-25T12:00:00Z'),
       );
 
-      final capturedUpdates = verify(
-        () => mockRootRef.update(captureAny()),
-      ).captured.single as Map<String, dynamic>;
+      final capturedUpdates =
+          verify(() => mockRootRef.update(captureAny())).captured.single
+              as Map<String, dynamic>;
       expect(capturedUpdates, isNot(contains('/Teams/nrl-broncos')));
       expect(capturedUpdates, contains('/Teams/nrl-roosters'));
       expect(capturedUpdates, isNot(contains('/Teams/nrl- broncos ')));
       expect(
-        Map<String, dynamic>.from(capturedUpdates['/Teams/nrl-roosters'] as Map),
+        Map<String, dynamic>.from(
+          capturedUpdates['/Teams/nrl-roosters'] as Map,
+        ),
         containsPair('name', 'Roosters'),
       );
     });
+
+    test(
+      'ignores kickoff change in feed once stored kickoff has passed, including new kickoff inside grace period',
+      () async {
+        final storedKickoffStr = '2026-06-01T10:00:00Z';
+        final storedKickoff = DateTime.parse(storedKickoffStr);
+        // 16 minutes after stored kickoff: past the 900s grace period, so tipping
+        // has closed and tips are visible.
+        final now = storedKickoff.add(const Duration(minutes: 16));
+        // Feed moves kickoff to 15 minutes after stored kickoff (still <= now,
+        // but within 900s grace of now so without freezing tipping would reopen).
+        final feedMovedInsideGraceStr = '2026-06-01T10:15:00Z';
+
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn({
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-06-01T07:00:00Z',
+              'roundEndDate': '2026-06-01T13:00:00Z',
+            },
+          ],
+        });
+
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'DateUtc': storedKickoffStr,
+            'DateUtcEpochMs': storedKickoff.millisecondsSinceEpoch,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+          },
+        });
+
+        final mockLockRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+        ).thenReturn(mockLockRef);
+        final mockTransactionResult = MockTransactionResult();
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockLockRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('downloadLock', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(
+          () => mockLockRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockStatusRef = MockDatabaseReference();
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        final mockRootRef = MockDatabaseReference();
+        when(() => mockDb.ref('/')).thenReturn(mockRootRef);
+        when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        await executeFixtureDownload(
+          authUid: 'user123',
+          requireAdministrator: _allowAnyone,
+          compKey: 'comp2026',
+          db: mockDb,
+          fetchFixtureJson: (url) async {
+            if (url.toString().contains('afl')) return [];
+            return [
+              {
+                'RoundNumber': 1,
+                'MatchNumber': 1,
+                'HomeTeam': 'Broncos',
+                'AwayTeam': 'Roosters',
+                'DateUtc': feedMovedInsideGraceStr,
+              },
+            ];
+          },
+          now: now,
+        );
+
+        final capturedUpdates =
+            verify(() => mockRootRef.update(captureAny())).captured.single
+                as Map<String, dynamic>;
+        expect(
+          capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtc'],
+          storedKickoffStr,
+        );
+        expect(
+          capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtcEpochMs'],
+          storedKickoff.millisecondsSinceEpoch,
+        );
+        expect(
+          tippingHasClosed(
+            DateTime.parse(
+              capturedUpdates['/DAUCompsGames/comp2026/nrl-01-001/DateUtc']
+                  as String,
+            ),
+            now,
+            900,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'moving a live-scored game from round 1 to round 2 recalculates ends (empty round gets end=start) and rescores both rounds',
+      () async {
+        final mockDb = MockDatabase();
+        final mockCompRef = MockDatabaseReference();
+        final mockCompSnapshot = MockDataSnapshot();
+        final mockGamesRef = MockDatabaseReference();
+        final mockGamesSnapshot = MockDataSnapshot();
+        final mockLockRef = MockDatabaseReference();
+        final mockStatusRef = MockDatabaseReference();
+        final mockRootRef = MockDatabaseReference();
+        final mockTeamsRef = MockDatabaseReference();
+        final mockTeamsSnapshot = MockDataSnapshot();
+        final mockLiveScoresRef = MockDatabaseReference();
+        final mockLiveScoresSnapshot = MockDataSnapshot();
+        final mockAllTippersRef = MockDatabaseReference();
+        final mockAllTippersSnapshot = MockDataSnapshot();
+        final mockAllTipsRef = MockDatabaseReference();
+        final mockAllTipsSnapshot = MockDataSnapshot();
+        final mockIdempotencyRef = MockDatabaseReference();
+        final mockRoundOneStatsRootRef = MockDatabaseReference();
+        final mockRoundTwoStatsRootRef = MockDatabaseReference();
+        final mockGameStatsRootRef = MockDatabaseReference();
+        final mockTransactionResult = MockTransactionResult();
+
+        final now = DateTime.parse('2026-06-02T11:00:00Z');
+
+        final compJson = <String, dynamic>{
+          'name': 'Comp 2026',
+          'aflFixtureJsonURL': 'https://afl.example.com',
+          'nrlFixtureJsonURL': 'https://nrl.example.com',
+          'combinedRounds2': [
+            {
+              'roundStartDate': '2026-06-01T00:00:00Z',
+              'roundEndDate': '2026-06-02T13:00:00Z',
+            },
+            {
+              'roundStartDate': '2026-06-08T00:00:00Z',
+              // Admin moved round 2 start to 2026-06-02 before nrl-01-001.
+              'adminOverrideRoundStartDate': '2026-06-02T00:00:00Z',
+              'roundEndDate': '2026-06-08T13:00:00Z',
+            },
+          ],
+        };
+
+        final gamesJson = <String, dynamic>{
+          'nrl-01-001': {
+            'RoundNumber': 1,
+            'MatchNumber': 1,
+            'HomeTeam': 'Broncos',
+            'AwayTeam': 'Roosters',
+            'Location': 'Suncorp',
+            'DateUtc': '2026-06-02 10:00:00Z',
+          },
+        };
+
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockCompSnapshot.value).thenReturn(compJson);
+
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
+        when(() => mockGamesSnapshot.value).thenReturn(gamesJson);
+
+        when(
+          () => mockDb.ref('/AllDAUComps/comp2026/downloadLock'),
+        ).thenReturn(mockLockRef);
+        when(() => mockTransactionResult.committed).thenReturn(true);
+        when(() => mockLockRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('downloadLock', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(
+          () => mockLockRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
+        when(
+          () => mockStatusRef.set(any(), priority: any(named: 'priority')),
+        ).thenAnswer((_) async {});
+        when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/')).thenReturn(mockRootRef);
+        when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
+        when(() => mockTeamsSnapshot.value).thenReturn({
+          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+        });
+
+        await executeFixtureDownload(
+          authUid: 'admin-uid',
+          requireAdministrator: _allowAnyone,
+          compKey: 'comp2026',
+          db: mockDb,
+          fetchFixtureJson: (url) async {
+            if (url.toString().contains('afl')) return [];
+            return [
+              {
+                'RoundNumber': 1,
+                'MatchNumber': 1,
+                'HomeTeam': 'Broncos',
+                'AwayTeam': 'Roosters',
+                'Location': 'Suncorp',
+                'DateUtc': '2026-06-02 10:00:00Z',
+              },
+            ];
+          },
+          now: now,
+        );
+
+        final capturedUpdates =
+            verify(() => mockRootRef.update(captureAny())).captured.single
+                as Map<String, dynamic>;
+
+        // Source round (index 0) now has no games -> end = start.
+        expect(
+          capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/0/roundEndDate'],
+          '2026-06-01 00:00:00Z',
+        );
+        // Destination round (index 1) end recalculated from moved game + 3h.
+        expect(
+          capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/1/roundEndDate'],
+          '2026-06-02 13:00:00Z',
+        );
+
+        // Apply recalculated end dates before running full backend rescore.
+        final rounds = compJson['combinedRounds2'] as List<dynamic>;
+        (rounds[0] as Map<String, dynamic>)['roundEndDate'] =
+            capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/0/roundEndDate'];
+        (rounds[1] as Map<String, dynamic>)['roundEndDate'] =
+            capturedUpdates['/AllDAUComps/comp2026/combinedRounds2/1/roundEndDate'];
+
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-move',
+          ),
+        ).thenReturn(mockIdempotencyRef);
+        when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+          invocation,
+        ) async {
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
+          final mutableData = MutableData('admin-rescore-move', null);
+          await handler(mutableData);
+          return mockTransactionResult;
+        });
+        when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+        // Live crowd-sourced score makes the started-unscored game carry points.
+        when(
+          () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+        ).thenReturn(mockLiveScoresRef);
+        when(
+          () => mockLiveScoresRef.once(),
+        ).thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(() => mockLiveScoresSnapshot.value).thenReturn({
+          'nrl-01-001': {
+            'current': {
+              'crowdSourcedScores': {
+                '0': {
+                  'submittedTimeUTC': '2026-06-02T10:20:00Z',
+                  'scoreTeam': 'home',
+                  'tipperID': 'score-tipper',
+                  'interimScore': 20,
+                  'gameComplete': false,
+                },
+                '1': {
+                  'submittedTimeUTC': '2026-06-02T10:21:00Z',
+                  'scoreTeam': 'away',
+                  'tipperID': 'score-tipper',
+                  'interimScore': 10,
+                  'gameComplete': false,
+                },
+              },
+            },
+          },
+        });
+
+        _stubNoPrivateTippers(mockDb);
+        when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
+        when(
+          () => mockAllTippersRef.once(),
+        ).thenAnswer((_) async => mockAllTippersSnapshot);
+        when(() => mockAllTippersSnapshot.value).thenReturn({
+          'tipper-1': {
+            'authuid': 'auth-1',
+            'email': 'tipper@example.com',
+            'name': 'Tipper',
+            'tipperRole': 'tipper',
+            'compsParticipatedIn': ['comp2026'],
+            'isAnonymous': false,
+          },
+        });
+
+        when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
+        when(
+          () => mockAllTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
+        when(() => mockAllTipsSnapshot.value).thenReturn({
+          'tipper-1': {
+            'nrl-01-001': {'r': 'b', 't': 1760000001},
+          },
+        });
+
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+        ).thenReturn(mockRoundOneStatsRootRef);
+        when(
+          () => mockRoundOneStatsRootRef.set(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2'),
+        ).thenReturn(mockRoundTwoStatsRootRef);
+        when(
+          () => mockRoundTwoStatsRootRef.set(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+        ).thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.set(any())).thenAnswer((_) async {});
+
+        final rescoreResult = await executeBackendScoringCommand(
+          db: mockDb,
+          command: BackendScoringCommand(
+            commandType: BackendScoringCommandType.adminRescore,
+            compKey: 'comp2026',
+            roundNumber: null,
+            tipperId: null,
+            gameKey: null,
+            sourceEventId: 'admin-rescore-move',
+            sourcePath: '/admin/backendScoring/adminRescore',
+            scopeKey: 'comp:comp2026/all_rounds/all_tippers',
+            commandId: 'admin-rescore-move',
+          ),
+          now: now,
+        );
+
+        expect(rescoreResult.skipped, isFalse);
+        expect(rescoreResult.message, contains('1 rounds'));
+        expect(rescoreResult.message, contains('skipped 1 empty rounds'));
+
+        // Points left round 1 (replaced with null) and appeared in round 2.
+        verify(() => mockRoundOneStatsRootRef.set(null)).called(1);
+        final roundTwoStats =
+            verify(
+                  () => mockRoundTwoStatsRootRef.set(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(roundTwoStats['tipper-1'], isA<Map>());
+        expect((roundTwoStats['tipper-1'] as Map)['nS'], 2);
+      },
+    );
   });
 
   group('executeAdminScoringRescore tests', () {
     test('rejects non-admin callers before scoring', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {
-            'authuid': 'user123',
-            'tipperRole': 'user',
-          },
-        },
-      });
+      final db = DuckTypedDatabase(const {});
 
       await expectLater(
         executeAdminScoringRescore(
@@ -1194,20 +1989,14 @@ void main() {
     });
 
     test('admin caller executes a full-comp backend rescore command', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {
-            'authuid': 'admin123',
-            'tipperRole': 'admin',
-          },
-        },
-      });
+      final db = DuckTypedDatabase(const {});
       BackendScoringCommand? capturedCommand;
       dynamic capturedDb;
       final now = DateTime.parse('2026-07-19T12:00:00Z');
 
       final result = await executeAdminScoringRescore(
         authUid: 'admin123',
+        requireAdministrator: _allowAnyone,
         compKey: 'comp2026',
         db: db,
         now: now,
@@ -1227,7 +2016,10 @@ void main() {
       );
 
       expect(capturedDb, same(db));
-      expect(capturedCommand?.commandType, BackendScoringCommandType.adminRescore);
+      expect(
+        capturedCommand?.commandType,
+        BackendScoringCommandType.adminRescore,
+      );
       expect(capturedCommand?.compKey, 'comp2026');
       expect(capturedCommand?.scopeKey, 'comp:comp2026/all_rounds/all_tippers');
       expect(capturedCommand?.roundNumber, isNull);
@@ -1239,17 +2031,11 @@ void main() {
 
   group('checkFixtureUrlActive tests', () {
     test('rejects non-admin callers before checking the url', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'user123', 'tipperRole': 'user'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'user123',
+          db: DuckTypedDatabase(const {}),
           url: 'https://example.com/fixture.json',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<PermissionDeniedError>()),
@@ -1257,17 +2043,12 @@ void main() {
     });
 
     test('rejects a malformed url for an admin caller', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'not a url',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<InvalidArgumentError>()),
@@ -1277,17 +2058,13 @@ void main() {
     test(
       'returns the checker result for an admin caller with a valid url',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
         Uri? checkedUri;
 
         final active = await checkFixtureUrlActive(
           authUid: 'admin123',
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'https://example.com/fixture.json',
-          db: db,
           checkUrl: (uri) async {
             checkedUri = uri;
             return false;
@@ -1301,17 +2078,12 @@ void main() {
     );
 
     test('rejects a non-http(s) scheme for an admin caller', () async {
-      final db = DuckTypedDatabase({
-        '/AllTippers': {
-          'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-        },
-      });
-
       await expectLater(
         checkFixtureUrlActive(
           authUid: 'admin123',
+          db: null,
+          requireAdministrator: _allowAnyone,
           url: 'file:///etc/passwd',
-          db: db,
           checkUrl: (_) async => true,
         ),
         throwsA(isA<InvalidArgumentError>()),
@@ -1321,17 +2093,12 @@ void main() {
     test(
       'rejects a url whose literal host is a private/loopback address',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
-
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
+            db: null,
+            requireAdministrator: _allowAnyone,
             url: 'http://169.254.169.254/latest/meta-data/',
-            db: db,
             checkUrl: (_) async => true,
           ),
           throwsA(isA<InvalidArgumentError>()),
@@ -1342,17 +2109,12 @@ void main() {
     test(
       'rejects a url whose hostname resolves to a private address',
       () async {
-        final db = DuckTypedDatabase({
-          '/AllTippers': {
-            'tipper-1': {'authuid': 'admin123', 'tipperRole': 'admin'},
-          },
-        });
-
         await expectLater(
           checkFixtureUrlActive(
             authUid: 'admin123',
+            db: null,
+            requireAdministrator: _allowAnyone,
             url: 'https://internal.example.com/fixture.json',
-            db: db,
             checkUrl: (_) async => true,
             resolveHost: (_) async => [InternetAddress('10.1.2.3')],
           ),
@@ -1686,7 +2448,8 @@ void main() {
         'compKey': 'comp2026',
         'gameKey': 'nrl-01-001',
         'sourceEventId': 'event-live-1',
-        'sourcePath': '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
+        'sourcePath':
+            '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
         'scopeKey': 'comp:comp2026/game:nrl-01-001',
         'commandId': 'event-live-1',
       });
@@ -1750,10 +2513,15 @@ void main() {
         commandId: 'event-123',
       );
 
-      when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/event-123'))
-          .thenReturn(mockIdempotencyRef);
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1/event-123',
+        ),
+      ).thenReturn(mockIdempotencyRef);
       when(() => mockTransactionResult.committed).thenReturn(false);
-      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
         final mutableData = MutableData(
           'event-123',
@@ -1778,7 +2546,9 @@ void main() {
         when(() => committedResult.committed).thenReturn(true);
         return committedResult;
       });
-      when(() => mockIdempotencyRef.once()).thenAnswer((_) async => mockSnapshot);
+      when(
+        () => mockIdempotencyRef.once(),
+      ).thenAnswer((_) async => mockSnapshot);
       when(() => mockSnapshot.value).thenReturn({
         'status': 'completed',
         'commandId': 'event-123',
@@ -1821,15 +2591,17 @@ void main() {
         commandId: 'event-124',
       );
 
-      when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/event-124'))
-          .thenReturn(mockIdempotencyRef);
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1/event-124',
+        ),
+      ).thenReturn(mockIdempotencyRef);
       when(() => mockTransactionResult.committed).thenReturn(false);
-      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((invocation) async {
+      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
         final handler = invocation.positionalArguments[0] as TransactionHandler;
-        final mutableData = MutableData(
-          'event-124',
-          null,
-        );
+        final mutableData = MutableData('event-124', null);
         final result = await handler(mutableData);
         if (result == null) {
           return mockTransactionResult;
@@ -1851,7 +2623,9 @@ void main() {
         await handler(retryMutableData);
         return mockTransactionResult;
       });
-      when(() => mockIdempotencyRef.once()).thenAnswer((_) async => mockSnapshot);
+      when(
+        () => mockIdempotencyRef.once(),
+      ).thenAnswer((_) async => mockSnapshot);
       when(() => mockSnapshot.value).thenReturn({
         'status': 'started',
         'commandId': 'event-124',
@@ -1874,170 +2648,237 @@ void main() {
       expect(result.status, 'started');
       verify(() => mockIdempotencyRef.runTransaction(any())).called(1);
       verify(() => mockIdempotencyRef.once()).called(1);
-      verifyNever(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/tipper-1'));
+      verifyNever(
+        () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/tipper-1'),
+      );
     });
 
-    test('writes only the target round and tipper for tipWritten commands', () async {
-      final mockDb = MockDatabase();
-      final mockCompRef = MockDatabaseReference();
-      final mockCompSnapshot = MockDataSnapshot();
-      final mockTeamsRef = MockDatabaseReference();
-      final mockTeamsSnapshot = MockDataSnapshot();
-      final mockGamesRef = MockDatabaseReference();
-      final mockGamesSnapshot = MockDataSnapshot();
-      final mockTipsRef = MockDatabaseReference();
-      final mockTipsSnapshot = MockDataSnapshot();
-      final mockLiveScoresRef = MockDatabaseReference();
-      final mockLiveScoresSnapshot = MockDataSnapshot();
-      final mockTipperRef = MockDatabaseReference();
-      final mockTipperSnapshot = MockDataSnapshot();
-      final mockIdempotencyRef = MockDatabaseReference();
-      final mockRoundStatsRef = MockDatabaseReference();
-      final mockOtherRoundStatsRef = MockDatabaseReference();
-      final mockStatusRef = MockDatabaseReference();
-      final mockTransactionResult = MockTransactionResult();
-      Map<String, dynamic>? capturedStartedIdempotencyRecord;
+    // fixtureCaseDiffers: the fixture names the teams in a different case from
+    // the stored team keys (e.g. 'GWS Giants' becoming 'GWS GIANTS'). Scoring
+    // must still resolve both games to the existing teams.
+    for (final (hasGraceTip, fixtureCaseDiffers) in [
+      (false, false),
+      (true, false),
+      (false, true),
+    ]) {
+      test(
+        'tipWritten scores ${hasGraceTip ? 'a submitted grace-period tip' : 'default Away'} in the target round${fixtureCaseDiffers ? ' when fixture team names differ in case from team keys' : ''}',
+        () async {
+          final mockDb = MockDatabase();
+          final mockCompRef = MockDatabaseReference();
+          final mockCompSnapshot = MockDataSnapshot();
+          final mockTeamsRef = MockDatabaseReference();
+          final mockTeamsSnapshot = MockDataSnapshot();
+          final mockGamesRef = MockDatabaseReference();
+          final mockGamesSnapshot = MockDataSnapshot();
+          final mockTipsRef = MockDatabaseReference();
+          final mockTipsSnapshot = MockDataSnapshot();
+          final mockLiveScoresRef = MockDatabaseReference();
+          final mockLiveScoresSnapshot = MockDataSnapshot();
+          final mockTipperRef = MockDatabaseReference();
+          final mockTipperSnapshot = MockDataSnapshot();
+          final mockIdempotencyRef = MockDatabaseReference();
+          final mockRoundStatsRef = MockDatabaseReference();
+          final mockOtherRoundStatsRef = MockDatabaseReference();
+          final mockStatusRef = MockDatabaseReference();
+          final mockTransactionResult = MockTransactionResult();
+          Map<String, dynamic>? capturedStartedIdempotencyRecord;
 
-      final command = BackendScoringCommand(
-        commandType: BackendScoringCommandType.tipWritten,
-        compKey: 'comp2026',
-        roundNumber: null,
-        tipperId: 'tipper-1',
-        gameKey: 'nrl-01-001',
-        sourceEventId: 'event-456',
-        sourcePath: '/AllTips/comp2026/tipper-1/nrl-01-001',
-        scopeKey: 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
-        commandId: 'event-456',
-      );
+          final command = BackendScoringCommand(
+            commandType: BackendScoringCommandType.tipWritten,
+            compKey: 'comp2026',
+            roundNumber: null,
+            tipperId: 'tipper-1',
+            gameKey: 'nrl-01-001',
+            sourceEventId: 'event-456',
+            sourcePath: '/AllTips/comp2026/tipper-1/nrl-01-001',
+            scopeKey: 'comp:comp2026/game:nrl-01-001/tipper:tipper-1',
+            commandId: 'event-456',
+          );
 
-      when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
-      when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
-      when(() => mockCompSnapshot.value).thenReturn({
-        'name': 'Comp 2026',
-        'aflFixtureJsonURL': 'https://example.com/afl.json',
-        'nrlFixtureJsonURL': 'https://example.com/nrl.json',
-        'combinedRounds2': [
-          {
-            'roundStartDate': '2026-01-01T00:00:00Z',
-            'roundEndDate': '2026-01-07T23:59:59Z',
-          },
-          {
-            'roundStartDate': '2026-01-08T00:00:00Z',
-            'roundEndDate': '2026-01-14T23:59:59Z',
-          },
-        ],
-      });
+          when(
+            () => mockDb.ref('/AllDAUComps/comp2026'),
+          ).thenReturn(mockCompRef);
+          when(
+            () => mockCompRef.once(),
+          ).thenAnswer((_) async => mockCompSnapshot);
+          when(() => mockCompSnapshot.value).thenReturn({
+            'name': 'Comp 2026',
+            'aflFixtureJsonURL': 'https://example.com/afl.json',
+            'nrlFixtureJsonURL': 'https://example.com/nrl.json',
+            'combinedRounds2': [
+              {
+                'roundStartDate': '2026-01-01T00:00:00Z',
+                'roundEndDate': '2026-01-07T23:59:59Z',
+              },
+              {
+                'roundStartDate': '2026-01-08T00:00:00Z',
+                'roundEndDate': '2026-01-14T23:59:59Z',
+              },
+            ],
+          });
 
-      when(() => mockDb.ref('/AllTippers/tipper-1')).thenReturn(mockTipperRef);
-      when(() => mockTipperRef.once()).thenAnswer((_) async => mockTipperSnapshot);
-      when(() => mockTipperSnapshot.value).thenReturn({
-        'authuid': 'auth-1',
-        'email': 'alice@example.com',
-        'name': 'Alice',
-        'tipperRole': 'tipper',
-        'isAnonymous': false,
-      });
+          _stubNoPrivateTippers(mockDb, tipperId: 'tipper-1');
+          when(
+            () => mockDb.ref('/AllTippers/tipper-1'),
+          ).thenReturn(mockTipperRef);
+          when(
+            () => mockTipperRef.once(),
+          ).thenAnswer((_) async => mockTipperSnapshot);
+          when(() => mockTipperSnapshot.value).thenReturn({
+            'authuid': 'auth-1',
+            'email': 'alice@example.com',
+            'name': 'Alice',
+            'tipperRole': 'tipper',
+            'isAnonymous': false,
+          });
 
-      when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-      when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
-      when(() => mockTeamsSnapshot.value).thenReturn({
-        'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
-        'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
-      });
+          when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+          when(
+            () => mockTeamsRef.once(),
+          ).thenAnswer((_) async => mockTeamsSnapshot);
+          when(() => mockTeamsSnapshot.value).thenReturn({
+            fixtureCaseDiffers ? 'nrl-Broncos' : 'nrl-broncos': {
+              'name': 'Broncos',
+              'league': 'nrl',
+            },
+            'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+          });
 
-      when(() => mockDb.ref('/DAUCompsGames/comp2026')).thenReturn(mockGamesRef);
-      when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
-      when(() => mockGamesSnapshot.value).thenReturn({
-        'nrl-01-001': {
-          'RoundNumber': 1,
-          'MatchNumber': 1,
-          'HomeTeam': 'Broncos',
-          'AwayTeam': 'Roosters',
-          'Location': 'Stadium One',
-          'DateUtc': '2026-01-03T10:00:00Z',
-          'HomeTeamScore': 30,
-          'AwayTeamScore': 10,
+          final homeTeamName = fixtureCaseDiffers ? 'BRONCOS' : 'Broncos';
+          final awayTeamName = fixtureCaseDiffers ? 'roosters' : 'Roosters';
+          when(
+            () => mockDb.ref('/DAUCompsGames/comp2026'),
+          ).thenReturn(mockGamesRef);
+          when(
+            () => mockGamesRef.once(),
+          ).thenAnswer((_) async => mockGamesSnapshot);
+          when(() => mockGamesSnapshot.value).thenReturn({
+            'nrl-01-001': {
+              'RoundNumber': 1,
+              'MatchNumber': 1,
+              'HomeTeam': homeTeamName,
+              'AwayTeam': awayTeamName,
+              'Location': 'Stadium One',
+              'DateUtc': '2026-01-03T10:00:00Z',
+              'HomeTeamScore': 30,
+              'AwayTeamScore': 10,
+            },
+            'nrl-02-001': {
+              'RoundNumber': 2,
+              'MatchNumber': 1,
+              'HomeTeam': homeTeamName,
+              'AwayTeam': awayTeamName,
+              'Location': 'Stadium Two',
+              'DateUtc': '2026-01-10T10:00:00Z',
+              'HomeTeamScore': 20,
+              'AwayTeamScore': 16,
+            },
+          });
+
+          when(
+            () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+          ).thenReturn(mockLiveScoresRef);
+          when(
+            () => mockLiveScoresRef.once(),
+          ).thenAnswer((_) async => mockLiveScoresSnapshot);
+          when(() => mockLiveScoresSnapshot.value).thenReturn(null);
+
+          when(
+            () => mockDb.ref('/AllTips/comp2026/tipper-1'),
+          ).thenReturn(mockTipsRef);
+          when(
+            () => mockTipsRef.once(),
+          ).thenAnswer((_) async => mockTipsSnapshot);
+          when(() => mockTipsSnapshot.value).thenReturn({
+            if (hasGraceTip)
+              'nrl-01-001': {
+                'r': 'a',
+                't':
+                    DateTime.parse(
+                      '2026-01-03T10:01:00Z',
+                    ).millisecondsSinceEpoch ~/
+                    1000,
+              },
+            'nrl-02-001': {'r': 'd', 't': 1760000000},
+          });
+
+          when(
+            () => mockDb.ref(
+              '/Stats/comp2026/scoring_idempotency_backend_v1/event-456',
+            ),
+          ).thenReturn(mockIdempotencyRef);
+          when(() => mockTransactionResult.committed).thenReturn(true);
+          when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+            invocation,
+          ) async {
+            final handler =
+                invocation.positionalArguments[0] as TransactionHandler;
+            final mutableData = MutableData('event-456', null);
+            final result = await handler(mutableData);
+            if (result == null) {
+              final abortedResult = MockTransactionResult();
+              when(() => abortedResult.committed).thenReturn(false);
+              return abortedResult;
+            }
+            capturedStartedIdempotencyRecord = Map<String, dynamic>.from(
+              mutableData.value as Map,
+            );
+            return mockTransactionResult;
+          });
+          when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+          when(
+            () =>
+                mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/tipper-1'),
+          ).thenReturn(mockRoundStatsRef);
+          when(() => mockRoundStatsRef.set(any())).thenAnswer((_) async {});
+          when(
+            () =>
+                mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2/tipper-1'),
+          ).thenReturn(mockOtherRoundStatsRef);
+          when(
+            () => mockOtherRoundStatsRef.set(any()),
+          ).thenAnswer((_) async {});
+
+          when(
+            () => mockDb.ref('/Stats/comp2026/scoring_status'),
+          ).thenReturn(mockStatusRef);
+          when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+          final result = await executeBackendScoringCommand(
+            db: mockDb,
+            command: command,
+            now: DateTime.parse('2026-01-03T12:00:00Z'),
+          );
+
+          expect(result.skipped, isFalse);
+          expect(result.status, 'completed');
+          verify(() => mockIdempotencyRef.runTransaction(any())).called(1);
+
+          final captured = verify(
+            () => mockRoundStatsRef.set(captureAny()),
+          ).captured.single;
+          expect(captured, isA<Map>());
+          expect(captured, containsPair('nS', hasGraceTip ? 4 : 0));
+          expect(captured, containsPair('nMs', 4));
+          expect(captured, containsPair('aTo', 0));
+          expect(captured, containsPair('nTo', 0));
+          expect(capturedStartedIdempotencyRecord, isNotNull);
+          expect(capturedStartedIdempotencyRecord!['status'], 'started');
+          expect(
+            DateTime.parse(
+              capturedStartedIdempotencyRecord!['expiresAt'] as String,
+            ).toUtc(),
+            DateTime.parse('2026-01-04T12:00:00Z'),
+          );
+
+          verifyNever(() => mockOtherRoundStatsRef.set(any()));
+          verify(() => mockIdempotencyRef.set(any())).called(1);
+          verify(() => mockStatusRef.set(any())).called(1);
         },
-        'nrl-02-001': {
-          'RoundNumber': 2,
-          'MatchNumber': 1,
-          'HomeTeam': 'Broncos',
-          'AwayTeam': 'Roosters',
-          'Location': 'Stadium Two',
-          'DateUtc': '2026-01-10T10:00:00Z',
-          'HomeTeamScore': 20,
-          'AwayTeamScore': 16,
-        },
-      });
-
-      when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
-          .thenReturn(mockLiveScoresRef);
-      when(() => mockLiveScoresRef.once()).thenAnswer((_) async => mockLiveScoresSnapshot);
-      when(() => mockLiveScoresSnapshot.value).thenReturn(null);
-
-      when(() => mockDb.ref('/AllTips/comp2026/tipper-1'))
-          .thenReturn(mockTipsRef);
-      when(() => mockTipsRef.once()).thenAnswer((_) async => mockTipsSnapshot);
-      when(() => mockTipsSnapshot.value).thenReturn({
-        'nrl-01-001': {'r': 'a', 't': 1760000000},
-        'nrl-02-001': {'r': 'd', 't': 1760000000},
-      });
-
-      when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/event-456'))
-          .thenReturn(mockIdempotencyRef);
-      when(() => mockTransactionResult.committed).thenReturn(true);
-      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((invocation) async {
-        final handler = invocation.positionalArguments[0] as TransactionHandler;
-        final mutableData = MutableData('event-456', null);
-        final result = await handler(mutableData);
-        if (result == null) {
-          final abortedResult = MockTransactionResult();
-          when(() => abortedResult.committed).thenReturn(false);
-          return abortedResult;
-        }
-        capturedStartedIdempotencyRecord =
-            Map<String, dynamic>.from(mutableData.value as Map);
-        return mockTransactionResult;
-      });
-      when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
-
-      when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/tipper-1'))
-          .thenReturn(mockRoundStatsRef);
-      when(() => mockRoundStatsRef.set(any())).thenAnswer((_) async {});
-      when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2/tipper-1'))
-          .thenReturn(mockOtherRoundStatsRef);
-      when(() => mockOtherRoundStatsRef.set(any())).thenAnswer((_) async {});
-
-      when(() => mockDb.ref('/Stats/comp2026/scoring_status')).thenReturn(mockStatusRef);
-      when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
-
-      final result = await executeBackendScoringCommand(
-        db: mockDb,
-        command: command,
-        now: DateTime.parse('2026-01-03T12:00:00Z'),
       );
-
-      expect(result.skipped, isFalse);
-      expect(result.status, 'completed');
-      verify(() => mockIdempotencyRef.runTransaction(any())).called(1);
-
-      final captured = verify(() => mockRoundStatsRef.set(captureAny())).captured.single;
-      expect(captured, isA<Map>());
-      expect(captured, containsPair('nS', 4));
-      expect(captured, containsPair('nMs', 4));
-      expect(captured, containsPair('aTo', 0));
-      expect(captured, containsPair('nTo', 0));
-      expect(capturedStartedIdempotencyRecord, isNotNull);
-      expect(capturedStartedIdempotencyRecord!['status'], 'started');
-      expect(
-        DateTime.parse(capturedStartedIdempotencyRecord!['expiresAt'] as String).toUtc(),
-        DateTime.parse('2026-01-04T12:00:00Z'),
-      );
-
-      verifyNever(() => mockOtherRoundStatsRef.set(any()));
-      verify(() => mockIdempotencyRef.set(any())).called(1);
-      verify(() => mockStatusRef.set(any())).called(1);
-    });
+    }
 
     test(
       'official score commands batch round stats and split paid and free cohorts',
@@ -2078,9 +2919,10 @@ void main() {
           commandId: 'event-789',
         );
 
-        when(() => mockDb.ref('/AllDAUComps/comp2026'))
-            .thenReturn(mockCompRef);
-        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
         when(() => mockCompSnapshot.value).thenReturn({
           'name': 'Comp 2026',
           'aflFixtureJsonURL': 'https://example.com/afl.json',
@@ -2094,15 +2936,20 @@ void main() {
         });
 
         when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
         when(() => mockTeamsSnapshot.value).thenReturn({
           'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
-            .thenReturn(mockGamesRef);
-        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
         when(() => mockGamesSnapshot.value).thenReturn({
           'nrl-01-001': {
             'RoundNumber': 1,
@@ -2124,15 +2971,19 @@ void main() {
           },
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
-            .thenReturn(mockLiveScoresRef);
-        when(() => mockLiveScoresRef.once())
-            .thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(
+          () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+        ).thenReturn(mockLiveScoresRef);
+        when(
+          () => mockLiveScoresRef.once(),
+        ).thenAnswer((_) async => mockLiveScoresSnapshot);
         when(() => mockLiveScoresSnapshot.value).thenReturn(null);
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
-        when(() => mockAllTippersRef.once())
-            .thenAnswer((_) async => mockAllTippersSnapshot);
+        when(
+          () => mockAllTippersRef.once(),
+        ).thenAnswer((_) async => mockAllTippersSnapshot);
         when(() => mockAllTippersSnapshot.value).thenReturn({
           'paid-tipper': {
             'authuid': 'auth-paid',
@@ -2159,8 +3010,9 @@ void main() {
         });
 
         when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
-        when(() => mockAllTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(
+          () => mockAllTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
         when(() => mockAllTipsSnapshot.value).thenReturn({
           'paid-tipper': {
             // No submitted tip for this started game; backend should synthesize
@@ -2173,23 +3025,30 @@ void main() {
             'nrl-01-001': {'r': 'b', 't': 1760000001},
           },
         });
-        when(() => mockDb.ref('/AllTips/comp2026/paid-tipper'))
-            .thenReturn(mockPaidTipperTipsRef);
-        when(() => mockPaidTipperTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
-        when(() => mockDb.ref('/AllTips/comp2026/free-tipper'))
-            .thenReturn(mockFreeTipperTipsRef);
-        when(() => mockFreeTipperTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(
+          () => mockDb.ref('/AllTips/comp2026/paid-tipper'),
+        ).thenReturn(mockPaidTipperTipsRef);
+        when(
+          () => mockPaidTipperTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
+        when(
+          () => mockDb.ref('/AllTips/comp2026/free-tipper'),
+        ).thenReturn(mockFreeTipperTipsRef);
+        when(
+          () => mockFreeTipperTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
 
-        when(() => mockDb.ref(
-              '/Stats/comp2026/scoring_idempotency_backend_v1/event-789',
-            )).thenReturn(mockIdempotencyRef);
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/scoring_idempotency_backend_v1/event-789',
+          ),
+        ).thenReturn(mockIdempotencyRef);
         when(() => mockTransactionResult.committed).thenReturn(true);
         when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
           invocation,
         ) async {
-          final handler = invocation.positionalArguments[0] as TransactionHandler;
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
           final mutableData = MutableData('event-789', null);
           final result = await handler(mutableData);
           if (result == null) {
@@ -2197,30 +3056,40 @@ void main() {
             when(() => abortedResult.committed).thenReturn(false);
             return abortedResult;
           }
-          capturedStartedIdempotencyRecord =
-              Map<String, dynamic>.from(mutableData.value as Map);
+          capturedStartedIdempotencyRecord = Map<String, dynamic>.from(
+            mutableData.value as Map,
+          );
           return mockTransactionResult;
         });
         when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
 
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
-            .thenReturn(mockRoundStatsRootRef);
-        when(() => mockRoundStatsRootRef.update(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/paid-tipper'))
-            .thenReturn(mockPaidRoundStatsRef);
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+        ).thenReturn(mockRoundStatsRootRef);
+        when(
+          () => mockRoundStatsRootRef.update(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/round_stats_backend_v1/1/paid-tipper',
+          ),
+        ).thenReturn(mockPaidRoundStatsRef);
         when(() => mockPaidRoundStatsRef.set(any())).thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1/free-tipper'))
-            .thenReturn(mockFreeRoundStatsRef);
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/round_stats_backend_v1/1/free-tipper',
+          ),
+        ).thenReturn(mockFreeRoundStatsRef);
         when(() => mockFreeRoundStatsRef.set(any())).thenAnswer((_) async {});
 
-        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
-            .thenReturn(mockGameStatsRootRef);
-        when(() => mockGameStatsRootRef.update(any()))
-            .thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+        ).thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.update(any())).thenAnswer((_) async {});
 
-        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
-            .thenReturn(mockStatusRef);
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
         when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
 
         final result = await executeBackendScoringCommand(
@@ -2235,18 +3104,22 @@ void main() {
         verifyNever(() => mockDb.ref('/AllTips/comp2026/paid-tipper'));
         verifyNever(() => mockDb.ref('/AllTips/comp2026/free-tipper'));
 
-        final roundUpdates = verify(
-          () => mockRoundStatsRootRef.update(captureAny()),
-        ).captured.single as Map<String, dynamic>;
+        final roundUpdates =
+            verify(
+                  () => mockRoundStatsRootRef.update(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
         expect(roundUpdates, containsPair('paid-tipper', isA<Map>()));
         expect(roundUpdates, containsPair('free-tipper', isA<Map>()));
         expect(roundUpdates, isNot(contains('inactive-tipper')));
         verifyNever(() => mockPaidRoundStatsRef.set(any()));
         verifyNever(() => mockFreeRoundStatsRef.set(any()));
 
-        final gameUpdates = verify(
-          () => mockGameStatsRootRef.update(captureAny()),
-        ).captured.single as Map<String, dynamic>;
+        final gameUpdates =
+            verify(
+                  () => mockGameStatsRootRef.update(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
         final paidGameStats = Map<String, dynamic>.from(
           gameUpdates['paid/nrl-01-001'] as Map,
         );
@@ -2313,18 +3186,23 @@ void main() {
           tipperId: null,
           gameKey: 'nrl-01-001',
           sourceEventId: 'event-live-1',
-          sourcePath: '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
+          sourcePath:
+              '/Stats/comp2026/live_scores_backend_v1/nrl-01-001/current',
           scopeKey: 'comp:comp2026/game:nrl-01-001',
           commandId: 'event-live-1',
         );
 
-        when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/event-live-1'))
-            .thenReturn(mockIdempotencyRef);
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/scoring_idempotency_backend_v1/event-live-1',
+          ),
+        ).thenReturn(mockIdempotencyRef);
         when(() => mockTransactionResult.committed).thenReturn(true);
         when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
           invocation,
         ) async {
-          final handler = invocation.positionalArguments[0] as TransactionHandler;
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
           final mutableData = MutableData('event-live-1', null);
           final result = await handler(mutableData);
           if (result == null) {
@@ -2336,9 +3214,10 @@ void main() {
         });
         when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
 
-        when(() => mockDb.ref('/AllDAUComps/comp2026'))
-            .thenReturn(mockCompRef);
-        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
         when(() => mockCompSnapshot.value).thenReturn({
           'name': 'Comp 2026',
           'aflFixtureJsonURL': 'https://example.com/afl.json',
@@ -2352,16 +3231,20 @@ void main() {
         });
 
         when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
         when(() => mockTeamsSnapshot.value).thenReturn({
           'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
-            .thenReturn(mockLiveScoresRef);
-        when(() => mockLiveScoresRef.once())
-            .thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(
+          () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+        ).thenReturn(mockLiveScoresRef);
+        when(
+          () => mockLiveScoresRef.once(),
+        ).thenAnswer((_) async => mockLiveScoresSnapshot);
         final liveScoreGameValue = {
           'current': {
             'crowdSourcedScores': {
@@ -2379,9 +3262,7 @@ void main() {
                 'interimScore': 30.0,
                 'gameComplete': false,
               },
-              'malformed': {
-                'scoreTeam': 'away',
-              },
+              'malformed': {'scoreTeam': 'away'},
             },
           },
           'history': {
@@ -2394,12 +3275,15 @@ void main() {
             },
           },
         };
-        when(() => mockLiveScoresSnapshot.value).thenReturn({
-          'nrl-01-001': liveScoreGameValue,
-        });
-        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
-            .thenReturn(mockGamesRef);
-        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
+        when(
+          () => mockLiveScoresSnapshot.value,
+        ).thenReturn({'nrl-01-001': liveScoreGameValue});
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
         when(() => mockGamesSnapshot.value).thenReturn({
           'nrl-01-001': {
             'RoundNumber': 1,
@@ -2411,9 +3295,11 @@ void main() {
           },
         });
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
-        when(() => mockAllTippersRef.once())
-            .thenAnswer((_) async => mockAllTippersSnapshot);
+        when(
+          () => mockAllTippersRef.once(),
+        ).thenAnswer((_) async => mockAllTippersSnapshot);
         when(() => mockAllTippersSnapshot.value).thenReturn({
           'paid-tipper': {
             'authuid': 'auth-paid',
@@ -2433,24 +3319,28 @@ void main() {
         });
 
         when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
-        when(() => mockAllTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(
+          () => mockAllTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
         when(() => mockAllTipsSnapshot.value).thenReturn({
           'paid-tipper': {
             'nrl-01-001': {'r': 'd', 't': 1760000001},
           },
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
-            .thenReturn(mockRoundStatsRootRef);
-        when(() => mockRoundStatsRootRef.update(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
-            .thenReturn(mockGameStatsRootRef);
-        when(() => mockGameStatsRootRef.update(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
-            .thenReturn(mockStatusRef);
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+        ).thenReturn(mockRoundStatsRootRef);
+        when(
+          () => mockRoundStatsRootRef.update(any()),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+        ).thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.update(any())).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
         when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
 
         final result = await executeBackendScoringCommand(
@@ -2462,9 +3352,11 @@ void main() {
         expect(result.skipped, isFalse);
         expect(result.status, 'completed');
 
-        final roundUpdates = verify(
-          () => mockRoundStatsRootRef.update(captureAny()),
-        ).captured.single as Map<String, dynamic>;
+        final roundUpdates =
+            verify(
+                  () => mockRoundStatsRootRef.update(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
         expect(roundUpdates, containsPair('paid-tipper', isA<Map>()));
         expect(roundUpdates, isNot(contains('free-tipper')));
         expect(
@@ -2472,9 +3364,11 @@ void main() {
           2,
         );
 
-        final gameUpdates = verify(
-          () => mockGameStatsRootRef.update(captureAny()),
-        ).captured.single as Map<String, dynamic>;
+        final gameUpdates =
+            verify(
+                  () => mockGameStatsRootRef.update(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
         final paidGameStats = Map<String, dynamic>.from(
           gameUpdates['paid/nrl-01-001'] as Map,
         );
@@ -2524,13 +3418,17 @@ void main() {
           commandId: 'admin-rescore-1',
         );
 
-        when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-1'))
-            .thenReturn(mockIdempotencyRef);
+        when(
+          () => mockDb.ref(
+            '/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-1',
+          ),
+        ).thenReturn(mockIdempotencyRef);
         when(() => mockTransactionResult.committed).thenReturn(true);
         when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
           invocation,
         ) async {
-          final handler = invocation.positionalArguments[0] as TransactionHandler;
+          final handler =
+              invocation.positionalArguments[0] as TransactionHandler;
           final mutableData = MutableData('admin-rescore-1', null);
           final result = await handler(mutableData);
           if (result == null) {
@@ -2542,9 +3440,10 @@ void main() {
         });
         when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
 
-        when(() => mockDb.ref('/AllDAUComps/comp2026'))
-            .thenReturn(mockCompRef);
-        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+        when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+        when(
+          () => mockCompRef.once(),
+        ).thenAnswer((_) async => mockCompSnapshot);
         when(() => mockCompSnapshot.value).thenReturn({
           'name': 'Comp 2026',
           'aflFixtureJsonURL': 'https://example.com/afl.json',
@@ -2567,7 +3466,9 @@ void main() {
         });
 
         when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
+        when(
+          () => mockTeamsRef.once(),
+        ).thenAnswer((_) async => mockTeamsSnapshot);
         when(() => mockTeamsSnapshot.value).thenReturn({
           'afl-Cats': {'name': 'Cats', 'league': 'afl'},
           'afl-Demons': {'name': 'Demons', 'league': 'afl'},
@@ -2575,15 +3476,20 @@ void main() {
           'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
-            .thenReturn(mockLiveScoresRef);
-        when(() => mockLiveScoresRef.once())
-            .thenAnswer((_) async => mockLiveScoresSnapshot);
+        when(
+          () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+        ).thenReturn(mockLiveScoresRef);
+        when(
+          () => mockLiveScoresRef.once(),
+        ).thenAnswer((_) async => mockLiveScoresSnapshot);
         when(() => mockLiveScoresSnapshot.value).thenReturn(null);
 
-        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
-            .thenReturn(mockGamesRef);
-        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
+        when(
+          () => mockDb.ref('/DAUCompsGames/comp2026'),
+        ).thenReturn(mockGamesRef);
+        when(
+          () => mockGamesRef.once(),
+        ).thenAnswer((_) async => mockGamesSnapshot);
         when(() => mockGamesSnapshot.value).thenReturn({
           'nrl-01-001': {
             'RoundNumber': 1,
@@ -2617,9 +3523,11 @@ void main() {
           },
         });
 
+        _stubNoPrivateTippers(mockDb);
         when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
-        when(() => mockAllTippersRef.once())
-            .thenAnswer((_) async => mockAllTippersSnapshot);
+        when(
+          () => mockAllTippersRef.once(),
+        ).thenAnswer((_) async => mockAllTippersSnapshot);
         when(() => mockAllTippersSnapshot.value).thenReturn({
           'paid-tipper': {
             'authuid': 'auth-paid',
@@ -2639,8 +3547,9 @@ void main() {
         });
 
         when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
-        when(() => mockAllTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
+        when(
+          () => mockAllTipsRef.once(),
+        ).thenAnswer((_) async => mockAllTipsSnapshot);
         when(() => mockAllTipsSnapshot.value).thenReturn({
           'paid-tipper': {
             'nrl-02-001': {'r': 'a', 't': 1760000002},
@@ -2653,16 +3562,17 @@ void main() {
           },
         });
 
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
-            .thenReturn(mockRoundStatsRootRef);
-        when(() => mockRoundStatsRootRef.set(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
-            .thenReturn(mockGameStatsRootRef);
-        when(() => mockGameStatsRootRef.update(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
-            .thenReturn(mockStatusRef);
+        when(
+          () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+        ).thenReturn(mockRoundStatsRootRef);
+        when(() => mockRoundStatsRootRef.set(any())).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+        ).thenReturn(mockGameStatsRootRef);
+        when(() => mockGameStatsRootRef.update(any())).thenAnswer((_) async {});
+        when(
+          () => mockDb.ref('/Stats/comp2026/scoring_status'),
+        ).thenReturn(mockStatusRef);
         when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
 
         final result = await executeBackendScoringCommand(
@@ -2675,9 +3585,11 @@ void main() {
         expect(result.status, 'completed');
         expect(result.message, contains('Admin rescore completed for round 1'));
 
-        final roundUpdates = verify(
-          () => mockRoundStatsRootRef.set(captureAny()),
-        ).captured.single as Map<String, dynamic>;
+        final roundUpdates =
+            verify(
+                  () => mockRoundStatsRootRef.set(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
         expect(roundUpdates.keys, containsAll(['paid-tipper', 'free-tipper']));
         expect(
           Map<String, dynamic>.from(roundUpdates['paid-tipper'] as Map)['nS'],
@@ -2696,13 +3608,15 @@ void main() {
           0,
         );
 
-        final gameUpdates = verify(
-          () => mockGameStatsRootRef.update(captureAny()),
-        ).captured.single as Map<String, dynamic>;
-        expect(gameUpdates.keys, containsAll([
-          'paid/nrl-01-001',
-          'free/nrl-01-001',
-        ]));
+        final gameUpdates =
+            verify(
+                  () => mockGameStatsRootRef.update(captureAny()),
+                ).captured.single
+                as Map<String, dynamic>;
+        expect(
+          gameUpdates.keys,
+          containsAll(['paid/nrl-01-001', 'free/nrl-01-001']),
+        );
         expect(gameUpdates, isNot(contains('paid/afl-01-001')));
         expect(gameUpdates, isNot(contains('free/afl-01-001')));
         final paidGameStats = Map<String, dynamic>.from(
@@ -2717,218 +3631,361 @@ void main() {
       },
     );
 
+    test('admin rescore without round rebuilds all backend rounds', () async {
+      final mockDb = MockDatabase();
+      final mockCompRef = MockDatabaseReference();
+      final mockCompSnapshot = MockDataSnapshot();
+      final mockTeamsRef = MockDatabaseReference();
+      final mockTeamsSnapshot = MockDataSnapshot();
+      final mockGamesRef = MockDatabaseReference();
+      final mockGamesSnapshot = MockDataSnapshot();
+      final mockLiveScoresRef = MockDatabaseReference();
+      final mockLiveScoresSnapshot = MockDataSnapshot();
+      final mockAllTippersRef = MockDatabaseReference();
+      final mockAllTippersSnapshot = MockDataSnapshot();
+      final mockAllTipsRef = MockDatabaseReference();
+      final mockAllTipsSnapshot = MockDataSnapshot();
+      final mockIdempotencyRef = MockDatabaseReference();
+      final mockRoundOneStatsRootRef = MockDatabaseReference();
+      final mockRoundTwoStatsRootRef = MockDatabaseReference();
+      final mockRoundThreeStatsRootRef = MockDatabaseReference();
+      final mockGameStatsRootRef = MockDatabaseReference();
+      final mockStatusRef = MockDatabaseReference();
+      final mockTransactionResult = MockTransactionResult();
+
+      final command = BackendScoringCommand(
+        commandType: BackendScoringCommandType.adminRescore,
+        compKey: 'comp2026',
+        roundNumber: null,
+        tipperId: null,
+        gameKey: null,
+        sourceEventId: 'admin-rescore-all',
+        sourcePath: '/admin/backendScoring/adminRescore',
+        scopeKey: 'comp:comp2026/all_rounds/all_tippers',
+        commandId: 'admin-rescore-all',
+      );
+
+      when(
+        () => mockDb.ref(
+          '/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-all',
+        ),
+      ).thenReturn(mockIdempotencyRef);
+      when(() => mockTransactionResult.committed).thenReturn(true);
+      when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
+        invocation,
+      ) async {
+        final handler = invocation.positionalArguments[0] as TransactionHandler;
+        final mutableData = MutableData('admin-rescore-all', null);
+        final result = await handler(mutableData);
+        if (result == null) {
+          final abortedResult = MockTransactionResult();
+          when(() => abortedResult.committed).thenReturn(false);
+          return abortedResult;
+        }
+        return mockTransactionResult;
+      });
+      when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
+
+      when(() => mockDb.ref('/AllDAUComps/comp2026')).thenReturn(mockCompRef);
+      when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
+      when(() => mockCompSnapshot.value).thenReturn({
+        'name': 'Comp 2026',
+        'aflFixtureJsonURL': 'https://example.com/afl.json',
+        'nrlFixtureJsonURL': 'https://example.com/nrl.json',
+        'combinedRounds2': [
+          {
+            'roundStartDate': '2026-01-01T00:00:00Z',
+            'roundEndDate': '2026-01-07T23:59:59Z',
+          },
+          {
+            'roundStartDate': '2026-01-08T00:00:00Z',
+            'roundEndDate': '2026-01-14T23:59:59Z',
+          },
+          {
+            'roundStartDate': '2026-01-15T00:00:00Z',
+            'roundEndDate': '2026-01-21T23:59:59Z',
+          },
+        ],
+      });
+
+      when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
+      when(
+        () => mockTeamsRef.once(),
+      ).thenAnswer((_) async => mockTeamsSnapshot);
+      when(() => mockTeamsSnapshot.value).thenReturn({
+        'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
+        'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
+      });
+
+      when(
+        () => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'),
+      ).thenReturn(mockLiveScoresRef);
+      when(
+        () => mockLiveScoresRef.once(),
+      ).thenAnswer((_) async => mockLiveScoresSnapshot);
+      when(() => mockLiveScoresSnapshot.value).thenReturn(null);
+
+      when(
+        () => mockDb.ref('/DAUCompsGames/comp2026'),
+      ).thenReturn(mockGamesRef);
+      when(
+        () => mockGamesRef.once(),
+      ).thenAnswer((_) async => mockGamesSnapshot);
+      when(() => mockGamesSnapshot.value).thenReturn({
+        'nrl-01-001': {
+          'RoundNumber': 1,
+          'MatchNumber': 1,
+          'HomeTeam': 'Broncos',
+          'AwayTeam': 'Roosters',
+          'Location': 'Stadium One',
+          'DateUtc': '2026-01-03T10:00:00Z',
+          'HomeTeamScore': 10,
+          'AwayTeamScore': 30,
+        },
+        'nrl-02-001': {
+          'RoundNumber': 2,
+          'MatchNumber': 1,
+          'HomeTeam': 'Broncos',
+          'AwayTeam': 'Roosters',
+          'Location': 'Stadium Two',
+          'DateUtc': '2026-01-10T10:00:00Z',
+          'HomeTeamScore': 30,
+          'AwayTeamScore': 10,
+        },
+      });
+
+      _stubNoPrivateTippers(mockDb);
+      when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
+      when(
+        () => mockAllTippersRef.once(),
+      ).thenAnswer((_) async => mockAllTippersSnapshot);
+      when(() => mockAllTippersSnapshot.value).thenReturn({
+        'tipper-1': {
+          'authuid': 'auth-1',
+          'email': 'tipper@example.com',
+          'name': 'Tipper',
+          'tipperRole': 'tipper',
+          'compsParticipatedIn': ['comp2026'],
+          'isAnonymous': false,
+        },
+      });
+
+      when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
+      when(
+        () => mockAllTipsRef.once(),
+      ).thenAnswer((_) async => mockAllTipsSnapshot);
+      when(() => mockAllTipsSnapshot.value).thenReturn({
+        'tipper-1': {
+          'nrl-01-001': {'r': 'd', 't': 1760000001},
+          'nrl-02-001': {'r': 'a', 't': 1760000002},
+        },
+      });
+
+      when(
+        () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'),
+      ).thenReturn(mockRoundOneStatsRootRef);
+      when(() => mockRoundOneStatsRootRef.set(any())).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2'),
+      ).thenReturn(mockRoundTwoStatsRootRef);
+      when(() => mockRoundTwoStatsRootRef.set(any())).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/3'),
+      ).thenReturn(mockRoundThreeStatsRootRef);
+      when(
+        () => mockRoundThreeStatsRootRef.set(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'),
+      ).thenReturn(mockGameStatsRootRef);
+      when(() => mockGameStatsRootRef.set(any())).thenAnswer((_) async {});
+      when(
+        () => mockDb.ref('/Stats/comp2026/scoring_status'),
+      ).thenReturn(mockStatusRef);
+      when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
+
+      final result = await executeBackendScoringCommand(
+        db: mockDb,
+        command: command,
+        now: DateTime.parse('2026-01-10T12:00:00Z'),
+      );
+
+      expect(result.skipped, isFalse);
+      expect(result.status, 'completed');
+      expect(result.message, contains('Admin rescore completed for 2 rounds'));
+      expect(result.message, contains('skipped 1 empty rounds'));
+
+      final roundOneUpdates =
+          verify(
+                () => mockRoundOneStatsRootRef.set(captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
+      final roundTwoUpdates =
+          verify(
+                () => mockRoundTwoStatsRootRef.set(captureAny()),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(roundOneUpdates, containsPair('tipper-1', isA<Map>()));
+      expect(roundTwoUpdates, containsPair('tipper-1', isA<Map>()));
+      expect(
+        Map<String, dynamic>.from(roundOneUpdates['tipper-1'] as Map)['nS'],
+        2,
+      );
+      expect(
+        Map<String, dynamic>.from(roundTwoUpdates['tipper-1'] as Map)['nS'],
+        4,
+      );
+      verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
+      verify(() => mockDb.ref('/AllTippers')).called(1);
+      final roundThreeReplacement = verify(
+        () => mockRoundThreeStatsRootRef.set(captureAny()),
+      ).captured.single;
+      expect(roundThreeReplacement, isNull);
+      final gameStatsReplacement =
+          verify(() => mockGameStatsRootRef.set(captureAny())).captured.single
+              as Map<String, dynamic>;
+      expect(gameStatsReplacement.keys, containsAll(['paid', 'free']));
+      expect(
+        Map<String, dynamic>.from(gameStatsReplacement['paid'] as Map).keys,
+        containsAll(['nrl-01-001', 'nrl-02-001']),
+      );
+      expect(
+        Map<String, dynamic>.from(gameStatsReplacement['free'] as Map).keys,
+        containsAll(['nrl-01-001', 'nrl-02-001']),
+      );
+      verifyNever(() => mockGameStatsRootRef.update(any()));
+      final status =
+          verify(() => mockStatusRef.set(captureAny())).captured.single
+              as Map<String, dynamic>;
+      expect(status, containsPair('roundsRebuilt', [1, 2]));
+      expect(status, containsPair('roundsSkipped', [3]));
+      verify(() => mockIdempotencyRef.set(any())).called(1);
+    });
+  });
+
+  group('game stats are published only once tipping has closed', () {
+    final kickoff = DateTime.utc(2026, 8, 4, 10);
+
+    /// The updates published for a game that kicked off at [kickoff], when the
+    /// time is [now] and the grace period setting reads [setting] (or cannot be
+    /// read at all when [readFails]).
+    Future<Map<String, dynamic>> publishedAt(
+      DateTime now, {
+      Object? setting,
+      bool readFails = false,
+    }) async {
+      final configRef = MockDatabaseReference();
+      final configSnapshot = MockDataSnapshot();
+      if (!readFails) {
+        when(
+          () => mockDb.ref('/AppConfig/tipGracePeriodSeconds'),
+        ).thenReturn(configRef);
+        when(() => configRef.once()).thenAnswer((_) async => configSnapshot);
+        when(() => configSnapshot.value).thenReturn(setting);
+      }
+      final comp = _badgeTestComp(now);
+      final game = _badgeTestGame('nrl-01-001', kickoff)
+        ..scoring = Scoring(homeTeamScore: null, awayTeamScore: null);
+      final tipper = _badgeTestTipper('paid', comp: comp);
+      final updates = <String, dynamic>{};
+      await rebuildBackendGameStatsForRound(
+        db: mockDb,
+        comp: comp,
+        roundGames: [game],
+        allTippers: [tipper],
+        tipsByTipper: {
+          'paid': {
+            game.dbkey: Tip(
+              game: game,
+              tipper: tipper,
+              tip: GameResult.a,
+              submittedTimeUTC: kickoff.subtract(const Duration(hours: 1)),
+            ),
+          },
+        },
+        now: now,
+        updatesSink: updates,
+      );
+      return updates;
+    }
+
     test(
-      'admin rescore without round rebuilds all backend rounds',
+      'withheld during the default grace period, published when it ends',
       () async {
-        final mockDb = MockDatabase();
-        final mockCompRef = MockDatabaseReference();
-        final mockCompSnapshot = MockDataSnapshot();
-        final mockTeamsRef = MockDatabaseReference();
-        final mockTeamsSnapshot = MockDataSnapshot();
-        final mockGamesRef = MockDatabaseReference();
-        final mockGamesSnapshot = MockDataSnapshot();
-        final mockLiveScoresRef = MockDatabaseReference();
-        final mockLiveScoresSnapshot = MockDataSnapshot();
-        final mockAllTippersRef = MockDatabaseReference();
-        final mockAllTippersSnapshot = MockDataSnapshot();
-        final mockAllTipsRef = MockDatabaseReference();
-        final mockAllTipsSnapshot = MockDataSnapshot();
-        final mockIdempotencyRef = MockDatabaseReference();
-        final mockRoundOneStatsRootRef = MockDatabaseReference();
-        final mockRoundTwoStatsRootRef = MockDatabaseReference();
-        final mockRoundThreeStatsRootRef = MockDatabaseReference();
-        final mockGameStatsRootRef = MockDatabaseReference();
-        final mockStatusRef = MockDatabaseReference();
-        final mockTransactionResult = MockTransactionResult();
-
-        final command = BackendScoringCommand(
-          commandType: BackendScoringCommandType.adminRescore,
-          compKey: 'comp2026',
-          roundNumber: null,
-          tipperId: null,
-          gameKey: null,
-          sourceEventId: 'admin-rescore-all',
-          sourcePath: '/admin/backendScoring/adminRescore',
-          scopeKey: 'comp:comp2026/all_rounds/all_tippers',
-          commandId: 'admin-rescore-all',
-        );
-
-        when(() => mockDb.ref('/Stats/comp2026/scoring_idempotency_backend_v1/admin-rescore-all'))
-            .thenReturn(mockIdempotencyRef);
-        when(() => mockTransactionResult.committed).thenReturn(true);
-        when(() => mockIdempotencyRef.runTransaction(any())).thenAnswer((
-          invocation,
-        ) async {
-          final handler = invocation.positionalArguments[0] as TransactionHandler;
-          final mutableData = MutableData('admin-rescore-all', null);
-          final result = await handler(mutableData);
-          if (result == null) {
-            final abortedResult = MockTransactionResult();
-            when(() => abortedResult.committed).thenReturn(false);
-            return abortedResult;
-          }
-          return mockTransactionResult;
-        });
-        when(() => mockIdempotencyRef.set(any())).thenAnswer((_) async {});
-
-        when(() => mockDb.ref('/AllDAUComps/comp2026'))
-            .thenReturn(mockCompRef);
-        when(() => mockCompRef.once()).thenAnswer((_) async => mockCompSnapshot);
-        when(() => mockCompSnapshot.value).thenReturn({
-          'name': 'Comp 2026',
-          'aflFixtureJsonURL': 'https://example.com/afl.json',
-          'nrlFixtureJsonURL': 'https://example.com/nrl.json',
-          'combinedRounds2': [
-            {
-              'roundStartDate': '2026-01-01T00:00:00Z',
-              'roundEndDate': '2026-01-07T23:59:59Z',
-            },
-            {
-              'roundStartDate': '2026-01-08T00:00:00Z',
-              'roundEndDate': '2026-01-14T23:59:59Z',
-            },
-            {
-              'roundStartDate': '2026-01-15T00:00:00Z',
-              'roundEndDate': '2026-01-21T23:59:59Z',
-            },
-          ],
-        });
-
-        when(() => mockDb.ref('/Teams')).thenReturn(mockTeamsRef);
-        when(() => mockTeamsRef.once()).thenAnswer((_) async => mockTeamsSnapshot);
-        when(() => mockTeamsSnapshot.value).thenReturn({
-          'nrl-broncos': {'name': 'Broncos', 'league': 'nrl'},
-          'nrl-roosters': {'name': 'Roosters', 'league': 'nrl'},
-        });
-
-        when(() => mockDb.ref('/Stats/comp2026/live_scores_backend_v1'))
-            .thenReturn(mockLiveScoresRef);
-        when(() => mockLiveScoresRef.once())
-            .thenAnswer((_) async => mockLiveScoresSnapshot);
-        when(() => mockLiveScoresSnapshot.value).thenReturn(null);
-
-        when(() => mockDb.ref('/DAUCompsGames/comp2026'))
-            .thenReturn(mockGamesRef);
-        when(() => mockGamesRef.once()).thenAnswer((_) async => mockGamesSnapshot);
-        when(() => mockGamesSnapshot.value).thenReturn({
-          'nrl-01-001': {
-            'RoundNumber': 1,
-            'MatchNumber': 1,
-            'HomeTeam': 'Broncos',
-            'AwayTeam': 'Roosters',
-            'Location': 'Stadium One',
-            'DateUtc': '2026-01-03T10:00:00Z',
-            'HomeTeamScore': 10,
-            'AwayTeamScore': 30,
-          },
-          'nrl-02-001': {
-            'RoundNumber': 2,
-            'MatchNumber': 1,
-            'HomeTeam': 'Broncos',
-            'AwayTeam': 'Roosters',
-            'Location': 'Stadium Two',
-            'DateUtc': '2026-01-10T10:00:00Z',
-            'HomeTeamScore': 30,
-            'AwayTeamScore': 10,
-          },
-        });
-
-        when(() => mockDb.ref('/AllTippers')).thenReturn(mockAllTippersRef);
-        when(() => mockAllTippersRef.once())
-            .thenAnswer((_) async => mockAllTippersSnapshot);
-        when(() => mockAllTippersSnapshot.value).thenReturn({
-          'tipper-1': {
-            'authuid': 'auth-1',
-            'email': 'tipper@example.com',
-            'name': 'Tipper',
-            'tipperRole': 'tipper',
-            'compsParticipatedIn': ['comp2026'],
-            'isAnonymous': false,
-          },
-        });
-
-        when(() => mockDb.ref('/AllTips/comp2026')).thenReturn(mockAllTipsRef);
-        when(() => mockAllTipsRef.once())
-            .thenAnswer((_) async => mockAllTipsSnapshot);
-        when(() => mockAllTipsSnapshot.value).thenReturn({
-          'tipper-1': {
-            'nrl-01-001': {'r': 'd', 't': 1760000001},
-            'nrl-02-001': {'r': 'a', 't': 1760000002},
-          },
-        });
-
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/1'))
-            .thenReturn(mockRoundOneStatsRootRef);
-        when(() => mockRoundOneStatsRootRef.set(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/2'))
-            .thenReturn(mockRoundTwoStatsRootRef);
-        when(() => mockRoundTwoStatsRootRef.set(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/round_stats_backend_v1/3'))
-            .thenReturn(mockRoundThreeStatsRootRef);
-        when(() => mockRoundThreeStatsRootRef.set(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/game_stats_backend_v1'))
-            .thenReturn(mockGameStatsRootRef);
-        when(() => mockGameStatsRootRef.set(any()))
-            .thenAnswer((_) async {});
-        when(() => mockDb.ref('/Stats/comp2026/scoring_status'))
-            .thenReturn(mockStatusRef);
-        when(() => mockStatusRef.set(any())).thenAnswer((_) async {});
-
-        final result = await executeBackendScoringCommand(
-          db: mockDb,
-          command: command,
-          now: DateTime.parse('2026-01-10T12:00:00Z'),
-        );
-
-        expect(result.skipped, isFalse);
-        expect(result.status, 'completed');
-        expect(result.message, contains('Admin rescore completed for 2 rounds'));
-        expect(result.message, contains('skipped 1 empty rounds'));
-
-        final roundOneUpdates = verify(
-          () => mockRoundOneStatsRootRef.set(captureAny()),
-        ).captured.single as Map<String, dynamic>;
-        final roundTwoUpdates = verify(
-          () => mockRoundTwoStatsRootRef.set(captureAny()),
-        ).captured.single as Map<String, dynamic>;
-        expect(roundOneUpdates, containsPair('tipper-1', isA<Map>()));
-        expect(roundTwoUpdates, containsPair('tipper-1', isA<Map>()));
+        expect(await publishedAt(kickoff), isEmpty);
         expect(
-          Map<String, dynamic>.from(roundOneUpdates['tipper-1'] as Map)['nS'],
-          2,
+          await publishedAt(kickoff.add(const Duration(seconds: 119))),
+          isEmpty,
         );
         expect(
-          Map<String, dynamic>.from(roundTwoUpdates['tipper-1'] as Map)['nS'],
-          4,
+          await publishedAt(kickoff.add(const Duration(seconds: 120))),
+          contains('paid/nrl-01-001'),
         );
-        verify(() => mockDb.ref('/AllTips/comp2026')).called(1);
-        verify(() => mockDb.ref('/AllTippers')).called(1);
-        final roundThreeReplacement = verify(
-          () => mockRoundThreeStatsRootRef.set(captureAny()),
-        ).captured.single;
-        expect(roundThreeReplacement, isNull);
-        final gameStatsReplacement = verify(
-          () => mockGameStatsRootRef.set(captureAny()),
-        ).captured.single as Map<String, dynamic>;
-        expect(gameStatsReplacement.keys, containsAll(['paid', 'free']));
+      },
+    );
+
+    test('follows the configured grace period', () async {
+      expect(
+        await publishedAt(
+          kickoff.add(const Duration(seconds: 200)),
+          setting: 300,
+        ),
+        isEmpty,
+      );
+      expect(
+        await publishedAt(
+          kickoff.add(const Duration(seconds: 300)),
+          setting: 300,
+        ),
+        contains('paid/nrl-01-001'),
+      );
+    });
+
+    test('with no grace period it is published at kickoff', () async {
+      expect(
+        await publishedAt(kickoff, setting: 0),
+        contains('paid/nrl-01-001'),
+      );
+    });
+
+    test('an invalid or excessive setting is read as the default', () async {
+      for (final Object? setting in <Object?>['300', -1, 0.5, 901]) {
         expect(
-          Map<String, dynamic>.from(gameStatsReplacement['paid'] as Map).keys,
-          containsAll(['nrl-01-001', 'nrl-02-001']),
+          await publishedAt(
+            kickoff.add(const Duration(seconds: 119)),
+            setting: setting,
+          ),
+          isEmpty,
+          reason: '$setting',
         );
         expect(
-          Map<String, dynamic>.from(gameStatsReplacement['free'] as Map).keys,
-          containsAll(['nrl-01-001', 'nrl-02-001']),
+          await publishedAt(
+            kickoff.add(const Duration(seconds: 120)),
+            setting: setting,
+          ),
+          contains('paid/nrl-01-001'),
+          reason: '$setting',
         );
-        verifyNever(() => mockGameStatsRootRef.update(any()));
-        final status = verify(
-          () => mockStatusRef.set(captureAny()),
-        ).captured.single as Map<String, dynamic>;
-        expect(status, containsPair('roundsRebuilt', [1, 2]));
-        expect(status, containsPair('roundsSkipped', [3]));
-        verify(() => mockIdempotencyRef.set(any())).called(1);
+      }
+    });
+
+    test(
+      'a setting that cannot be read holds the stats back for the longest grace period',
+      () async {
+        expect(
+          await publishedAt(
+            kickoff.add(const Duration(seconds: 899)),
+            readFails: true,
+          ),
+          isEmpty,
+        );
+        expect(
+          await publishedAt(
+            kickoff.add(const Duration(seconds: 900)),
+            readFails: true,
+          ),
+          contains('paid/nrl-01-001'),
+        );
       },
     );
   });

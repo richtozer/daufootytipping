@@ -80,16 +80,17 @@ void main() {
     when(() => tippersViewModel.isUserLinked).thenAnswer((_) async {});
     when(() => tippersViewModel.addListener(any())).thenReturn(null);
     when(() => tippersViewModel.removeListener(any())).thenReturn(null);
-    when(() => tippersViewModel.findTipper(any())).thenAnswer((invocation) async {
-      switch (invocation.positionalArguments.single as String) {
-        case 'tipper-1':
-          return alice;
-        case 'tipper-2':
-          return bob;
-        default:
-          return null;
-      }
-    });
+    when(() => tippersViewModel.findTipper(any()))
+        .thenAnswer((invocation) async {
+          switch (invocation.positionalArguments.single as String) {
+            case 'tipper-1':
+              return alice;
+            case 'tipper-2':
+              return bob;
+            default:
+              return null;
+          }
+        });
 
     when(() => dauCompsViewModel.selectedDAUComp).thenReturn(comp);
 
@@ -399,6 +400,70 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test(
+    'a tip alone, before any game is scored, leaves the leaderboard empty',
+    () async {
+      // The backend writes a tipper's round row as soon as they tip, all zeros
+      // until a game in the round has a score.
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '1': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(
+                  roundNumber: 1,
+                  total: 0,
+                  hasScoring: false,
+                ),
+              },
+            },
+          ),
+        ),
+      );
+
+      expect(viewModel.compLeaderboard, isEmpty);
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'a game scored live, with no official score yet, fills the leaderboard',
+    () async {
+      // Backend scoring counts a crowdsourced live score like an official one,
+      // so the round has max points even while every tipper is on zero.
+      final viewModel = StatsViewModel(
+        comp,
+        null,
+        database: database,
+        autoInitialize: false,
+      );
+
+      await viewModel.handleRoundPointsEventForTest(
+        _databaseEvent(
+          _snapshot(
+            exists: true,
+            value: <String, Map<String, Map<String, int>>>{
+              '1': <String, Map<String, int>>{
+                'tipper-1': _roundStatsJson(roundNumber: 1, total: 0),
+              },
+            },
+          ),
+        ),
+      );
+
+      expect(viewModel.compLeaderboard.single.tipper, alice);
+      viewModel.dispose();
+    },
+  );
 }
 
 Future<void> _settleBackgroundStats() async {
@@ -411,10 +476,7 @@ MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {
   return event;
 }
 
-MockDataSnapshot _snapshot({
-  required bool exists,
-  required Object? value,
-}) {
+MockDataSnapshot _snapshot({required bool exists, required Object? value}) {
   final snapshot = MockDataSnapshot();
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);

@@ -18,7 +18,6 @@ const String roundEndDateKey = 'roundEndDate';
 
 /// Admin override date keys per round.
 const String adminOverrideRoundStartDateKey = 'adminOverrideRoundStartDate';
-const String adminOverrideRoundEndDateKey = 'adminOverrideRoundEndDate';
 
 /// DAUComp field keys.
 const String compNameKey = 'name';
@@ -32,14 +31,36 @@ const String nrlRegularCompEndDateUTCKey = 'nrlRegularCompEndDateUTC';
 const String tokensPath = '/AllTippersTokens';
 const String tippersPath = '/AllTippers';
 const String teamsPathRoot = '/Teams';
+const String teamLogosPathRoot = '/TeamLogos';
 const String gamesPathRoot = '/DAUCompsGames';
 const String configPathRoot = '/AppConfig';
 const String tipsPathRoot = '/AllTips';
 const String statsPathRoot = '/Stats';
 
-/// Legacy/client-owned scoring branches under [statsPathRoot].
-const String roundStatsLegacyRoot = 'round_stats_v3';
-const String gameStatsLegacyRoot = 'game_stats_v3';
+/// Server-owned identity data. No client writes any of these in the final
+/// rules; the identity callables and the audit job are the only writers.
+const String tipperPrivatePath = '/TipperPrivate';
+const String authIndexPath = '/AuthIndex';
+const String aliasIndexPath = '/AliasIndex';
+const String logonIndexPath = '/LogonIndex';
+const String createIntentsPath = '/CreateIntents';
+const String identityLocksPath = '/IdentityLocks';
+const String identityOpsPath = '/IdentityOps';
+const String placeholdersPath = '/Placeholders';
+
+/// The journal of a claim being moved (an alias on rename, the login address
+/// when it changes), keyed by tipper id. Server-only, like the other identity
+/// nodes; it exists so a retry never has to guess the old claim.
+const String claimMovesPath = '/ClaimMoves';
+
+/// Who owns each push token: `/TokenOwners/{token}` is a tipper id, changed only
+/// by compare-and-set, so two callers registering one token at once end with
+/// exactly one owner. Server-only, like the other identity nodes.
+const String tokenOwnersPath = '/TokenOwners';
+
+/// Server-only configuration (identity mode, aggregator mode). Closed to
+/// every client under every ruleset.
+const String serverConfigPath = '/ServerConfig';
 
 /// Backend-owned scoring branches under [statsPathRoot].
 ///

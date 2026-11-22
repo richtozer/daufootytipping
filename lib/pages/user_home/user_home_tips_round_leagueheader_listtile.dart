@@ -6,9 +6,9 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_kickoff_countdown.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
+import 'package:daufootytipping/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:provider/provider.dart';
 
 /// League round header card showing round number, points/countdown stats,
 /// and league logo.
@@ -23,19 +23,22 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
     required this.dauRound,
     required this.dauCompsViewModel,
     required this.selectedTipper,
-    required this.isPercentStatsPage,
+    this.inlineRoundLabel = false,
     this.margin = const EdgeInsets.all(4.0),
     this.backgroundColor,
     super.key,
   });
 
+  /// Lets 'Round' sit beside its number where the width allows, rather
+  /// than always stacking. Set for the wide arrangement only, so the
+  /// familiar phone header is unchanged.
+  final bool inlineRoundLabel;
   final League league;
   final double logoWidth;
   final double logoHeight;
   final DAURound dauRound;
   final DAUCompsViewModel dauCompsViewModel;
   final Tipper selectedTipper;
-  final bool isPercentStatsPage;
   final EdgeInsetsGeometry margin;
   final Color? backgroundColor;
 
@@ -81,44 +84,30 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
 
     return Card(
       margin: margin,
-      color:
-          backgroundColor ??
-          (!isPercentStatsPage ? Colors.black54 : Colors.white10),
+      color: backgroundColor ?? Colors.black54,
       surfaceTintColor: League.nrl.colour,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(10.0),
             child: Row(
               children: [
-                SizedBox(
-                  width: 86,
-                  child: Column(
-                    children: [
-                      Text(
-                        'Round',
-                        style: TextStyle(
-                          color: !isPercentStatsPage
-                              ? Colors.white70
-                              : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${dauRound.dAUroundNumber}',
-                        style: TextStyle(
-                          color: !isPercentStatsPage
-                              ? Colors.white70
-                              : Colors.black54,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                        ),
-                        softWrap: true,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: 86,
+                    maxWidth: inlineRoundLabel ? 200 : 86,
+                  ),
+                  // Stacked unless the layout has said there is room, rather
+                  // than wherever a Wrap happens to fit it: the label is
+                  // narrow enough to slip in beside the number at a small text
+                  // size, which made portrait inconsistent.
+                  child: _RoundLabel(
+                    roundNumber: dauRound.dAUroundNumber,
+                    colour: Colors.white70,
+                    inline: inlineRoundLabel,
                   ),
                 ),
                 gamesForLeague.isEmpty
@@ -126,15 +115,23 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                     : Expanded(
                         // Compute from live game state rather than cached
                         // roundState, which is only set during initial linking.
-                        child: !gamesForLeague.any(
-                          (game) =>
-                              game.gameState ==
-                                  GameState.startedResultNotKnown ||
-                              game.gameState == GameState.startedResultKnown,
-                        )
-                            ? Column(
+                        child:
+                            !gamesForLeague.any(
+                              (game) =>
+                                  game.gameState ==
+                                      GameState.startedResultNotKnown ||
+                                  game.gameState ==
+                                      GameState.startedResultKnown,
+                            )
+                            ? Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 16,
+                                runSpacing: 2,
                                 children: [
-                                  KickoffCountdown(kickoffDate: firstGameStart!),
+                                  KickoffCountdown(
+                                    kickoffDate: firstGameStart!,
+                                  ),
                                   Text(
                                     style: const TextStyle(
                                       color: Colors.white70,
@@ -147,16 +144,15 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                   ),
                                 ],
                               )
-                            : Selector<StatsViewModel?, RoundStats?>(
-                                selector: (_, statsViewModel) =>
-                                    statsViewModel?.getScoringRoundStats(
-                                      dauRound,
-                                      selectedTipper,
-                                    ),
-                                builder: (context, roundStats, child) {
-                                  if (roundStats == null) {
-                                    return const SizedBox.shrink();
-                                  }
+                            : _RoundStatsBuilder(
+                                statsViewModel:
+                                    dauCompsViewModel.statsViewModel,
+                                builder: (statsViewModel) {
+                                  final RoundStats roundStats = statsViewModel
+                                      .getScoringRoundStats(
+                                        dauRound,
+                                        selectedTipper,
+                                      );
 
                                   final String rankLabel;
                                   final String rankChangeLabel;
@@ -183,13 +179,16 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                     }
                                   }
 
-                                  return Column(
+                                  return Wrap(
+                                    alignment: WrapAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 16,
+                                    runSpacing: 2,
                                     children: [
                                       Text(
                                         style: TextStyle(
-                                          color: !isPercentStatsPage
-                                              ? Colors.white70
-                                              : Colors.black54,
+                                          color: Colors.white70,
                                           fontWeight: FontWeight.bold,
                                         ),
                                         'Points: ${league == League.afl ? roundStats.aflPoints : roundStats.nrlPoints} / ${league == League.afl ? roundStats.aflMaxPoints : roundStats.nrlMaxPoints}',
@@ -199,9 +198,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                       ),
                                       Text(
                                         style: TextStyle(
-                                          color: !isPercentStatsPage
-                                              ? Colors.white70
-                                              : Colors.black54,
+                                          color: Colors.white70,
                                           fontWeight: FontWeight.bold,
                                         ),
                                         'UPS/Margins: ${league == League.afl ? roundStats.aflMarginUPS : roundStats.nrlMarginUPS} / ${league == League.afl ? roundStats.aflMarginTips : roundStats.nrlMarginTips}',
@@ -210,15 +207,14 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                         textAlign: TextAlign.center,
                                       ),
                                       Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
                                           Flexible(
                                             child: Text(
                                               style: TextStyle(
-                                                color: !isPercentStatsPage
-                                                    ? Colors.white70
-                                                    : Colors.black54,
+                                                color: Colors.white70,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                               'Rank: $rankLabel  ',
@@ -233,9 +229,7 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
                                           Flexible(
                                             child: Text(
                                               style: TextStyle(
-                                                color: !isPercentStatsPage
-                                                    ? Colors.white70
-                                                    : Colors.black54,
+                                                color: Colors.white70,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                               rankChangeLabel,
@@ -295,6 +289,70 @@ class RoundLeagueHeaderListTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 'Round' and its number, one above the other or side by side.
+class _RoundLabel extends StatelessWidget {
+  const _RoundLabel({
+    required this.roundNumber,
+    required this.colour,
+    required this.inline,
+  });
+
+  final int roundNumber;
+  final Color colour;
+  final bool inline;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = Text(
+      'Round',
+      style: TextStyle(color: colour, fontWeight: FontWeight.bold),
+      overflow: TextOverflow.ellipsis,
+    );
+    final number = Text(
+      '$roundNumber',
+      style: TextStyle(
+        color: colour,
+        fontWeight: FontWeight.bold,
+        fontSize: 30,
+      ),
+      overflow: TextOverflow.ellipsis,
+    );
+    if (!inline) {
+      return Column(mainAxisSize: MainAxisSize.min, children: [label, number]);
+    }
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 6,
+      children: [label, number],
+    );
+  }
+}
+
+/// Rebuilds [builder] as the round's stats change, or shows nothing while
+/// there are none.
+class _RoundStatsBuilder extends StatelessWidget {
+  const _RoundStatsBuilder({
+    required this.statsViewModel,
+    required this.builder,
+  });
+
+  final StatsViewModel? statsViewModel;
+  final Widget Function(StatsViewModel statsViewModel) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final statsViewModel = this.statsViewModel;
+    if (statsViewModel == null) {
+      return const SizedBox.shrink();
+    }
+    return ListenableBuilder(
+      listenable: statsViewModel,
+      builder: (context, child) => builder(statsViewModel),
     );
   }
 }

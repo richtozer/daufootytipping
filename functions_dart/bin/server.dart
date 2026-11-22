@@ -7,43 +7,18 @@ import 'package:firebase_functions/firebase_functions.dart'
     hide Credential, DataSnapshot;
 import 'package:firebase_admin/firebase_admin.dart';
 import 'package:firebase_dart/standalone_database.dart';
+import 'package:dart_functions/auth_bypass_guard.dart';
+import 'package:dart_functions/errors.dart';
+import 'package:dart_functions/identity/admin_gate.dart';
+import 'package:dart_functions/identity/backend_tippers.dart';
+import 'package:dart_functions/identity/callables.dart';
+import 'package:dart_functions/live_scores/live_score_aggregation.dart';
+import 'package:dart_functions/rtdb/emulator_admin_client.dart';
+import 'package:dart_functions/rtdb/rest_database.dart';
 import 'package:dau_shared/constants/paths.dart' as paths;
 import 'package:dau_shared/dau_shared.dart';
 import 'package:intl/intl.dart';
 
-// firebase_functions 0.7 replaced its specialized HttpsError subclasses with
-// HttpResponseException. These adapters preserve the existing domain-specific
-// catch clauses while using the new runtime-recognized exception type.
-class InvalidArgumentError extends HttpResponseException {
-  InvalidArgumentError(String message)
-      : super(400, message, status: 'INVALID_ARGUMENT');
-}
-
-class UnauthenticatedError extends HttpResponseException {
-  UnauthenticatedError(String message)
-      : super(401, message, status: 'UNAUTHENTICATED');
-}
-
-class PermissionDeniedError extends HttpResponseException {
-  PermissionDeniedError(String message)
-      : super(403, message, status: 'PERMISSION_DENIED');
-}
-
-class NotFoundError extends HttpResponseException {
-  NotFoundError(String message) : super(404, message, status: 'NOT_FOUND');
-}
-
-class AbortedError extends HttpResponseException {
-  AbortedError(String message) : super(409, message, status: 'ABORTED');
-}
-
-class InternalError extends HttpResponseException {
-  InternalError(String message) : super(500, message, status: 'INTERNAL');
-}
-
-class UnavailableError extends HttpResponseException {
-  UnavailableError(String message) : super(503, message, status: 'UNAVAILABLE');
-}
 
 void logFunction(String message) {
   stdout.writeln('[adminFixtureDownload] $message');
@@ -75,6 +50,10 @@ const int _idempotencyPruneLimit = 500;
 const Duration _fixtureDownloadLockTtl = Duration(minutes: 10);
 
 void main(List<String> args) async {
+  // Before anything is registered or served: a deployed function must not be
+  // able to run with token verification switched off.
+  assertNoDebugFeaturesOutsideEmulator(Platform.environment);
+
   await runFunctions((firebase) {
     final runtimeAdminApp = firebase.adminApp;
 
@@ -182,6 +161,7 @@ void main(List<String> args) async {
           throw UnauthenticatedError('User must be authenticated');
         }
 
+        // The caller's administrator role is read from the database.
         final dbHandle = await _openBackendScoringDatabase(
           runtimeAdminApp: runtimeAdminApp,
         );
@@ -210,6 +190,15 @@ void main(List<String> args) async {
           await dbHandle.close();
         }
       },
+    );
+
+    // The identity callables (link-or-create-tipper, update-tipper-alias,
+    // register-device-token, unregister-device-token). They are deployed in
+    // mode `off`, in which every one of them refuses (section 5 of
+    // DESIGN-database-rules-phase4.md).
+    registerIdentityCallables(
+      firebase,
+      openDatabase: () => _openIdentityDatabase(runtimeAdminApp),
     );
 
     firebase.https.onRequest(
@@ -555,7 +544,25 @@ Future<Response> _handleBackendScoringCommandRequestWithRuntimeApp(
     final commandJson = payload['command'] is Map
         ? Map<String, dynamic>.from(payload['command'] as Map)
         : payload;
-    final command = BackendScoringCommand.fromJson(commandJson);
+    final BackendScoringCommand command;
+    try {
+      command = BackendScoringCommand.fromJson(commandJson);
+    } on ArgumentError catch (error) {
+      throw InvalidArgumentError(error.message.toString());
+    }
+
+    if (command.commandType ==
+        BackendScoringCommandType.liveScoreHistoryWritten) {
+      final result = await executeBackendScoringCommand(
+        db: await _openIdentityDatabase(runtimeAdminApp),
+        command: command,
+        now: DateTime.now().toUtc(),
+      );
+      return Response.ok(
+        jsonEncode(result.toJson()),
+        headers: _jsonHeaders,
+      );
+    }
 
     final dbHandle = await _openBackendScoringDatabase(
       runtimeAdminApp: runtimeAdminApp,
@@ -682,7 +689,7 @@ Future<Response> _handleAppBadgeCountRequestWithRuntimeApp(
           db: dbHandle.database,
           comp: comp,
         ),
-        allTippers: await _loadBackendScoringTippers(dbHandle.database),
+        allTippers: await loadBackendTippers(dbHandle.database),
         tipsByTipperRaw: await _loadBackendScoringTipsByTipperRaw(
           db: dbHandle.database,
           compKey: compKey,
@@ -769,8 +776,7 @@ Map<String, int> calculateOutstandingTipCounts({
     round.games = games
         .where(
           (game) =>
-              game.isGameInRound(round) &&
-              !_isBackendScoringGameOutsideRegularComp(comp, game),
+              game.getDAURound(comp)?.dAUroundNumber == round.dAUroundNumber,
         )
         .toList();
   }
@@ -782,7 +788,7 @@ Map<String, int> calculateOutstandingTipCounts({
     now: now,
   );
 
-  final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+  final badgeRounds = OutstandingTipsCalculator.appBadgeRoundsForTime(
     rounds: comp.daurounds,
     now: now,
   );
@@ -810,13 +816,15 @@ Map<String, int> calculateOutstandingTipCounts({
     if (rawTips is Map) {
       submittedGameKeys.addAll(rawTips.keys.map((key) => key.toString()));
     }
-    result[tipperId] = badgeRound == null
-        ? 0
-        : OutstandingTipsCalculator.countUpcomingUntippedGames(
-            games: badgeRound.games,
-            submittedGameKeys: submittedGameKeys,
-            now: now,
-          );
+    var count = 0;
+    for (final badgeRound in badgeRounds) {
+      count += OutstandingTipsCalculator.countUpcomingUntippedGames(
+        games: badgeRound.games,
+        submittedGameKeys: submittedGameKeys,
+        now: now,
+      );
+    }
+    result[tipperId] = count;
   }
   return result;
 }
@@ -1244,240 +1252,25 @@ class _StandaloneBackendScoringDatabaseHandle
 }
 
 class _RestBackendScoringDatabaseHandle extends _BackendScoringDatabaseHandle {
-  _RestBackendScoringDatabaseHandle(this._client, this._databaseUrl);
+  _RestBackendScoringDatabaseHandle(this._database);
 
-  final dynamic _client;
-  final String _databaseUrl;
+  final RestDatabase _database;
 
   static Future<_RestBackendScoringDatabaseHandle> create({
     required dynamic runtimeAdminApp,
     required String databaseUrl,
   }) async {
-    final client = await runtimeAdminApp.client;
-    return _RestBackendScoringDatabaseHandle(client, databaseUrl);
+    final http.Client client = await runtimeAdminApp.client;
+    return _RestBackendScoringDatabaseHandle(
+      RestDatabase(client: client, databaseUrl: databaseUrl),
+    );
   }
 
   @override
-  dynamic ref(String path) => _RestDatabaseReference(
-        client: _client,
-        databaseUrl: _databaseUrl,
-        path: path,
-      );
+  dynamic ref(String path) => _database.ref(path);
 
   @override
   Future<void> close() async {}
-}
-
-class _RestDatabaseReference {
-  _RestDatabaseReference({
-    required dynamic client,
-    required String databaseUrl,
-    required String path,
-  })  : _client = client,
-        _databaseUrl = databaseUrl,
-        _path = path;
-
-  final dynamic _client;
-  final String _databaseUrl;
-  final String _path;
-  static const Duration _requestTimeout = Duration(seconds: 15);
-
-  String? get _key {
-    final segments = _path.split('/').where((segment) => segment.isNotEmpty);
-    return segments.isEmpty ? null : segments.last;
-  }
-
-  Future<DataSnapshot> once() async {
-    final response = await runRtdbRestRequest(
-      _client.get(_uri()),
-      operation: 'read',
-      path: _path,
-    );
-    _throwForRestError(response, 'read', _path);
-    return _RestDataSnapshot(_key, _decodeRestBody(response.body as String));
-  }
-
-  Future<void> set(dynamic value) async {
-    final response = await runRtdbRestRequest(
-      _client.put(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
-      ),
-      operation: 'set',
-      path: _path,
-    );
-    _throwForRestError(response, 'set', _path);
-  }
-
-  Future<void> update(Map<dynamic, dynamic> value) async {
-    final response = await runRtdbRestRequest(
-      _client.patch(
-        _uri(),
-        headers: const {'content-type': 'application/json'},
-        body: jsonEncode(value),
-      ),
-      operation: 'update',
-      path: _path,
-    );
-    _throwForRestError(response, 'update', _path);
-  }
-
-  Future<TransactionResult> runTransaction(
-    TransactionHandler transactionHandler, {
-    Duration timeout = const Duration(seconds: 5),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-    var attempts = 0;
-    while (DateTime.now().isBefore(deadline)) {
-      attempts += 1;
-      final readResponse = await runRtdbRestRequest(
-        _client.get(
-          _uri(),
-          headers: const {'X-Firebase-ETag': 'true'},
-        ),
-        operation: 'transaction read',
-        path: _path,
-        timeout: _remainingTransactionTime(deadline, attempts),
-      );
-      _throwForRestError(readResponse, 'transaction read', _path);
-      final etag = readResponse.headers['etag'] as String?;
-      final currentValue = _decodeRestBody(readResponse.body as String);
-      final mutableData = MutableData(_key, currentValue);
-      final updatedData = await transactionHandler(mutableData);
-      if (updatedData == null) {
-        return _RestTransactionResult(
-          committed: false,
-          dataSnapshot: _RestDataSnapshot(_key, currentValue),
-        );
-      }
-
-      final writeResponse = await runRtdbRestRequest(
-        _client.put(
-          _uri(),
-          headers: {
-            'content-type': 'application/json',
-            'if-match': etag ?? '*',
-          },
-          body: jsonEncode(updatedData.value),
-        ),
-        operation: 'transaction write',
-        path: _path,
-        timeout: _remainingTransactionTime(deadline, attempts),
-      );
-      if (writeResponse.statusCode == 412) {
-        continue;
-      }
-      _throwForRestError(writeResponse, 'transaction write', _path);
-      return _RestTransactionResult(
-        committed: true,
-        dataSnapshot: _RestDataSnapshot(
-          _key,
-          _decodeRestBody(writeResponse.body as String),
-        ),
-      );
-    }
-
-    throw AbortedError(
-      'RTDB transaction timed out at $_path after $attempts attempts',
-    );
-  }
-
-  Duration _remainingTransactionTime(DateTime deadline, int attempts) {
-    final remaining = deadline.difference(DateTime.now());
-    if (remaining <= Duration.zero) {
-      throw AbortedError(
-        'RTDB transaction timed out at $_path after $attempts attempts',
-      );
-    }
-    return remaining < _requestTimeout ? remaining : _requestTimeout;
-  }
-
-  Uri _uri() {
-    return buildRtdbRestUri(databaseUrl: _databaseUrl, path: _path);
-  }
-}
-
-Uri buildRtdbRestUri({
-  required String databaseUrl,
-  required String path,
-}) {
-  final baseUri = Uri.parse(databaseUrl);
-  final databasePathSegments = baseUri.pathSegments
-      .where((segment) => segment.isNotEmpty)
-      .toList();
-  final referencePathSegments =
-      path.split('/').where((segment) => segment.isNotEmpty).toList();
-  final restPathSegments = referencePathSegments.isEmpty
-      ? const ['.json']
-      : [
-          ...referencePathSegments.take(referencePathSegments.length - 1),
-          '${referencePathSegments.last}.json',
-        ];
-
-  return baseUri.replace(
-    pathSegments: [...databasePathSegments, ...restPathSegments],
-  );
-}
-
-Future<T> runRtdbRestRequest<T>(
-  Future<T> request, {
-  required String operation,
-  required String path,
-  Duration timeout = const Duration(seconds: 15),
-}) async {
-  try {
-    return await request.timeout(timeout);
-  } on TimeoutException {
-    throw UnavailableError(
-      'RTDB REST $operation timed out after '
-      '${timeout.inMilliseconds}ms at $path',
-    );
-  }
-}
-
-class _RestDataSnapshot implements DataSnapshot {
-  _RestDataSnapshot(this.key, this.value);
-
-  @override
-  final String? key;
-
-  @override
-  final dynamic value;
-}
-
-class _RestTransactionResult implements TransactionResult {
-  _RestTransactionResult({
-    required this.committed,
-    required this.dataSnapshot,
-  });
-
-  @override
-  final bool committed;
-
-  @override
-  final DataSnapshot? dataSnapshot;
-
-  @override
-  FirebaseDatabaseException? get error => null;
-}
-
-dynamic _decodeRestBody(String body) {
-  if (body.isEmpty) {
-    return null;
-  }
-  return jsonDecode(body);
-}
-
-void _throwForRestError(dynamic response, String operation, String path) {
-  final statusCode = response.statusCode as int;
-  if (statusCode >= 200 && statusCode < 300) {
-    return;
-  }
-  throw InternalError(
-    'RTDB REST $operation failed for $path with HTTP $statusCode: '
-    '${response.body}',
-  );
 }
 
 class _RuntimeAdminCredential implements Credential {
@@ -1528,6 +1321,27 @@ dynamic _initializeLegacyAdminApp(
     appName,
   );
 }
+
+/// The database handle for one identity request: a new [RestDatabase] each time,
+/// so the writes it tracks are that request's own. [runtimeAdminApp] is untyped
+/// for the same reason as in [_openBackendScoringDatabase]: its type belongs to
+/// a package this one does not depend on directly.
+Future<RestDatabase> _openIdentityDatabase(dynamic runtimeAdminApp) async {
+  final env = Platform.environment;
+  final databaseUrl = resolveDatabaseUrl(environment: env);
+  final emulatorHost = env['FIREBASE_DATABASE_EMULATOR_HOST'];
+  if (emulatorHost != null && emulatorHost.isNotEmpty) {
+    return RestDatabase(
+      client: _emulatorClient ??= EmulatorAdminClient(http.Client()),
+      databaseUrl: databaseUrl,
+    );
+  }
+  final http.Client client = await runtimeAdminApp.client;
+  return RestDatabase(client: client, databaseUrl: databaseUrl);
+}
+
+/// Shared by every identity request in the emulator: one connection pool.
+EmulatorAdminClient? _emulatorClient;
 
 Future<_BackendScoringDatabaseHandle> _openBackendScoringDatabase({
   dynamic runtimeAdminApp,
@@ -1612,18 +1426,10 @@ Future<String> executeFixtureDownload({
   required Future<List<dynamic>> Function(Uri url) fetchFixtureJson,
   required DateTime now,
   Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  logFunction('executeFixtureDownload: checking admin role for authUid=$authUid');
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role == null) {
-    logFunction('executeFixtureDownload: no AllTippers record for authUid=$authUid');
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
-  logFunction('executeFixtureDownload: resolved role=$role');
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  logFunction('executeFixtureDownload: checking the caller is an administrator');
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final comp = await _loadFixtureDownloadComp(db, compKey);
   final result = await _executeFixtureDownloadCore(
@@ -1650,12 +1456,9 @@ Future<BackendScoringCommandResult> executeAdminScoringRescore({
   required dynamic db,
   required DateTime now,
   BackendScoringCommandExecutor executeCommand = executeBackendScoringCommand,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final sourceEventId = 'admin_rescore_${compKey}_${now.microsecondsSinceEpoch}';
   return executeCommand(
@@ -1688,15 +1491,12 @@ const Set<String> _blockedFixtureUrlHostnames = {
 Future<bool> checkFixtureUrlActive({
   required String authUid,
   required String url,
-  required dynamic db,
   FixtureUrlChecker? checkUrl,
   FixtureUrlHostResolver resolveHost = InternetAddress.lookup,
+  required dynamic db,
+  AdministratorCheck? requireAdministrator,
 }) async {
-  final roleSnapshot = await db.ref(paths.tippersPath).once();
-  final role = resolveTipperRoleForAuthUid(roleSnapshot.value, authUid);
-  if (role != 'admin') {
-    throw PermissionDeniedError('User is not authorized as admin');
-  }
+  await (requireAdministrator ?? _requireAdministratorIn(db))(authUid);
 
   final uri = Uri.tryParse(url);
   if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
@@ -1831,29 +1631,19 @@ Future<FixtureUrlHopResult> _requestFixtureUrlHop(Uri uri) async {
   }
 }
 
-String? resolveTipperRoleForAuthUid(Object? rawTippers, String authUid) {
-  if (rawTippers is! Map) {
-    return null;
-  }
+/// Refuses a caller who is not an administrator. A test supplies its own.
+typedef AdministratorCheck = Future<void> Function(String authUid);
 
-  String? resolvedRole;
-  var matchCount = 0;
-  for (final rawTipper in rawTippers.values) {
-    if (rawTipper is! Map || rawTipper['authuid'] != authUid) {
-      continue;
-    }
-    matchCount += 1;
-    if (matchCount > 1) {
-      return null;
-    }
-    final role = rawTipper['tipperRole'];
-    if (role is! String) {
-      return null;
-    }
-    resolvedRole = role;
-  }
-  return resolvedRole;
-}
+/// The administrator check against [db], by the same test as the identity
+/// callables and the R2 database rules (DESIGN-database-rules-phase4.md,
+/// section 8): the caller's `/AuthIndex` entry and private record must name each
+/// other and say `admin`. Nothing in public data counts, and a failed read
+/// refuses the call. (Before the cutover this was the compile-time allowlist.)
+AdministratorCheck _requireAdministratorIn(dynamic db) =>
+    (authUid) => requireAdministratorUid(
+      (path) async => (await db.ref(path).once()).value as Object?,
+      authUid,
+    );
 
 Future<FixtureDownloadResult> _executeFixtureDownloadCore({
   required DAUComp comp,
@@ -1864,12 +1654,11 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
   Future<void> Function(DAUComp comp, DateTime now)? afterSuccessfulDownload,
 }) async {
   final compKey = comp.dbkey!;
+  final compPath = '${paths.daucompsPath}/$compKey';
 
   logFunction('executeFixtureDownload: loading compKey=$compKey');
 
-  final lockRef = db.ref(
-    '${paths.daucompsPath}/$compKey/${paths.downloadLockKey}',
-  );
+  final lockRef = db.ref('$compPath/${paths.downloadLockKey}');
   TransactionResult transactionResult;
   try {
     transactionResult = await lockRef.runTransaction((MutableData mutableData) {
@@ -1922,8 +1711,20 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
       message: 'Applying fixture updates...',
     );
 
+    final existingGamesValue =
+        await readDatabaseValue(db, '${paths.gamesPathRoot}/$compKey');
+    final Map<String, dynamic> existingGames = existingGamesValue != null
+        ? Map<String, dynamic>.from(existingGamesValue as Map)
+        : {};
+
     final importApplier = const FixtureImportApplier();
-    final ops = importApplier.buildGameUpdates(nrlGames, aflGames);
+    final ops = importApplier.buildGameUpdates(
+      nrlGames,
+      aflGames,
+      existingGames: existingGames,
+      now: now,
+      log: (msg) => logFunction('executeFixtureDownload: $msg'),
+    );
 
     final dbUpdates = <String, dynamic>{};
 
@@ -1940,7 +1741,6 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
         dbUpdates['${paths.teamsPathRoot}/$teamKey'] = {
           'name': teamName.trim(),
           'league': league,
-          'logoURI': null,
         };
       }
     }
@@ -1969,22 +1769,34 @@ Future<FixtureDownloadResult> _executeFixtureDownloadCore({
     final allGames = [...nrlGames, ...aflGames];
     final combined = importApplier.computeCombinedRoundsIfMissing(comp, allGames);
     if (combined != null) {
-      for (var i = 0; i < combined.length; i++) {
-        final round = combined[i];
-        final startDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
-        final endDateStr = '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.lastGameKickOffUTC)}Z';
-        dbUpdates[
-            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
+      for (final round in combined) {
+        final roundIndex = round.dAUroundNumber - 1;
+        final startDateStr =
+            '${DateFormat('yyyy-MM-dd HH:mm:ss').format(round.firstGameKickOffUTC)}Z';
+        dbUpdates['$compPath/${paths.combinedRoundsPath}/$roundIndex/'
             '${paths.roundStartDateKey}'] = startDateStr;
-        dbUpdates[
-            '${paths.daucompsPath}/$compKey/${paths.combinedRoundsPath}/$i/'
-            '${paths.roundEndDateKey}'] = endDateStr;
+      }
+      // The first download also saves the cutoffs it filled in on comp.
+      for (final (key, cutoff) in [
+        (paths.nrlRegularCompEndDateUTCKey, comp.nrlRegularCompEndDateUTC),
+        (paths.aflRegularCompEndDateUTCKey, comp.aflRegularCompEndDateUTC),
+      ]) {
+        if (cutoff != null) dbUpdates['$compPath/$key'] = cutoff.toUtc().toIso8601String();
       }
     }
+    final roundEndUpdates = importApplier.recalculateRoundEndDates(
+      comp: comp,
+      gameUpdates: ops,
+      existingGames: existingGames,
+      roundsOverride: combined,
+      forceWriteAll: combined != null,
+    );
+    for (final entry in roundEndUpdates.entries) {
+      dbUpdates['$compPath/${paths.combinedRoundsPath}/${entry.key}/'
+          '${paths.roundEndDateKey}'] = entry.value;
+    }
 
-    dbUpdates[
-        '${paths.daucompsPath}/$compKey/${paths.lastFixtureUTCKey}'] =
-        now.toIso8601String();
+    dbUpdates['$compPath/${paths.lastFixtureUTCKey}'] = now.toIso8601String();
 
     logFunction('executeFixtureDownload: applying ${dbUpdates.length} database updates');
     await db.ref('/').update(dbUpdates);
@@ -2185,7 +1997,55 @@ Future<BackendScoringCommandResult> executeBackendScoringCommand({
         command: command,
         now: now,
       );
+    case BackendScoringCommandType.liveScoreHistoryWritten:
+      return _handleLiveScoreHistoryWrittenBackendScoringCommand(
+        db: db,
+        command: command,
+      );
   }
+}
+
+/// Derives the game's `current` live-score snapshot from its `history`
+/// (DESIGN-database-rules-phase4.md, M5). Unlike the scoring commands this takes
+/// a [RestDatabase], because the write is a compare-and-set.
+///
+/// There is no idempotency record: every run recomputes from the whole of
+/// `history`, so a duplicated or replayed command is harmless, and a record per
+/// submission would only be more writes. What the run does is set by the mode at
+/// `/ServerConfig/liveScores/mode` (shadow unless it says otherwise).
+Future<BackendScoringCommandResult>
+_handleLiveScoreHistoryWrittenBackendScoringCommand({
+  required dynamic db,
+  required BackendScoringCommand command,
+}) async {
+  final gameKey = command.gameKey;
+  if (db is! RestDatabase) {
+    throw InternalError('liveScoreHistoryWritten needs the REST database');
+  }
+  if (gameKey == null) {
+    throw InvalidArgumentError('liveScoreHistoryWritten requires gameKey');
+  }
+  final AggregationResult result;
+  try {
+    result = await runLiveScoreAggregation(
+      database: db,
+      compKey: command.compKey,
+      gameKey: gameKey,
+    );
+  } on ArgumentError catch (error) {
+    throw InvalidArgumentError(error.message.toString());
+  }
+  final changedNothing = result.outcome != AggregationOutcome.written &&
+      result.outcome != AggregationOutcome.clearedForOfficial;
+  return BackendScoringCommandResult(
+    status: 'completed',
+    skipped: changedNothing,
+    commandId: command.commandId,
+    commandType: command.commandType.apiValue,
+    scopeKey: command.scopeKey,
+    compKey: command.compKey,
+    message: 'Live score aggregation: ${result.outcome.name}.',
+  );
 }
 
 class _BackendScoringLockResult {
@@ -2312,7 +2172,7 @@ _handleTipWrittenBackendScoringCommand({
     '${paths.scoringIdempotencyBackendRoot}/${command.commandId}',
   );
   final comp = await _loadBackendScoringComp(db, command.compKey);
-  final tipper = await _loadBackendScoringTipper(db, command.tipperId!);
+  final tipper = await loadBackendTipper(db, command.tipperId!);
 
   try {
     final games = await _loadBackendScoringGames(
@@ -2627,7 +2487,7 @@ _handleAdminRescoreBackendScoringCommand({
       db: db,
       comp: comp,
     );
-    final allTippers = await _loadBackendScoringTippers(db);
+    final allTippers = await loadBackendTippers(db);
     final tipsByTipperRaw = await _loadBackendScoringTipsByTipperRaw(
       db: db,
       compKey: command.compKey,
@@ -2822,7 +2682,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     );
   }
 
-  final rawTippers = allTippers ?? await _loadBackendScoringTippers(db);
+  final rawTippers = allTippers ?? await loadBackendTippers(db);
   final rawTips = tipsByTipperRaw ??
       await _loadBackendScoringTipsByTipperRaw(
         db: db,
@@ -2883,7 +2743,7 @@ Future<_BackendScoringRoundRebuildResult> _rebuildBackendScoringRound({
     defaultTipGamePredicate: _hasKnownBackendGameResult,
     requireStartedGameForDefaultTips: false,
   );
-  await _rebuildBackendGameStatsForRound(
+  await rebuildBackendGameStatsForRound(
     db: db,
     comp: comp,
     roundGames: roundGames,
@@ -2905,36 +2765,6 @@ class _RoundTipLoadResult {
   const _RoundTipLoadResult({
     required this.tipsByTipper,
   });
-}
-
-List<DAUComp> _buildBackendScoringPaidComps(dynamic compsParticipatedIn) {
-  final rawCompKeys = <dynamic>[];
-  if (compsParticipatedIn is List) {
-    rawCompKeys.addAll(compsParticipatedIn);
-  } else if (compsParticipatedIn is Map) {
-    rawCompKeys.addAll(compsParticipatedIn.values);
-  } else {
-    return const [];
-  }
-
-  final comps = <DAUComp>[];
-  for (final rawCompKey in rawCompKeys) {
-    final compKey = rawCompKey.toString().trim();
-    if (compKey.isEmpty) {
-      continue;
-    }
-    comps.add(
-      DAUComp(
-        dbkey: compKey,
-        name: compKey,
-        aflFixtureJsonURL: Uri.parse('https://example.invalid/afl-fixtures.json'),
-        nrlFixtureJsonURL: Uri.parse('https://example.invalid/nrl-fixtures.json'),
-        daurounds: const [],
-      ),
-    );
-  }
-
-  return comps;
 }
 
 Tip _buildDefaultTipForStartedGame(Game game, Tipper tipper) {
@@ -2973,44 +2803,6 @@ Map<String, Tip> _applyDefaultTipsForStartedGames({
   }
 
   return augmentedTips;
-}
-
-Future<List<Tipper>> _loadBackendScoringTippers(dynamic db) async {
-  final tippersSnapshot = await db.ref(paths.tippersPath).once();
-  final tippers = <Tipper>[];
-  if (tippersSnapshot.value is! Map) {
-    return tippers;
-  }
-
-  final tippersRaw = Map<String, dynamic>.from(tippersSnapshot.value as Map);
-  for (final entry in tippersRaw.entries) {
-    final tipperRaw = entry.value;
-    if (tipperRaw is! Map) {
-      continue;
-    }
-
-    tippers.add(
-      Tipper(
-        dbkey: entry.key,
-        authuid: tipperRaw['authuid'] as String? ?? '',
-        email: tipperRaw['email'] as String?,
-        logon: tipperRaw['logon'] as String?,
-        name: tipperRaw['name'] as String? ?? entry.key,
-        tipperRole: tipperRaw['tipperRole'] != null
-            ? TipperRole.values.byName(tipperRaw['tipperRole'] as String)
-            : TipperRole.tipper,
-        photoURL: tipperRaw['photoURL'] as String?,
-        compsPaidFor: _buildBackendScoringPaidComps(
-          tipperRaw['compsParticipatedIn'],
-        ),
-        acctCreatedUTC: _tryParseDateTime(tipperRaw['acctCreatedUTC']),
-        acctLoggedOnUTC: _tryParseDateTime(tipperRaw['acctLoggedOnUTC']),
-        isAnonymous: tipperRaw['isAnonymous'] as bool? ?? false,
-      ),
-    );
-  }
-
-  return tippers;
 }
 
 Future<Map<String, dynamic>> _loadBackendScoringTipsByTipperRaw({
@@ -3098,7 +2890,10 @@ bool _hasKnownBackendGameResult(Game game) {
   return scoring.getGameResultCalculated(game.league) != GameResult.z;
 }
 
-Future<void> _rebuildBackendGameStatsForRound({
+/// Publishes how each started game was tipped, for the paid and the free cohort,
+/// once tipping has closed for the game (see [tippingHasClosed]). Public so that
+/// the timing can be tested directly.
+Future<void> rebuildBackendGameStatsForRound({
   required dynamic db,
   required DAUComp comp,
   required List<Game> roundGames,
@@ -3123,17 +2918,20 @@ Future<void> _rebuildBackendGameStatsForRound({
     MapEntry('paid', paidCohortTippers),
     MapEntry('free', freeCohortTippers),
   ];
+  final tipGraceSeconds = await _loadTipGracePeriodSeconds(db);
   for (final game in roundGames) {
     final hasKnownResult = _hasKnownBackendGameResult(game);
-    final gameState = game.getGameState(now);
-    final hasStarted = gameState == GameState.startedResultKnown ||
-        gameState == GameState.startedResultNotKnown;
+    // How the field tipped is published only once tipping has closed (kickoff
+    // plus the grace period), not at kickoff: until then a tipper could still
+    // see the crowd's choice and change their own.
+    final hasTippingClosed =
+        tippingHasClosed(game.startTimeUTC, now, tipGraceSeconds);
     for (final cohort in cohorts) {
       final tipsForCohort = cohort.value
           .map((tipper) => tipsByTipper[tipper.dbkey]?[game.dbkey])
           .toList();
       final hasSubmittedTips = tipsForCohort.any((tip) => tip != null);
-      if (!hasKnownResult && (!hasStarted || !hasSubmittedTips)) {
+      if (!hasKnownResult && (!hasTippingClosed || !hasSubmittedTips)) {
         continue;
       }
 
@@ -3158,6 +2956,21 @@ Future<void> _rebuildBackendGameStatsForRound({
           '${paths.gameStatsBackendRoot}',
         )
         .update(updates);
+  }
+}
+
+/// The tip grace period set under `/AppConfig`: the default when the setting is
+/// absent or not valid (as the database rules read it), and the longest allowed
+/// when it cannot be read at all, so that a failed read holds the crowd's tips back
+/// longer instead of publishing them early.
+Future<int> _loadTipGracePeriodSeconds(dynamic db) async {
+  try {
+    final snapshot = await db
+        .ref('${paths.configPathRoot}/$tipGracePeriodSecondsKey')
+        .once();
+    return parseTipGracePeriodSeconds(snapshot.value);
+  } on Object {
+    return maxTipGracePeriodSeconds;
   }
 }
 
@@ -3197,36 +3010,6 @@ Future<DAUComp> _loadBackendScoringComp(dynamic db, String compKey) async {
   final compRaw = Map<String, dynamic>.from(compSnapshot.value as Map);
   final rounds = _deserializeCombinedRounds(compRaw);
   return DAUComp.fromJson(compRaw, compKey, rounds);
-}
-
-Future<Tipper> _loadBackendScoringTipper(
-  dynamic db,
-  String tipperId,
-) async {
-  final tipperSnapshot =
-      await db.ref('${paths.tippersPath}/$tipperId').once();
-  if (tipperSnapshot.value == null) {
-    throw NotFoundError('Tipper not found for key: $tipperId');
-  }
-
-  final tipperRaw = Map<String, dynamic>.from(tipperSnapshot.value as Map);
-  return Tipper(
-    dbkey: tipperId,
-    authuid: tipperRaw['authuid'] as String? ?? '',
-    email: tipperRaw['email'] as String?,
-    logon: tipperRaw['logon'] as String?,
-    name: tipperRaw['name'] as String? ?? tipperId,
-    tipperRole: tipperRaw['tipperRole'] != null
-        ? TipperRole.values.byName(tipperRaw['tipperRole'] as String)
-        : TipperRole.tipper,
-    photoURL: tipperRaw['photoURL'] as String?,
-    compsPaidFor: _buildBackendScoringPaidComps(
-      tipperRaw['compsParticipatedIn'],
-    ),
-    acctCreatedUTC: _tryParseDateTime(tipperRaw['acctCreatedUTC']),
-    acctLoggedOnUTC: _tryParseDateTime(tipperRaw['acctLoggedOnUTC']),
-    isAnonymous: tipperRaw['isAnonymous'] as bool? ?? false,
-  );
 }
 
 List<DAURound> _deserializeCombinedRounds(Map<String, dynamic> compRaw) {
@@ -3523,13 +3306,6 @@ Future<Map<String, Tip>> _loadBackendScoringTipsForTipper({
     tipper: tipper,
     now: now,
   );
-}
-
-DateTime? _tryParseDateTime(dynamic value) {
-  if (value is String && value.isNotEmpty) {
-    return DateTime.tryParse(value);
-  }
-  return null;
 }
 
 bool _isIdempotencyExpired(

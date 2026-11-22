@@ -1,0 +1,12 @@
+{
+  "football": "assets/icon/DAU-football-black.svg",
+  "gradient": {
+    "bottomLeft": "#04cf5d",
+    "topRight": "#e21e31",
+    "start": [0.1464466094, 0.8535533906],
+    "end": [0.8535533906, 0.1464466094]
+  },
+  "foreground": "#ffffff",
+  "scale": 0.8,
+  "androidAdaptiveScale": 0.6
+}

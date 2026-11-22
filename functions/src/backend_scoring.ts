@@ -5,6 +5,7 @@ export type BackendScoringCommandType =
   | "tipWritten"
   | "officialScoreWritten"
   | "liveScoreWritten"
+  | "liveScoreHistoryWritten"
   | "adminRescore";
 
 export interface BackendScoringCommandPayload {
@@ -92,6 +93,10 @@ const LIVE_SCORE_CURRENT_KEY = "current";
 const LIVE_SCORE_CURRENT_TRIGGER_PATH =
   `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_BACKEND_ROOT}/{gameKey}/` +
   LIVE_SCORE_CURRENT_KEY;
+const LIVE_SCORE_HISTORY_KEY = "history";
+const LIVE_SCORE_HISTORY_TRIGGER_PATH =
+  `${STATS_PATH_ROOT}/{compKey}/${LIVE_SCORES_BACKEND_ROOT}/{gameKey}/` +
+  `${LIVE_SCORE_HISTORY_KEY}/{entryKey}`;
 const BACKEND_SCORING_REGION = "asia-southeast1";
 const backendScoringFunctions = functions.region(BACKEND_SCORING_REGION);
 const backendScoringDatabase = backendScoringFunctions.database;
@@ -138,6 +143,30 @@ export const liveScoreWrittenBackendScoring = backendScoringDatabase
       context: functions.EventContext<Record<string, string>>,
     ) => {
       await handleLiveScoreWrittenBackendScoringWrite(
+        change as TipWriteChangeLike,
+        {
+          eventId: context.eventId,
+          params: context.params,
+        },
+      );
+    },
+  );
+
+/**
+ * Fires when a live score submission is added to, changed in, or removed from a
+ * game's `history`. The worker derives the game's `current` snapshot from it
+ * (shadow mode unless the owner has switched it on). This path and the one
+ * above never overlap: writing `current` does not touch `history`, so
+ * aggregation cannot trigger itself.
+ */
+export const liveScoreHistoryWrittenBackendScoring = backendScoringDatabase
+  .ref(LIVE_SCORE_HISTORY_TRIGGER_PATH)
+  .onWrite(
+    async (
+      change: functions.Change<functions.database.DataSnapshot>,
+      context: functions.EventContext<Record<string, string>>,
+    ) => {
+      await handleLiveScoreHistoryWrittenBackendScoringWrite(
         change as TipWriteChangeLike,
         {
           eventId: context.eventId,
@@ -204,6 +233,35 @@ export function buildLiveScoreWrittenBackendScoringCommand(
   const commandId = buildBackendScoringCommandId(sourceEventId);
   return {
     commandType: "liveScoreWritten",
+    compKey,
+    gameKey,
+    sourceEventId,
+    sourcePath,
+    scopeKey: `comp:${compKey}/game:${gameKey}`,
+    commandId,
+  };
+}
+
+/**
+ * Builds the backend scoring command for a change to a game's live score
+ * history.
+ *
+ * @param {string} compKey Competition key from the RTDB trigger path.
+ * @param {string} gameKey Game key from the RTDB trigger path.
+ * @param {string} sourceEventId Firebase event id for idempotency.
+ * @return {BackendScoringCommandPayload} Compact Dart worker command payload.
+ */
+export function buildLiveScoreHistoryWrittenBackendScoringCommand(
+  compKey: string,
+  gameKey: string,
+  sourceEventId: string,
+): BackendScoringCommandPayload {
+  const sourcePath =
+    `${STATS_PATH_ROOT}/${compKey}/${LIVE_SCORES_BACKEND_ROOT}/${gameKey}/` +
+    LIVE_SCORE_HISTORY_KEY;
+  const commandId = buildBackendScoringCommandId(sourceEventId);
+  return {
+    commandType: "liveScoreHistoryWritten",
     compKey,
     gameKey,
     sourceEventId,
@@ -312,6 +370,40 @@ export async function handleLiveScoreWrittenBackendScoringWrite(
   if (outcome === "permanentFailure") {
     return;
   }
+}
+
+/**
+ * Dispatches the live score aggregation command for a history change.
+ *
+ * @param {TipWriteChangeLike} change RTDB before/after snapshot pair.
+ * @param {TipWriteContextLike} context RTDB event context.
+ * @param {TipWrittenBackendScoringDependencies} deps Injectable test deps.
+ * @return {Promise<void>} Resolves once the command is handled or skipped.
+ */
+export async function handleLiveScoreHistoryWrittenBackendScoringWrite(
+  change: TipWriteChangeLike,
+  context: TipWriteContextLike,
+  deps: TipWrittenBackendScoringDependencies = {},
+): Promise<void> {
+  const logger = deps.logger ?? functions.logger;
+
+  if (isNoopWrite(change)) {
+    return;
+  }
+
+  const compKey = requiredContextParam(context, "compKey", logger);
+  const gameKey = requiredContextParam(context, "gameKey", logger);
+  if (compKey == null || gameKey == null) {
+    return;
+  }
+
+  const command = buildLiveScoreHistoryWrittenBackendScoringCommand(
+    compKey,
+    gameKey,
+    context.eventId,
+  );
+
+  await dispatchBackendScoringCommand(command, deps);
 }
 
 function isNoopWrite(change: TipWriteChangeLike): boolean {

@@ -1,24 +1,42 @@
 import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/admin_tippers/admin_failure_message.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tipper_merge.dart';
+import 'package:daufootytipping/services/identity_service.dart';
+import 'package:daufootytipping/services/write_acknowledgement.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+
+/// How a save of the tipper record ended.
+enum _SaveOutcome {
+  /// The server accepted the change.
+  saved,
+
+  /// The change is queued on this device; the server has not answered yet.
+  queued,
+
+  /// The change was rejected, or could not be started.
+  notSaved,
+}
 
 class TipperAdminEditPage extends StatefulWidget {
   static const Key nameFieldKey = ValueKey('tipper-admin-name-field');
   static const Key emailFieldKey = ValueKey('tipper-admin-email-field');
   static const Key logonFieldKey = ValueKey('tipper-admin-logon-field');
-  static const Key lastLoginFieldKey = ValueKey('tipper-admin-last-login-field');
-  static const Key saveButtonKey = ValueKey('tipper-admin-save-button');
-  static const Key godModeSwitchKey = ValueKey('tipper-admin-god-mode-switch');
+  static const Key lastLoginFieldKey = ValueKey(
+    'tipper-admin-last-login-field',
+  );
   static const Key emailInfoButtonKey = ValueKey(
     'tipper-admin-email-info-button',
   );
@@ -49,13 +67,20 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
   late String _originalEmail;
   late String _originalLogon;
   late bool _originalAdmin;
+  late Set<String> _originalPaidCompKeys;
+
+  /// The comps ticked as paid. A draft, like the fields, until Save writes it.
+  late Set<String> _paidCompKeys;
+
+  /// Fetched once, so ticking a comp does not reload the table.
+  late final Future<List<DAUComp>> _compsFuture;
 
   bool _hasDraftChanges = false;
   bool _manualSaveInProgress = false;
-  bool _paidForAutoSaveInProgress = false;
+  bool _godModeChangeInProgress = false;
   bool _allowPop = false;
 
-  bool get _isBusy => _manualSaveInProgress || _paidForAutoSaveInProgress;
+  bool get _isBusy => _manualSaveInProgress || _godModeChangeInProgress;
   bool get _canSave => _hasDraftChanges && !_isBusy;
   bool get _shouldCollapseLogon =>
       _sameEmail(_tipperEmailController.text, _tipperLogonController.text);
@@ -65,6 +90,17 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       return 'Never';
     }
     return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
+  }
+
+  /// ", having joined on" and the date, or nothing when the join date is not
+  /// known.
+  String _joinedClause(Tipper tipper) {
+    final DateTime? joined = tipper.acctCreatedUTC;
+    if (joined == null) {
+      return '';
+    }
+    return ', having joined on '
+        '${DateFormat('dd MMM yy').format(joined.toLocal())}';
   }
 
   bool _sameEmail(String? firstEmail, String? secondEmail) {
@@ -93,6 +129,11 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     _originalEmail = tipper.email ?? '';
     _originalLogon = tipper.logon ?? '';
     _originalAdmin = admin;
+    _originalPaidCompKeys = {
+      for (final DAUComp comp in tipper.compsPaidFor) ?comp.dbkey,
+    };
+    _paidCompKeys = {..._originalPaidCompKeys};
+    _compsFuture = di<DAUCompsViewModel>().getDAUcomps();
   }
 
   @override
@@ -110,7 +151,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         _tipperNameController.text != _originalName ||
         _tipperEmailController.text != _originalEmail ||
         _tipperLogonController.text != _originalLogon ||
-        admin != _originalAdmin;
+        admin != _originalAdmin ||
+        !setEquals(_paidCompKeys, _originalPaidCompKeys);
 
     if (_hasDraftChanges == hasChanges && !forceRebuild) return;
     setState(() {
@@ -141,68 +183,22 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
     return discard ?? false;
   }
 
-  void _setCompPaidForState(DAUComp comp, bool isPaid) {
-    final bool isAlreadyPaid = tipper.compsPaidFor.any(
-      (paidComp) => paidComp.dbkey == comp.dbkey,
-    );
-
-    if (isPaid && !isAlreadyPaid) {
-      tipper.compsPaidFor.add(comp);
+  void _setCompPaid(DAUComp comp, bool isPaid) {
+    final String? compKey = comp.dbkey;
+    if (compKey == null) return;
+    if (isPaid) {
+      _paidCompKeys.add(compKey);
+    } else {
+      _paidCompKeys.remove(compKey);
     }
-
-    if (!isPaid && isAlreadyPaid) {
-      tipper.compsPaidFor.removeWhere((paidComp) => paidComp.dbkey == comp.dbkey);
-    }
+    _refreshDraftState(forceRebuild: true);
   }
 
-  Future<void> _savePaidCompSelection(DAUComp comp, bool isPaid) async {
-    if (_isBusy || tipper.dbkey == null) return;
+  String _queuedMessage(String change) =>
+      '$change is queued on this device. The server has not confirmed it yet; '
+      'it will apply when the connection recovers.';
 
-    final bool previousValue = tipper.paidForComp(comp);
-    if (previousValue == isPaid) return;
-
-    setState(() {
-      _setCompPaidForState(comp, isPaid);
-      _paidForAutoSaveInProgress = true;
-    });
-
-    bool saveFailed = false;
-    try {
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "compsParticipatedIn",
-        tipper.compsPaidFor.map((paidComp) => paidComp.dbkey).toList(),
-      );
-      await tippersViewModel.saveBatchOfTipperChangesToDb();
-    } on Exception catch (e) {
-      log('Failed to auto-save paid competitions change for ${tipper.dbkey}: $e');
-      saveFailed = true;
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      if (saveFailed) {
-        _setCompPaidForState(comp, previousValue);
-      }
-      _paidForAutoSaveInProgress = false;
-    });
-
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 2),
-        backgroundColor: saveFailed ? Colors.red : Colors.green,
-        content: Text(
-          saveFailed
-              ? 'Could not save paid status change. Please try again.'
-              : 'Paid status saved.',
-        ),
-      ),
-    );
-  }
-
-  Future<bool> _saveTipper(BuildContext context) async {
+  Future<_SaveOutcome> _saveTipper(BuildContext context) async {
     try {
       // make sure the email and logon are not assigned to another tipper
       Tipper? tipperWithDupEmail = await tippersViewModel
@@ -230,40 +226,77 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             ),
           );
         }
-        return false;
+        return _SaveOutcome.notSaved;
       }
 
       if (tipper.dbkey == null) {
-        return false;
+        return _SaveOutcome.notSaved;
       }
 
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "name",
-        _tipperNameController.text,
-      );
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "email",
-        _tipperEmailController.text,
-      );
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "tipperRole",
-        admin == true
-            ? TipperRole.admin.toString().split('.').last
-            : TipperRole.tipper.toString().split('.').last,
-      );
+      // Name, email and role belong to the server, which checks them (a name
+      // another tipper has, an invalid email, the last administrator) and
+      // changes them together. Only what was edited is sent.
+      final String newName = _tipperNameController.text;
+      final String newEmail = _tipperEmailController.text;
+      final bool nameChanged = newName != _originalName;
+      final bool emailChanged = newEmail != _originalEmail;
+      final bool roleChanged = admin != _originalAdmin;
+      if (nameChanged || emailChanged || roleChanged) {
+        await di<IdentityService>().adminUpdateTipper(
+          tipperId: tipper.dbkey!,
+          name: nameChanged ? newName : null,
+          email: emailChanged ? newEmail : null,
+          role: roleChanged
+              ? (admin ? TipperRole.admin : TipperRole.tipper)
+              : null,
+        );
+      }
 
-      await tippersViewModel.updateTipperAttribute(
-        tipper.dbkey!,
-        "compsParticipatedIn",
-        tipper.compsPaidFor.map((comp) => comp.dbkey).toList(),
-      );
+      // Paid competitions are the one thing an administrator still writes
+      // directly.
+      if (!setEquals(_paidCompKeys, _originalPaidCompKeys)) {
+        await tippersViewModel.updateTipperAttribute(
+          tipper.dbkey!,
+          "compsParticipatedIn",
+          _paidCompKeys.toList(),
+        );
+        await tippersViewModel.saveBatchOfTipperChangesToDb(
+          acknowledgementLimit: defaultWriteAcknowledgementLimit,
+        );
+      }
 
-      await tippersViewModel.saveBatchOfTipperChangesToDb();
-
-      return true;
+      return _SaveOutcome.saved;
+    } on WriteNotConfirmedException catch (e) {
+      log('Tipper ${tipper.dbkey} update is queued: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
+            content: Text(_queuedMessage('Your change')),
+          ),
+        );
+      }
+      return _SaveOutcome.queued;
+    } on IdentityFailure catch (e) {
+      log('The server refused the change to tipper ${tipper.dbkey}: $e');
+      if (context.mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: Text(adminFailureMessage(e)),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return _SaveOutcome.notSaved;
     } on Exception catch (e) {
       log('Failed to update tipper ${tipper.dbkey}: $e');
       if (context.mounted) {
@@ -282,7 +315,7 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
           ),
         );
       }
-      return false;
+      return _SaveOutcome.notSaved;
     }
   }
 
@@ -294,16 +327,110 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
       _manualSaveInProgress = true;
     });
 
-    final bool didSave = await _saveTipper(context);
+    final _SaveOutcome outcome = await _saveTipper(context);
     if (!mounted) return;
 
     setState(() {
       _manualSaveInProgress = false;
     });
 
-    if (didSave && context.mounted) {
+    if (outcome != _SaveOutcome.notSaved && context.mounted) {
       Navigator.of(context).pop(true);
     }
+  }
+
+  bool _isGodModeTipper(TippersViewModel viewModel) =>
+      viewModel.inGodMode && viewModel.selectedTipper.dbkey == tipper.dbkey;
+
+  /// God mode is not part of the tipper record, so it sits with Save in the
+  /// floating controls as an action that takes effect at once, rather than
+  /// among the fields waiting for Save. There is no god mode without a comp.
+  AppGlassAction? _godModeAction(BuildContext context) {
+    if (di<DAUCompsViewModel>().selectedDAUComp == null) return null;
+    final TippersViewModel viewModel = di<TippersViewModel>();
+    final bool isGodModeTipper = _isGodModeTipper(viewModel);
+    return AppGlassAction.text(
+      label: isGodModeTipper ? 'Exit God Mode' : 'God Mode',
+      // Red, as the god mode banner and the god mode tipper's row are.
+      colour: isGodModeTipper ? Colors.red : null,
+      onPressed: _isBusy ? null : () => _onGodModePressed(context, viewModel),
+    );
+  }
+
+  /// Turns god mode on for this tipper, or off if it is already on for them,
+  /// then goes back to the tipper list.
+  Future<void> _onGodModePressed(
+    BuildContext context,
+    TippersViewModel viewModel,
+  ) async {
+    final Tipper? authenticatedTipper = viewModel.authenticatedTipper;
+    if (authenticatedTipper == null) return;
+    final bool isGodModeTipper = _isGodModeTipper(viewModel);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final NavigatorState navigator = Navigator.of(context);
+
+    if (!isGodModeTipper && authenticatedTipper.dbkey == tipper.dbkey) {
+      messenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!await _confirmDiscardDraftChanges(context) || !mounted) return;
+
+    final String? previousGodModeTipperName =
+        viewModel.inGodMode && !isGodModeTipper
+        ? viewModel.selectedTipper.name
+        : null;
+    setState(() {
+      _godModeChangeInProgress = true;
+    });
+
+    try {
+      await viewModel.changeSelectedTipperAfterRefresh(
+        isGodModeTipper ? authenticatedTipper : tipper,
+        refreshSelectedTipperViewModels: () =>
+            di<DAUCompsViewModel>().selectedTipperChanged(),
+      );
+    } catch (error, stackTrace) {
+      log(
+        'TipperAdminEditPage: failed to change god mode tipper: $error',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        setState(() {
+          _godModeChangeInProgress = false;
+        });
+      }
+      messenger.showSnackBar(
+        const SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'Could not refresh tips for god mode. Please try again.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    if (previousGodModeTipperName != null) {
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text(
+            'God mode changed from $previousGodModeTipperName to ${tipper.name}',
+          ),
+        ),
+      );
+    }
+    navigator.pop();
   }
 
   @override
@@ -320,256 +447,200 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
         });
         navigator.pop(result);
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _isBusy
-                    ? null
-                    : () {
-                        Navigator.maybePop(context);
-                      },
-              );
-            },
+      // Back is the floating control's maybePop, which the PopScope above holds
+      // while a save runs and answers with the discard prompt.
+      child: AppAdminPage(
+        title: 'Edit Tipper',
+        actions: [
+          AppGlassAction.text(
+            label: 'Merge',
+            onPressed: _isBusy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AdminTipperMergeEditPage(
+                        widget.tippersViewModel,
+                        tipper,
+                      ),
+                    ),
+                  ),
           ),
-          actions: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: FilledButton.icon(
-                key: TipperAdminEditPage.saveButtonKey,
-                onPressed: _canSave ? () => _onSavePressed(context) : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-                icon: _manualSaveInProgress
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: League.nrl.colour,
-                        ),
-                      )
-                    : const Icon(Icons.save),
-                label: Text(
-                  _manualSaveInProgress ? 'Saving...' : 'Save',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-          title: const Text('Edit Tipper'),
-        ),
+          ?_godModeAction(context),
+          AppGlassAction(
+            icon: _manualSaveInProgress ? Icons.hourglass_bottom : Icons.save,
+            label: 'Save',
+            onPressed: _canSave ? () => _onSavePressed(context) : null,
+          ),
+        ],
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
+              if (tipper.accountDeletedUTC != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'This person deleted their account on '
+                    '${DateFormat('dd MMM yy').format(tipper.accountDeletedUTC!.toLocal())}'
+                    '${_joinedClause(tipper)}. '
+                    'Their name, email address and photo were removed; their '
+                    'tips and scores are kept.',
+                    key: const ValueKey('account-deleted-note'),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                  Row(
-                    children: [
-                      const Text(
-                        'Name:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          key: TipperAdminEditPage.nameFieldKey,
-                          enabled: !_isBusy,
-                          controller: _tipperNameController,
-                          decoration: const InputDecoration(
-                            hintText: 'Tipper name',
-                          ),
-                          onFieldSubmitted: (_) {
-                            // move focus to next field
-                            _emailFocusNode.requestFocus();
-                          },
-                          validator: (String? value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a tipper name';
-                            }
-                            return null;
-                          },
-                          onChanged: (_) => _refreshDraftState(),
-                        ),
-                      ),
-                      if (di<DAUCompsViewModel>().selectedDAUComp != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(width: 12),
-                            const Text(
-                              'God\nmode: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            ChangeNotifierProvider<TippersViewModel>.value(
-                              value: di<TippersViewModel>(),
-                              child: Consumer<TippersViewModel>(
-                                builder: (context, tippersViewModelConsumer, child) {
-                                  return Switch(
-                                    key: TipperAdminEditPage.godModeSwitchKey,
-                                    value:
-                                        (tippersViewModelConsumer.inGodMode &&
-                                        tippersViewModelConsumer.selectedTipper ==
-                                            tipper),
-                                    thumbColor: WidgetStateProperty.resolveWith(
-                                      (states) => states.contains(WidgetState.selected)
-                                          ? Colors.red
-                                          : null,
-                                    ),
-                                    onChanged: (value) async {
-                                      if (value == true) {
-                                        if (tippersViewModelConsumer
-                                                .authenticatedTipper ==
-                                            tipper) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              backgroundColor: Colors.red,
-                                              content: const Text(
-                                                'For technical reasons, admins cannot god mode themselves.\n\nAsk another admin to do it for you.',
-                                              ),
-                                            ),
-                                          );
-                                          return;
-                                        }
-                                        if (tippersViewModelConsumer.inGodMode) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              backgroundColor: Colors.red,
-                                              content: Text(
-                                                'God mode changed from ${tippersViewModelConsumer.selectedTipper.name} to ${tipper.name}',
-                                              ),
-                                            ),
-                                          );
-                                        }
-
-                                      }
-                                      final selectedTipper = value == true
-                                          ? tipper
-                                          : tippersViewModelConsumer
-                                                .authenticatedTipper!;
-                                      try {
-                                        await tippersViewModelConsumer
-                                            .changeSelectedTipperAfterRefresh(
-                                              selectedTipper,
-                                              refreshSelectedTipperViewModels: () =>
-                                                  di<DAUCompsViewModel>()
-                                                      .selectedTipperChanged(),
-                                            );
-                                      } catch (error, stackTrace) {
-                                        log(
-                                          'TipperAdminEditPage: failed to change god mode tipper: $error',
-                                          error: error,
-                                          stackTrace: stackTrace,
-                                        );
-                                        if (!context.mounted) {
-                                          return;
-                                        }
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            backgroundColor: Colors.red,
-                                            content: Text(
-                                              'Could not refresh tips for god mode. Please try again.',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-
-                  Row(
-                    children: [
-                      const Text(
-                        'Email:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          key: TipperAdminEditPage.emailFieldKey,
-                          enabled: !_isBusy,
-                          controller: _tipperEmailController,
-                          decoration: InputDecoration(
-                            hintText: 'Email for communications',
-                            suffixIcon: _shouldCollapseLogon
-                                ? IconButton(
-                                    key: TipperAdminEditPage.emailInfoButtonKey,
-                                    icon: const Icon(
-                                      Icons.info_outline,
-                                      size: 18,
-                                    ),
-                                    tooltip: 'Email info',
-                                    onPressed: () {
-                                      showDialog<void>(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            content: const Text(
-                                              'Login and communications emails are the same',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                                child: const Text('OK'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                                  )
-                                : null,
-                          ),
-                          validator: (String? value) {
-                            if (value == null ||
-                                !EmailValidator.validate(value)) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                          onChanged: (_) =>
-                              _refreshDraftState(forceRebuild: true),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (!_shouldCollapseLogon)
                     Row(
                       children: [
                         const Text(
-                          'Logon:',
+                          'Name:',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: TextFormField(
-                            key: TipperAdminEditPage.logonFieldKey,
+                            key: TipperAdminEditPage.nameFieldKey,
+                            enabled: !_isBusy,
+                            controller: _tipperNameController,
+                            decoration: const InputDecoration(
+                              hintText: 'Tipper name',
+                            ),
+                            onFieldSubmitted: (_) {
+                              // move focus to next field
+                              _emailFocusNode.requestFocus();
+                            },
+                            validator: (String? value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a tipper name';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) => _refreshDraftState(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'DAU\nAdmin:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Switch(
+                          value: admin,
+                          thumbColor: WidgetStateProperty.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.orange
+                                : null,
+                          ),
+                          onChanged: (value) {
+                            admin = value;
+                            _refreshDraftState(forceRebuild: true);
+                          },
+                        ),
+                      ],
+                    ),
+
+                    Row(
+                      children: [
+                        const Text(
+                          'Email:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            key: TipperAdminEditPage.emailFieldKey,
+                            enabled: !_isBusy,
+                            controller: _tipperEmailController,
+                            decoration: InputDecoration(
+                              hintText: 'Email for communications',
+                              suffixIcon: _shouldCollapseLogon
+                                  ? IconButton(
+                                      key: TipperAdminEditPage
+                                          .emailInfoButtonKey,
+                                      icon: const Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                      ),
+                                      tooltip: 'Email info',
+                                      onPressed: () {
+                                        showDialog<void>(
+                                          context: context,
+                                          builder: (BuildContext context) {
+                                            return AlertDialog(
+                                              content: const Text(
+                                                'Login and communications emails are the same',
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () {
+                                                    Navigator.of(context).pop();
+                                                  },
+                                                  child: const Text('OK'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            validator: (String? value) {
+                              if (value == null ||
+                                  !EmailValidator.validate(value)) {
+                                return 'Please enter a valid email';
+                              }
+                              return null;
+                            },
+                            onChanged: (_) =>
+                                _refreshDraftState(forceRebuild: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!_shouldCollapseLogon)
+                      Row(
+                        children: [
+                          const Text(
+                            'Logon:',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              key: TipperAdminEditPage.logonFieldKey,
+                              enabled: !_isBusy,
+                              readOnly: true,
+                              controller: _tipperLogonController,
+                              decoration: const InputDecoration(
+                                hintText: 'Email for logon',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    Row(
+                      children: [
+                        const Text(
+                          'Last\nLogin:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            key: TipperAdminEditPage.lastLoginFieldKey,
                             enabled: !_isBusy,
                             readOnly: true,
-                            controller: _tipperLogonController,
+                            controller: _tipperLastLoginController,
                             decoration: const InputDecoration(
-                              hintText: 'Email for logon',
+                              hintText: 'Last login time',
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
@@ -579,164 +650,90 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                         ),
                       ],
                     ),
-                  Row(
-                    children: [
-                      const Text(
-                        'Last\nLogin:',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          key: TipperAdminEditPage.lastLoginFieldKey,
-                          enabled: !_isBusy,
-                          readOnly: true,
-                          controller: _tipperLastLoginController,
-                          decoration: const InputDecoration(
-                            hintText: 'Last login time',
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  // add a row for 'Paid Comps', display a list of all DAUComps
-                  // if the tipper is a paid up member, then show a tick
-                  // allow the admin to edit which comps this tipper has paid for
-                  FutureBuilder<List<DAUComp>>(
-                    future: di<DAUCompsViewModel>().getDAUcomps(),
-                    builder:
-                        (
-                          BuildContext context,
-                          AsyncSnapshot<List<DAUComp>> snapshot,
-                        ) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: League.nrl.colour,
-                              ),
-                            );
-                          }
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return const Text('No Records');
-                          } else {
-                            final List<DAUComp> comps = snapshot.data!;
-                            // sort the comps by name descending
-                            comps.sort(
-                              (a, b) => b.name.toLowerCase().compareTo(
-                                a.name.toLowerCase(),
-                              ),
-                            );
-                            return Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      'Select the competitions this tipper has paid for:',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (_paidForAutoSaveInProgress)
-                                      const Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
+                    // add a row for 'Paid Comps', display a list of all DAUComps
+                    // if the tipper is a paid up member, then show a tick
+                    // allow the admin to edit which comps this tipper has paid for
+                    FutureBuilder<List<DAUComp>>(
+                      future: _compsFuture,
+                      builder:
+                          (
+                            BuildContext context,
+                            AsyncSnapshot<List<DAUComp>> snapshot,
+                          ) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Center(
+                                child: CircularProgressIndicator(
+                                  color: League.nrl.colour,
+                                ),
+                              );
+                            }
+                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return const Text('No Records');
+                            } else {
+                              final List<DAUComp> comps = snapshot.data!;
+                              // sort the comps by name descending
+                              comps.sort(
+                                (a, b) => b.name.toLowerCase().compareTo(
+                                  a.name.toLowerCase(),
+                                ),
+                              );
+                              return Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Text(
+                                        'Select the competitions this tipper has paid for:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                  ],
-                                ),
-                                DataTable(
-                                  sortColumnIndex: 1,
-                                  sortAscending: true,
-                                  columns: const [
-                                    DataColumn(label: Text('Paid')),
-                                    DataColumn(label: Text('Competition Name')),
-                                  ],
-                                  rows: comps
-                                      .map(
-                                        (comp) => DataRow(
-                                          cells: [
-                                            DataCell(
-                                              Checkbox(
-                                                value: tipper.paidForComp(comp),
-                                                onChanged: _isBusy
-                                                    ? null
-                                                    : (bool? value) {
-                                                        log('Checkbox changed to $value');
-                                                        if (value == null) return;
-                                                        _savePaidCompSelection(comp, value);
-                                                      },
+                                    ],
+                                  ),
+                                  DataTable(
+                                    sortColumnIndex: 1,
+                                    sortAscending: true,
+                                    columns: const [
+                                      DataColumn(label: Text('Paid')),
+                                      DataColumn(
+                                        label: Text('Competition Name'),
+                                      ),
+                                    ],
+                                    rows: comps
+                                        .map(
+                                          (comp) => DataRow(
+                                            cells: [
+                                              DataCell(
+                                                Checkbox(
+                                                  value:
+                                                      tipper.isAnonymous ||
+                                                      _paidCompKeys.contains(
+                                                        comp.dbkey,
+                                                      ),
+                                                  onChanged: _isBusy
+                                                      ? null
+                                                      : (bool? value) =>
+                                                            _setCompPaid(
+                                                              comp,
+                                                              value ?? false,
+                                                            ),
+                                                ),
                                               ),
-                                            ),
-                                            DataCell(Text(comp.name)),
-                                          ],
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                              ],
-                            );
-                          }
-                        },
-                  ),
-                ],
-              ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  const Text(
-                    'DAU\nAdmin:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Switch(
-                    value: admin,
-                    thumbColor: WidgetStateProperty.resolveWith(
-                      (states) => states.contains(WidgetState.selected)
-                          ? Colors.orange
-                          : null,
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        admin = value;
-                        _hasDraftChanges =
-                            _tipperNameController.text != _originalName ||
-                            _tipperEmailController.text != _originalEmail ||
-                            _tipperLogonController.text != _originalLogon ||
-                            admin != _originalAdmin;
-                      });
-                    },
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: _isBusy
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AdminTipperMergeEditPage(
-                                  widget.tippersViewModel,
-                                  tipper,
-                                ),
-                              ),
-                            );
+                                              DataCell(Text(comp.name)),
+                                            ],
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ],
+                              );
+                            }
                           },
-                    child: const Text('Merge...'),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
             ],
           ),
         ),

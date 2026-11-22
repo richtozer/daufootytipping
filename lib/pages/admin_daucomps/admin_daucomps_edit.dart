@@ -1,12 +1,19 @@
+import 'dart:async';
 import 'dart:developer';
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_warning.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_rounds_table.dart'; // Import the new widget
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_buttons.dart'; // Import the new buttons
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_form.dart'; // Import the new form widget
+import 'package:daufootytipping/services/rounds_linking_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_button.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,16 +31,13 @@ DAUCompsViewModel createAdminDauCompsViewModel({
     true,
     skipInit: skipInit,
     cloudFunctionsBaseURLOverride: cloudFunctionsBaseURLOverride,
-    cloudFunctionsBaseURLProvider:
-        () => configViewModel.cloudFunctionsBaseURL,
-    adminScoringRescoreURLProvider:
-        () => configViewModel.adminScoringRescoreURL,
-    adminScoringRescoreURLLoader:
-        configViewModel.loadAdminScoringRescoreURL,
-    adminCheckFixtureUrlURLProvider:
-        () => configViewModel.adminCheckFixtureUrlURL,
-    adminCheckFixtureUrlURLLoader:
-        configViewModel.loadAdminCheckFixtureUrlURL,
+    cloudFunctionsBaseURLProvider: () => configViewModel.cloudFunctionsBaseURL,
+    adminScoringRescoreURLProvider: () =>
+        configViewModel.adminScoringRescoreURL,
+    adminScoringRescoreURLLoader: configViewModel.loadAdminScoringRescoreURL,
+    adminCheckFixtureUrlURLProvider: () =>
+        configViewModel.adminCheckFixtureUrlURL,
+    adminCheckFixtureUrlURLLoader: configViewModel.loadAdminCheckFixtureUrlURL,
   );
 }
 
@@ -65,8 +69,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   late final TextEditingController _aflRegularCompEndDateController;
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
+  late final Map<int, DateTime?> _initialRoundStartOverrides;
+  late String _lastValidNrlCutoffText;
+  late String _lastValidAflCutoffText;
+  bool _isRevertingCutoff = false;
 
-  // Controllers for round start and end dates are now managed by AdminDaucompsEditRoundsTable
+  /// What the Run updates action last showed, so the page rebuilds only when
+  /// that changes.
+  late ({bool ready, bool busy}) _shownRunUpdates;
+
+  // Controllers for round start dates are managed by AdminDaucompsEditRoundsTable
 
   @override
   void initState() {
@@ -78,6 +91,20 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           compKey: widget.daucomp?.dbkey,
           configViewModel: context.read<ConfigViewModel>(),
         );
+    _shownRunUpdates = _runUpdatesState();
+    _pageDauCompsViewModel.addListener(_refreshRunUpdatesAction);
+    // The admin view models finish loading without notifying, and Run updates
+    // needs them, so the page checks again once loading is done.
+    unawaited(
+      _pageDauCompsViewModel.otherViewModelsLoadComplete.then(
+        (_) => _refreshRunUpdatesAction(),
+      ),
+    );
+    _initialRoundStartOverrides = <int, DateTime?>{
+      if (widget.daucomp != null)
+        for (final r in widget.daucomp!.daurounds)
+          r.dAUroundNumber: r.adminOverrideRoundStartDate,
+    };
     _daucompNameController = TextEditingController(text: widget.daucomp?.name);
     _daucompAflJsonURLController = TextEditingController(
       text: widget.daucomp?.aflFixtureJsonURL.toString(),
@@ -87,18 +114,18 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     );
     _nrlRegularCompEndDateController = TextEditingController(
       text: widget.daucomp?.nrlRegularCompEndDateUTC != null
-          ? DateFormat(
-              'yyyy-MM-dd',
-            ).format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+          ? DateFormat('yyyy-MM-dd')
+                .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
           : '',
     );
     _aflRegularCompEndDateController = TextEditingController(
       text: widget.daucomp?.aflRegularCompEndDateUTC != null
-          ? DateFormat(
-              'yyyy-MM-dd',
-            ).format(widget.daucomp!.aflRegularCompEndDateUTC!)
+          ? DateFormat('yyyy-MM-dd')
+                .format(widget.daucomp!.aflRegularCompEndDateUTC!)
           : '',
     );
+    _lastValidNrlCutoffText = _nrlRegularCompEndDateController.text;
+    _lastValidAflCutoffText = _aflRegularCompEndDateController.text;
     // Correct initialization of _localActiveCompState
     if (widget.daucomp != null) {
       final globalDauCompsVM =
@@ -106,8 +133,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             DAUCompsViewModel
           >(); // Assuming DAUCompsViewModel is registered with WatchIt
       _localActiveCompState =
-          globalDauCompsVM.initDAUCompDbKey != null &&
-          widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+          widget.daucomp!.dbkey == globalDauCompsVM.activeDAUComp?.dbkey;
     } else {
       _localActiveCompState = false; // New comps are not active by default
     }
@@ -118,23 +144,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
 
   @override
   void dispose() {
-    // Dispose all controllers
-    // for (var controller in _startDateControllers.values) { // Removed
-    //   controller.dispose();
-    // }
-    // for (var controller in _endDateControllers.values) { // Removed
-    //   controller.dispose();
-    // }
     _daucompNameController.removeListener(_updateSaveButtonState);
     _daucompAflJsonURLController.removeListener(_updateSaveButtonState);
     _daucompNrlJsonURLController.removeListener(_updateSaveButtonState);
-    _nrlRegularCompEndDateController.removeListener(_updateSaveButtonState);
-    _aflRegularCompEndDateController.removeListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.removeListener(_onNrlCutoffChanged);
+    _aflRegularCompEndDateController.removeListener(_onAflCutoffChanged);
     _daucompNameController.dispose();
     _daucompAflJsonURLController.dispose();
     _daucompNrlJsonURLController.dispose();
     _nrlRegularCompEndDateController.dispose();
     _aflRegularCompEndDateController.dispose();
+    _pageDauCompsViewModel.removeListener(_refreshRunUpdatesAction);
     if (_ownsPageDauCompsViewModel) {
       _pageDauCompsViewModel.dispose();
     }
@@ -145,11 +165,80 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     _daucompNameController.addListener(_updateSaveButtonState);
     _daucompAflJsonURLController.addListener(_updateSaveButtonState);
     _daucompNrlJsonURLController.addListener(_updateSaveButtonState);
-    _nrlRegularCompEndDateController.addListener(_updateSaveButtonState);
-    _aflRegularCompEndDateController.addListener(_updateSaveButtonState);
+    _nrlRegularCompEndDateController.addListener(_onNrlCutoffChanged);
+    _aflRegularCompEndDateController.addListener(_onAflCutoffChanged);
   }
 
-  // _initializeRoundControllers() removed
+  void _onNrlCutoffChanged() => _handleCutoffControllerChanged(
+    League.nrl,
+    _nrlRegularCompEndDateController,
+    lastValid: _lastValidNrlCutoffText,
+    setLastValid: (value) => _lastValidNrlCutoffText = value,
+  );
+
+  void _onAflCutoffChanged() => _handleCutoffControllerChanged(
+    League.afl,
+    _aflRegularCompEndDateController,
+    lastValid: _lastValidAflCutoffText,
+    setLastValid: (value) => _lastValidAflCutoffText = value,
+  );
+
+  void _handleCutoffControllerChanged(
+    League league,
+    TextEditingController controller, {
+    required String lastValid,
+    required void Function(String value) setLastValid,
+  }) {
+    if (_isRevertingCutoff) return;
+    final text = controller.text.trim();
+    if (text.isEmpty) {
+      setLastValid('');
+      _updateSaveButtonState();
+      return;
+    }
+    DateTime? parsed;
+    try {
+      parsed = DateFormat('yyyy-MM-dd').parseStrict(text, true);
+    } on FormatException {
+      return;
+    }
+    final error = _roundsLinking.validateLeagueCutoffEdit(
+      league: league,
+      oldCutoffUTC: league == League.nrl
+          ? widget.daucomp?.nrlRegularCompEndDateUTC?.toUtc()
+          : widget.daucomp?.aflRegularCompEndDateUTC?.toUtc(),
+      newCutoffUTC: parsed.toUtc(),
+      allGames: _allGamesForValidation(_pageDauCompsViewModel),
+    );
+    if (error != null) {
+      _isRevertingCutoff = true;
+      controller.text = lastValid;
+      _isRevertingCutoff = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+    setLastValid(controller.text);
+    _updateSaveButtonState();
+  }
+
+  List<Game> _allGamesForValidation(DAUCompsViewModel viewModel) {
+    final rounds = viewModel.selectedDAUComp?.daurounds ?? const <DAURound>[];
+    final seen = <String>{};
+    final games = <Game>[];
+    for (final r in rounds) {
+      for (final g in r.games) {
+        if (seen.add(g.dbkey)) games.add(g);
+      }
+    }
+    for (final g in viewModel.unassignedGames) {
+      if (seen.add(g.dbkey)) games.add(g);
+    }
+    return games;
+  }
 
   void _updateSaveButtonState() {
     bool shouldEnableSave;
@@ -157,8 +246,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
     if (widget.daucomp != null) {
       final globalDauCompsVM = di<DAUCompsViewModel>();
       originalActiveStatus =
-          globalDauCompsVM.initDAUCompDbKey != null &&
-          widget.daucomp!.dbkey == globalDauCompsVM.initDAUCompDbKey;
+          widget.daucomp!.dbkey == globalDauCompsVM.activeDAUComp?.dbkey;
     }
 
     if (widget.daucomp == null) {
@@ -166,16 +254,17 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
           _daucompNameController.text.isNotEmpty &&
           _daucompAflJsonURLController.text.isNotEmpty &&
           _daucompNrlJsonURLController.text.isNotEmpty;
-      // For new comps, also consider if _localActiveCompState is true (if we allow setting new comp as active immediately)
-      // Based on current logic, new comp is only set active on save, so _localActiveCompState change might not enable save alone.
-      // However, if other fields are filled, and user toggles active, it should be saveable.
-      // The original logic didn't factor in _localActiveCompState for new comps for enabling save.
-      // Let's assume any interaction makes it saveable if basic fields are there.
-      // The original logic for new comp save was only based on text fields.
-      // Adding `|| _localActiveCompState` might be too aggressive if other fields are empty.
-      // The current `onFormInteracted` in AdminDaucompsEditForm handles `disableSaves = false;`
-      // which then calls this. So, we just need to ensure the condition includes active state change.
     } else {
+      final rounds =
+          _pageDauCompsViewModel.selectedDAUComp?.daurounds ??
+          widget.daucomp!.daurounds;
+      final roundStartsChanged = rounds.any(
+        (r) => !r.getRoundStartDate().isAtSameMomentAs(
+          r.roundStartDateWithOverride(
+            _initialRoundStartOverrides[r.dAUroundNumber],
+          ),
+        ),
+      );
       shouldEnableSave =
           (_daucompNameController.text != widget.daucomp!.name ||
               _daucompAflJsonURLController.text !=
@@ -184,18 +273,16 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
                   widget.daucomp!.nrlFixtureJsonURL.toString() ||
               _nrlRegularCompEndDateController.text !=
                   (widget.daucomp!.nrlRegularCompEndDateUTC != null
-                      ? DateFormat(
-                          'yyyy-MM-dd',
-                        ).format(widget.daucomp!.nrlRegularCompEndDateUTC!)
+                      ? DateFormat('yyyy-MM-dd')
+                            .format(widget.daucomp!.nrlRegularCompEndDateUTC!)
                       : '') ||
               _aflRegularCompEndDateController.text !=
                   (widget.daucomp!.aflRegularCompEndDateUTC != null
-                      ? DateFormat(
-                          'yyyy-MM-dd',
-                        ).format(widget.daucomp!.aflRegularCompEndDateUTC!)
-                      : '')) ||
-          (_localActiveCompState !=
-              originalActiveStatus); // Added this condition
+                      ? DateFormat('yyyy-MM-dd')
+                            .format(widget.daucomp!.aflRegularCompEndDateUTC!)
+                      : '') ||
+              roundStartsChanged) ||
+          (_localActiveCompState != originalActiveStatus);
     }
 
     log(
@@ -233,6 +320,7 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         currentRounds:
             dauCompsViewModel.selectedDAUComp?.daurounds ??
             [], // Added this line
+        initialRoundStartOverrides: _initialRoundStartOverrides,
       );
 
       if (!mounted) return; // Check if the widget is still in the tree
@@ -246,10 +334,8 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
         if (targetCompDbKey != null) {
           bool persistedActiveStatus = false;
           final globalDauCompsVM = di<DAUCompsViewModel>();
-          if (globalDauCompsVM.initDAUCompDbKey != null) {
-            persistedActiveStatus =
-                targetCompDbKey == globalDauCompsVM.initDAUCompDbKey;
-          }
+          persistedActiveStatus =
+              targetCompDbKey == globalDauCompsVM.activeDAUComp?.dbkey;
 
           // If locally marked active AND it's different from its persisted state OR it's a new comp being marked active
           if (_localActiveCompState &&
@@ -258,9 +344,6 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
             ConfigViewModel remoteConfigService = ConfigViewModel();
             await remoteConfigService.setConfigCurrentDAUComp(targetCompDbKey);
             log('Active comp set to: $targetCompDbKey via main save button');
-            // Optionally refresh DAUCompsViewModel's activeDAUComp if necessary,
-            // though changing initDAUCompDbKey in ConfigViewModel usually triggers wider app refresh.
-            // dauCompsViewModel.changeDisplayedDAUComp(await dauCompsViewModel.findComp(targetCompDbKey), true); // Example
           }
           // No action needed if _localActiveCompState is false, as per plan (cannot deactivate this way).
         }
@@ -315,226 +398,275 @@ class _DAUCompsEditPageState extends State<DAUCompsEditPage> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
       value: _pageDauCompsViewModel,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: disableBack
-                    ? const ImageIcon(null)
-                    : const Icon(Icons.arrow_back),
-                onPressed: () async {
-                  if (!disableBack) {
-                    if (context.mounted) {
-                      Navigator.maybePop(context);
-                    }
-                  } else {
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        content: const Text(
-                          'You have unsaved changes. Do you really want to discard them?',
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(); // Close the dialog
-                              Navigator.of(context).pop(); // Go back
-                            },
-                            child: const Text('Discard'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                },
-              );
-            },
-          ),
-          actions: <Widget>[
-            Consumer<DAUCompsViewModel>(
-              builder: (context, dauCompsViewModel, child) {
-                return IconButton(
-                  color: Colors.green,
-                  disabledColor: Colors.grey,
-                  icon: disableSaves
-                      ? const Icon(Icons.save)
-                      : Icon(Icons.save),
-                  onPressed: disableSaves
-                      ? null
-                      : () async {
-                          final isValid = _formKey.currentState!.validate();
-                          if (isValid) {
-                            setState(() {
-                              disableSaves = true;
-                              disableBack = true;
-                            });
+      // Back is the floating control's maybePop, which stops here while a save
+      // or an admin update is running and asks before it lets go.
+      child: PopScope(
+        canPop: !disableBack,
+        onPopInvokedWithResult: (didPop, result) =>
+            _confirmDiscardChanges(didPop),
+        child: AppAdminPage(
+          title: 'Edit DAU Comp',
+          actions: [
+            ?_runUpdatesAction(),
+            AppGlassAction(
+              icon: Icons.save,
+              label: 'Save',
+              onPressed: disableSaves
+                  ? null
+                  : () async {
+                      final isValid = _formKey.currentState!.validate();
+                      if (isValid) {
+                        setState(() {
+                          disableSaves = true;
+                          disableBack = true;
+                        });
 
-                            await _saveDAUComp(dauCompsViewModel, context);
+                        await _saveDAUComp(_pageDauCompsViewModel, context);
 
-                            setState(() {
-                              disableSaves = true;
-                              disableBack = false;
-                            });
-                          }
-                        },
-                );
-              },
+                        setState(() {
+                          disableSaves = true;
+                          disableBack = false;
+                        });
+                      }
+                    },
             ),
           ],
-          title: const Text('Edit DAU Comp'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          // Form tag is removed from here and now lives in AdminDaucompsEditForm
-          child: SingleChildScrollView(
-            child: Consumer<DAUCompsViewModel>(
-              builder: (context, dauCompsViewModelConsumer, child) {
-                // This is the mainColumn
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (widget.daucomp != null)
-                      Center(
-                        child: AdminDaucompsEditScoringButton(
-                          dauCompsViewModel: dauCompsViewModelConsumer,
-                          daucomp: widget.daucomp,
-                          setStateCallback: (fn) => setState(fn),
-                          onDisableBack: (bool disabled) =>
-                              setState(() => disableBack = disabled),
-                        ),
-                      ),
-                    AdminDaucompsEditForm(
-                      formKey: _formKey,
-                      daucomp: widget.daucomp,
-                      daucompNameController: _daucompNameController,
-                      daucompAflJsonURLController:
-                          _daucompAflJsonURLController,
-                      daucompNrlJsonURLController:
-                          _daucompNrlJsonURLController,
-                      nrlRegularCompEndDateController:
-                          _nrlRegularCompEndDateController,
-                      aflRegularCompEndDateController:
-                          _aflRegularCompEndDateController,
-                      dauCompsViewModel: dauCompsViewModelConsumer,
-                      onFormInteracted: () {
-                        // This existing callback is fine for text field interactions.
-                        // Active status changes are handled by onActiveStatusChangedLocally.
-                        // We still want to enable save if other form fields change.
-                        setState(() {
-                          disableSaves = false;
-                        });
-                        _updateSaveButtonState(); // Ensure save button state considers all changes
-                      },
-                      isLocallyMarkedActive: _localActiveCompState,
-                      onActiveStatusChangedLocally: (bool newValue) {
-                        setState(() {
-                          final globalDauCompsVM = di<DAUCompsViewModel>();
-                          bool isCurrentGlobalActive =
-                              widget.daucomp != null &&
-                              globalDauCompsVM.initDAUCompDbKey != null &&
-                              widget.daucomp!.dbkey ==
-                                  globalDauCompsVM.initDAUCompDbKey;
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            // Form tag is removed from here and now lives in AdminDaucompsEditForm
+            child: SingleChildScrollView(
+              child: Consumer<DAUCompsViewModel>(
+                builder: (context, dauCompsViewModelConsumer, child) {
+                  // This is the mainColumn
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      AdminDaucompsEditForm(
+                        formKey: _formKey,
+                        daucomp: widget.daucomp,
+                        daucompNameController: _daucompNameController,
+                        daucompAflJsonURLController:
+                            _daucompAflJsonURLController,
+                        daucompNrlJsonURLController:
+                            _daucompNrlJsonURLController,
+                        nrlRegularCompEndDateController:
+                            _nrlRegularCompEndDateController,
+                        aflRegularCompEndDateController:
+                            _aflRegularCompEndDateController,
+                        dauCompsViewModel: dauCompsViewModelConsumer,
+                        onFormInteracted: () {
+                          // This existing callback is fine for text field interactions.
+                          // Active status changes are handled by onActiveStatusChangedLocally.
+                          // We still want to enable save if other form fields change.
+                          setState(() {
+                            disableSaves = false;
+                          });
+                          _updateSaveButtonState(); // Ensure save button state considers all changes
+                        },
+                        isLocallyMarkedActive: _localActiveCompState,
+                        onActiveStatusChangedLocally: (bool newValue) {
+                          setState(() {
+                            final globalDauCompsVM = di<DAUCompsViewModel>();
+                            bool isCurrentGlobalActive =
+                                widget.daucomp != null &&
+                                widget.daucomp!.dbkey ==
+                                    globalDauCompsVM.activeDAUComp?.dbkey;
 
-                          if (!newValue && isCurrentGlobalActive) {
-                            // Tried to toggle off the currently globally active comp
-                            // Do not change _localActiveCompState, it remains true (or rather, it's not set to false).
-                            // The UI switch will revert because _localActiveCompState isn't updated to false.
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'You cannot turn off the active comp. Instead, edit another comp to be active.',
+                            if (!newValue && isCurrentGlobalActive) {
+                              // Tried to toggle off the currently globally active comp
+                              // Do not change _localActiveCompState, it remains true (or rather, it's not set to false).
+                              // The UI switch will revert because _localActiveCompState isn't updated to false.
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'You cannot turn off the active comp. Instead, edit another comp to be active.',
+                                  ),
+                                  backgroundColor: Colors.orange,
                                 ),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                            // To ensure the Switch widget visually reverts if the parent state wasn't actually changed to 'false':
-                            // We don't set _localActiveCompState = false, so the existing _localActiveCompState (true) will be passed back in next build.
-                          } else {
-                            _localActiveCompState = newValue;
-                            _updateSaveButtonState();
-                          }
-                        });
-                      },
-                    ),
-                    if (widget.daucomp != null) ...[
-                      if (dauCompsViewModelConsumer.unassignedGames.isNotEmpty)
-                        AdminDaucompsEditWarning(
-                          viewModel: dauCompsViewModelConsumer,
-                        ),
-                      Row(
-                        //mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Flexible(
-                            child: Text(
-                              'Counts of games grouped by DAU round:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.info_outline),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: const Text('Information'),
-                                    content: const Text(
-                                      'This is a list of round start and end times. Any game kickoff times that fall within this range are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: const Text('OK'),
-                                      ),
-                                    ],
-                                  );
-                                },
                               );
-                            },
+                              // To ensure the Switch widget visually reverts if the parent state wasn't actually changed to 'false':
+                              // We don't set _localActiveCompState = false, so the existing _localActiveCompState (true) will be passed back in next build.
+                            } else {
+                              _localActiveCompState = newValue;
+                              _updateSaveButtonState();
+                            }
+                          });
+                        },
+                      ),
+                      if (widget.daucomp != null) ...[
+                        if (dauCompsViewModelConsumer
+                            .unassignedGames
+                            .isNotEmpty)
+                          AdminDaucompsEditWarning.unassigned(
+                            games: dauCompsViewModelConsumer.unassignedGames,
                           ),
-                        ],
-                      ),
-                      AdminDaucompsEditRoundsTable(
-                        rounds:
-                            dauCompsViewModelConsumer.selectedDAUComp?.daurounds
-                                .where((r) => r.games.isNotEmpty)
-                                .toList() ??
-                            [],
-                        onRoundDateChanged:
-                            (
-                              DAURound round,
-                              DateTime newDate,
-                              bool isStartDate,
-                            ) {
-                              setState(() {
-                                if (isStartDate) {
-                                  round.adminOverrideRoundStartDate = newDate;
-                                } else {
-                                  round.adminOverrideRoundEndDate = newDate;
-                                }
-                                _recalculateGameCounts(
-                                  dauCompsViewModelConsumer,
+                        if (dauCompsViewModelConsumer
+                            .splitRoundGames
+                            .isNotEmpty)
+                          AdminDaucompsEditWarning.splitRound(
+                            splitGames:
+                                dauCompsViewModelConsumer.splitRoundGames,
+                          ),
+                        Row(
+                          //mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Flexible(
+                              child: Text(
+                                'Counts of games grouped by DAU round:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.info_outline),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: const Text('Information'),
+                                      content: const Text(
+                                        'This is a list of round start dates (0:00 UTC). Any game kickoff times from a round\'s start date (0:00 UTC) up to the next round\'s start date are included in the round and counted by league.\n\nWhen the comp is first created and added in the app, these dates are automatically calculated based on round information provided in the fixture.\n\nIf needed, an Admin can override these dates as needed. If the date is bold then it has been subsequently changed and overridden by an admin.',
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Text('OK'),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
-                                disableSaves = false;
-                              });
-                            },
-                      ),
+                              },
+                            ),
+                          ],
+                        ),
+                        AdminDaucompsEditRoundsTable(
+                          rounds:
+                              dauCompsViewModelConsumer
+                                  .selectedDAUComp
+                                  ?.daurounds
+                                  .toList() ??
+                              [],
+                          onRoundDateChanged:
+                              (DAURound round, DateTime newDate) {
+                                final comp =
+                                    dauCompsViewModelConsumer.selectedDAUComp ??
+                                    widget.daucomp!;
+                                final error = _roundsLinking
+                                    .validateRoundStartDateEdit(
+                                      comp: comp,
+                                      rounds: comp.daurounds,
+                                      editedRoundNumber: round.dAUroundNumber,
+                                      newStartDateUTC: newDate.toUtc(),
+                                      allGames: _allGamesForValidation(
+                                        dauCompsViewModelConsumer,
+                                      ),
+                                    );
+                                if (error != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(error),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  setState(() {});
+                                  return;
+                                }
+                                setState(() {
+                                  round.adminOverrideRoundStartDate = newDate;
+                                  _recalculateGameCounts(
+                                    dauCompsViewModelConsumer,
+                                  );
+                                });
+                                _updateSaveButtonState();
+                              },
+                        ),
+                      ],
                     ],
-                  ],
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Manual repair steps, kept in the corner with Save and Back. Only an
+  /// existing comp has fixtures and scores to repair. The page rebuilds as the
+  /// update starts and ends, which is when the busy state changes.
+  AppGlassAction? _runUpdatesAction() {
+    final daucomp = widget.daucomp;
+    if (daucomp == null) {
+      return null;
+    }
+    final state = _runUpdatesState();
+    return AppGlassAction(
+      icon: Icons.sync,
+      label: state.busy ? 'Updating' : 'Run updates',
+      onPressed: !state.ready || state.busy
+          ? null
+          : () => runAdminUpdates(
+              context: context,
+              dauCompsViewModel: _pageDauCompsViewModel,
+              daucomp: daucomp,
+              onDisableBack: (bool disabled) =>
+                  setState(() => disableBack = disabled),
+            ),
+    );
+  }
+
+  /// Whether Run updates has anything to run against yet, and whether an
+  /// update is already under way.
+  ({bool ready, bool busy}) _runUpdatesState() {
+    if (_pageDauCompsViewModel.statsViewModel == null) {
+      return (ready: false, busy: false);
+    }
+    return (ready: true, busy: _pageDauCompsViewModel.isDownloading);
+  }
+
+  /// The action sits in the app bar, outside the page's Consumer, so nothing
+  /// rebuilds it when the view model loads or a download starts. Without this
+  /// it stayed disabled until an unrelated edit rebuilt the page.
+  void _refreshRunUpdatesAction() {
+    if (!mounted) {
+      return;
+    }
+    final state = _runUpdatesState();
+    if (state == _shownRunUpdates) {
+      return;
+    }
+    setState(() => _shownRunUpdates = state);
+  }
+
+  Future<void> _confirmDiscardChanges(bool didPop) async {
+    if (didPop || !mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        content: const Text(
+          'You have unsaved changes. Do you really want to discard them?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop(); // Close the dialog
+              Navigator.of(context).pop(); // Go back
+            },
+            child: const Text('Discard'),
+          ),
+        ],
       ),
     );
   }

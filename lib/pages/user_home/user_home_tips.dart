@@ -1,16 +1,17 @@
-import 'dart:developer';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_icon.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/models/game.dart';
 import 'package:flutter/material.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
 typedef _TipsScrollTarget = ({double offset, int sectionIndex});
@@ -22,200 +23,263 @@ class TipsTab extends StatefulWidget {
   TipsTabState createState() => TipsTabState();
 }
 
+/// The tips list, built once its comp's games are in their rounds and the
+/// tipper's tips have loaded, and opened at where the tipper belongs.
+///
+/// Every extent in the list is fixed, so the list's layout is known before it
+/// is laid out: it opens at its target on its first frame, and a relayout --
+/// cards remeasured, games arriving -- keeps the reader's game in place in the
+/// frame that makes it.
 class TipsTabState extends State<TipsTab> {
-  static const int _maxStartupScrollRetries = 120;
-  DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
+  final DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
+  final FocusNode focusNode = FocusNode();
 
-  late ScrollController scrollController;
-  late FocusNode focusNode;
-  String? _lastScrollSignature;
-  double _pendingStartupOffset = 0;
-  bool _startupScrollPending = false;
-  bool _startupScrollSettled = false;
-  int _startupScrollRetryCount = 0;
-  double _lastStartupMaxScrollExtent = -1;
-  int _activeSectionIndex = 0;
-  bool _showLoadingPlaceholder = true;
-  bool _stickyHeaderVisible = false;
-  double _topSafeInset = 0;
-  List<TipsLeagueSection> _cachedSections = const [];
-  final ValueNotifier<double> _stickyHeaderPushUpOffset =
-      ValueNotifier<double>(0);
+  ScrollController? _scrollController;
 
-  @override
-  void initState() {
-    super.initState();
+  /// What the list was placed for: the comp, the tipper's tips and the last
+  /// round completed. When it changes, a new list opens at the new target.
+  String? _placementKey;
 
-    focusNode = FocusNode();
-    scrollController = ScrollController();
-    scrollController.addListener(_handleScrollChanged);
-    daucompsViewModel.addListener(_onDAUCompsChanged);
-    _showLoadingPlaceholder = daucompsViewModel.selectedDAUComp == null;
-    _syncSelectedCompState();
-  }
+  /// The sections and scroll extent the list was last built with.
+  List<TipsLeagueSection> _laidOutSections = const [];
+  double _laidOutMaxScrollExtent = 0;
+
+  /// Whether a finger is moving the list, which a correction leaves alone.
+  bool _dragging = false;
+  TipsCardLayout? _cardLayout;
+  String? _cardLayoutKey;
+
+  /// The list's controller, once it has been placed.
+  ScrollController? get scrollController => _scrollController;
+
+  /// The measured row height every scroll offset in this tab is built from.
+  /// Exposed so navigation tests assert against the same value the list uses
+  /// rather than a constant that no longer describes the row.
+  double get cardExtent => _cardLayout?.cardExtent ?? Game.gameCardHeight;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _topSafeInset = MediaQuery.paddingOf(context).top;
-  }
-
-  double get _welcomeSliverHeight => WelcomeHeader.height + _topSafeInset;
-
-  void _onDAUCompsChanged() {
-    if (!mounted) return;
-    final selectedComp = daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
-      _lastScrollSignature = null;
-      _resetStartupScrollState();
-      _activeSectionIndex = 0;
-      _stickyHeaderVisible = false;
-      _cachedSections = const [];
-      _stickyHeaderPushUpOffset.value = 0;
-      if (!_showLoadingPlaceholder) {
-        setState(() {
-          _showLoadingPlaceholder = true;
-        });
-      }
-      return;
-    }
-
-    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
-    _syncSelectedCompState();
-    if (!_startupScrollPending) {
-      _syncActiveSectionIndex();
-      _syncStickyHeaderPushUp();
-    }
-    if (_showLoadingPlaceholder) {
-      setState(() {
-        _showLoadingPlaceholder = false;
-      });
-    }
-  }
-
-  void _syncSelectedCompState() {
-    final selectedComp = daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
-      return;
-    }
-
-    final latestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    final tipsLoaded =
-        daucompsViewModel.selectedTipperTipsViewModel?.isInitialLoadComplete ??
-        false;
-    final nextScrollSignature =
-        '${selectedComp.dbkey}:$latestRoundNumber:$tipsLoaded:${_buildItemExtentCacheKey(selectedComp)}';
-    if (_lastScrollSignature != nextScrollSignature) {
-      _lastScrollSignature = nextScrollSignature;
-      _startupScrollSettled = false;
-      _startupScrollRetryCount = 0;
-      _lastStartupMaxScrollExtent = -1;
-    }
-    if (_startupScrollSettled) {
-      return;
-    }
-    log(
-      'TipsPageBody._syncSelectedCompState() latestRoundNumber: $latestRoundNumber',
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: daucompsViewModel,
+      builder: (context, child) {
+        final selectedComp = daucompsViewModel.selectedDAUComp;
+        final tipsLoaded =
+            daucompsViewModel
+                .selectedTipperTipsViewModel
+                ?.isInitialLoadComplete ??
+            false;
+        // Before the games are in their rounds every round reads as empty,
+        // and a list placed then would be placed against games it does not
+        // have.
+        if (selectedComp == null ||
+            !daucompsViewModel.gamesLinked ||
+            !tipsLoaded) {
+          return Center(
+            child: CircularProgressIndicator(color: League.afl.colour),
+          );
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) =>
+              _buildList(context, constraints, selectedComp),
+        );
+      },
     );
+  }
 
-    _cachedSections = buildTipsLeagueSections(selectedComp: selectedComp);
-    final sections = _cachedSections;
-    final defaultTarget = _defaultScrollTarget(
+  Widget _buildList(
+    BuildContext context,
+    BoxConstraints constraints,
+    DAUComp selectedComp,
+  ) {
+    final layout = _syncCardLayout(context, constraints.maxWidth, selectedComp);
+    final sections = buildTipsLeagueSections(
       selectedComp: selectedComp,
-      sections: sections,
-      latestRoundNumber: latestRoundNumber,
+      cardExtent: layout.cardExtent,
+      headerExtent: layout.headerExtent,
     );
-    _pendingStartupOffset = defaultTarget.offset;
-    if (_activeSectionIndex != defaultTarget.sectionIndex) {
-      _activeSectionIndex = defaultTarget.sectionIndex;
-    }
-    _syncStickyHeaderVisibility(scrollOffsetOverride: _pendingStartupOffset);
-    _syncStickyHeaderPushUp(scrollOffsetOverride: _pendingStartupOffset);
+    final topInset = MediaQuery.paddingOf(context).top;
+    // Every offset here is measured from just below the status bar: the
+    // spacer under it moves the list down by the inset and the line its
+    // headers pin to down by the same, so the two cancel. Only the room the
+    // list has to show itself in is the inset less.
+    final maxScrollExtent = tipsMaxScrollExtent(
+      sections: sections,
+      leadingExtent: WelcomeHeader.height,
+      footerExtent: EndFooter.extentIn(context),
+      viewportExtent: constraints.maxHeight - topInset,
+    );
+    final controller = _place(selectedComp, sections, maxScrollExtent);
+    final sectionTops = [
+      for (var index = 0; index < sections.length; index++)
+        tipsSectionHeaderTop(
+          sections: sections,
+          sectionIndex: index,
+          leadingExtent: WelcomeHeader.height,
+        ),
+    ];
+    _laidOutSections = sections;
+    _laidOutMaxScrollExtent = maxScrollExtent;
+    final currentTipper = di<TippersViewModel>().selectedTipper;
 
-    // A post-frame jump may already be queued from an earlier startup state.
-    // Reuse that callback with the latest computed target instead of locking
-    // in the stale offset from the first cold-start snapshot.
-    if (_startupScrollPending) {
-      return;
-    }
-
-    _scheduleStartupScrollAttempt();
+    return KeyboardListener(
+      focusNode: focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Theme(
+        data: myTheme,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: _trackDrag,
+          child: CustomScrollView(
+            key: ValueKey(_placementKey),
+            controller: controller,
+            slivers: [
+              // The status bar's height, pinned and see-through: the cards
+              // scroll up under the status bar, and every round's header
+              // pins below it. Taps there do not reach a card that has
+              // scrolled past; a drag from there still scrolls.
+              PinnedHeaderSliver(
+                child: AbsorbPointer(child: SizedBox(height: topInset)),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: WelcomeHeader.height,
+                  child: WelcomeHeader(
+                    daucompsViewmodelConsumer: daucompsViewModel,
+                  ),
+                ),
+              ),
+              for (final (index, section) in sections.indexed)
+                buildRoundLeagueSection(
+                  section: section,
+                  dauCompsViewModel: daucompsViewModel,
+                  currentTipper: currentTipper,
+                  isPercentStatsPage: false,
+                  layout: layout,
+                  pinnedIn: (
+                    controller: controller,
+                    sectionTop: sectionTops[index],
+                  ),
+                ),
+              const SliverToBoxAdapter(child: EndFooter()),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  void _scheduleStartupScrollAttempt() {
-    _startupScrollPending = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startupScrollPending = false;
-      if (!mounted || !scrollController.hasClients) {
-        return;
-      }
-
-      final maxScrollExtent = scrollController.position.maxScrollExtent;
-      final clampedOffset = _pendingStartupOffset.clamp(0.0, maxScrollExtent);
-      scrollController.jumpTo(clampedOffset);
-      _syncStickyHeaderVisibility(scrollOffsetOverride: clampedOffset);
-      _syncActiveSectionIndex(scrollOffsetOverride: clampedOffset);
-      _syncStickyHeaderPushUp(scrollOffsetOverride: clampedOffset);
-
-      final hitTarget = (scrollController.offset - clampedOffset).abs() <= 8;
-      final targetBeyondCurrentMax =
-          _pendingStartupOffset > maxScrollExtent + 8;
-      final maxScrollExtentStable =
-          (_lastStartupMaxScrollExtent - maxScrollExtent).abs() <= 8;
-      if (hitTarget && (!targetBeyondCurrentMax || maxScrollExtentStable)) {
-        _startupScrollSettled = true;
+  /// The controller for a list laid out as [sections].
+  ///
+  /// A list placed for something else gets a new controller that opens at
+  /// the target. Otherwise, when the layout has moved under the reader, the
+  /// offset moves with it before the list is laid out, so the frame that
+  /// changes the layout already shows the reader's game where it was.
+  ScrollController _place(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> sections,
+    double maxScrollExtent,
+  ) {
+    final placementKey =
+        '${selectedComp.dbkey}:'
+        '${identityHashCode(daucompsViewModel.selectedTipperTipsViewModel)}:'
+        '${selectedComp.latestsCompletedRoundNumber()}';
+    final current = _scrollController;
+    if (current == null || placementKey != _placementKey) {
+      final target = _defaultScrollTarget(selectedComp, sections).offset;
+      final next = ScrollController(
+        initialScrollOffset: target.clamp(0.0, maxScrollExtent),
+        // The list's position is where it was placed, not one remembered from
+        // the list it replaces.
+        keepScrollOffset: false,
+      );
+      _placementKey = placementKey;
+      _scrollController = next;
+      if (current == null) {
+        // The first list this tab has placed is the one startup opens on.
+        StartupProfiling.instant('startup.tips_placed');
         StartupProfiling.end('startup.tips_page_stable');
-        return;
+        return next;
       }
+      // The list it replaces lets go of it as this frame is built.
+      WidgetsBinding.instance.addPostFrameCallback((_) => current.dispose());
+      return next;
+    }
 
-      if (_startupScrollRetryCount >= _maxStartupScrollRetries) {
-        _startupScrollSettled = true;
-        return;
+    final moved =
+        !sameTipsLayout(_laidOutSections, sections) ||
+        (maxScrollExtent - _laidOutMaxScrollExtent).abs() > 0.5;
+    if (!moved || !current.hasClients) {
+      return current;
+    }
+    final position = current.position;
+    // A reader at the end of a list that scrolled stays at its end.
+    final atEnd =
+        _laidOutMaxScrollExtent > 0 &&
+        position.pixels >= _laidOutMaxScrollExtent - 0.5;
+    final offset = atEnd
+        ? maxScrollExtent
+        : anchoredTipsScrollOffset(
+                before: _laidOutSections,
+                after: sections,
+                leadingExtent: WelcomeHeader.height,
+                scrollOffset: position.pixels,
+              ) ??
+              _defaultScrollTarget(selectedComp, sections).offset;
+    position.correctPixels(offset.clamp(0.0, maxScrollExtent));
+    _stopAfterCorrection(position);
+    return current;
+  }
+
+  /// A running animation or fling carries on in the old layout's offsets and
+  /// would take the reader straight back out of place on its next tick, so it
+  /// stops where the correction put them. A finger on the list keeps it. Done
+  /// after the frame, not during this build: stopping one sends scroll
+  /// notifications.
+  void _stopAfterCorrection(ScrollPosition position) {
+    if (!position.isScrollingNotifier.value || _dragging) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (position.isScrollingNotifier.value && !_dragging) {
+        // Releasing a hold settles the list where it is.
+        position.hold(() {}).cancel();
       }
-
-      _startupScrollRetryCount += 1;
-      _lastStartupMaxScrollExtent = maxScrollExtent;
-      _scheduleStartupScrollAttempt();
     });
   }
 
-  void _resetStartupScrollState() {
-    _pendingStartupOffset = 0;
-    _startupScrollPending = false;
-    _startupScrollSettled = false;
-    _startupScrollRetryCount = 0;
-    _lastStartupMaxScrollExtent = -1;
+  /// Follows whether a finger is moving the list.
+  bool _trackDrag(ScrollNotification notification) {
+    if (notification is ScrollStartNotification) {
+      _dragging = notification.dragDetails != null;
+    } else if (notification is ScrollEndNotification) {
+      _dragging = false;
+    }
+    return false;
   }
 
+  /// Each tap of the selected TIPS tab moves to the next of: where startup
+  /// put the reader, the current round's NRL, then its AFL.
   void scrollToNextNavigationPosition() {
     final selectedComp = daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
+    final controller = _scrollController;
+    final sections = _laidOutSections;
+    if (selectedComp == null ||
+        controller == null ||
+        !controller.hasClients ||
+        sections.isEmpty) {
       return;
     }
 
-    final sections = buildTipsLeagueSections(selectedComp: selectedComp);
-    if (sections.isEmpty) {
-      return;
-    }
-    _cachedSections = sections;
-
-    final defaultTarget = _defaultScrollTarget(
-      selectedComp: selectedComp,
-      sections: sections,
-      latestRoundNumber: selectedComp.latestsCompletedRoundNumber(),
-    );
+    final defaultTarget = _defaultScrollTarget(selectedComp, sections);
     final targetRoundIndex = sections[defaultTarget.sectionIndex].roundIndex;
     final leagueTargets = <_TipsScrollTarget>[
-      for (final league in const [League.nrl, League.afl])
-        if (_sectionIndexForRoundAndLeague(
-          sections: sections,
-          roundIndex: targetRoundIndex,
-          league: league,
-        ) case final sectionIndex when sectionIndex >= 0)
+      for (final (sectionIndex, section) in sections.indexed)
+        if (section.roundIndex == targetRoundIndex)
           (
-            offset: _startupScrollOffset(
+            offset: tipsSectionHeaderTop(
               sections: sections,
-              targetSectionIndex: sectionIndex,
+              sectionIndex: sectionIndex,
+              leadingExtent: WelcomeHeader.height,
             ),
             sectionIndex: sectionIndex,
           ),
@@ -226,456 +290,181 @@ class TipsTabState extends State<TipsTab> {
     final cycleTargets = defaultMatchesLeagueTarget
         ? leagueTargets
         : [defaultTarget, ...leagueTargets];
-    if (cycleTargets.isEmpty) {
-      return;
-    }
 
-    final maxScrollExtent = scrollController.hasClients
-        ? scrollController.position.maxScrollExtent
-        : double.infinity;
-    final currentOffset = scrollController.hasClients
-        ? scrollController.offset
-        : 0.0;
+    final maxScrollExtent = controller.position.maxScrollExtent;
     final currentTargetIndex = cycleTargets.indexWhere((target) {
       final reachableOffset = target.offset.clamp(0.0, maxScrollExtent);
-      return (currentOffset - reachableOffset).abs() <= 8;
+      return (controller.offset - reachableOffset).abs() <= 8;
     });
     final nextTarget = currentTargetIndex == -1
         ? cycleTargets.first
         : cycleTargets[(currentTargetIndex + 1) % cycleTargets.length];
-
-    _resetStartupScrollState();
-    _pendingStartupOffset = nextTarget.offset;
-    final nextActiveSectionIndex = activeStickyTipsLeagueSectionIndex(
-      sections: sections,
-      scrollOffset: nextTarget.offset,
-      leadingExtent: _welcomeSliverHeight,
-      topSafeInset: _topSafeInset,
-    );
-    final sectionChanged = _activeSectionIndex != nextActiveSectionIndex;
-    _activeSectionIndex = nextActiveSectionIndex;
-    final visibilityChanged = _updateStickyHeaderVisibility(
-      scrollOffsetOverride: nextTarget.offset,
-    );
-    _syncStickyHeaderPushUp(scrollOffsetOverride: nextTarget.offset);
-    if (sectionChanged || visibilityChanged) {
-      setState(() {});
-    }
-    _scheduleStartupScrollAttempt();
+    controller.jumpTo(nextTarget.offset.clamp(0.0, maxScrollExtent));
   }
 
-  _TipsScrollTarget _defaultScrollTarget({
-    required DAUComp selectedComp,
-    required List<TipsLeagueSection> sections,
-    required int latestRoundNumber,
-  }) {
+  _TipsScrollTarget _defaultScrollTarget(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> sections,
+  ) {
     final isCompComplete =
-        latestRoundNumber >= selectedComp.daurounds.length &&
+        selectedComp.latestsCompletedRoundNumber() >=
+            selectedComp.daurounds.length &&
         sections.isNotEmpty;
     if (isCompComplete) {
       return (
-        offset: _endFooterStartupOffset(sections),
+        offset: tipsEndFooterOffset(
+          sections: sections,
+          leadingExtent: WelcomeHeader.height,
+        ),
         sectionIndex: sections.length - 1,
       );
     }
 
-    final targetSectionIndex = _targetStartupSectionIndex(
+    final targetSectionIndex = targetStartupSectionIndex(
       selectedComp,
       sections,
     );
-    return (
-      offset:
-          _startupScrollOffset(
-            sections: sections,
-            targetSectionIndex: targetSectionIndex,
-          ) +
-          _intraRoundScrollRefinement(
+    final tipsViewModel = daucompsViewModel.selectedTipperTipsViewModel;
+    final tipper = di<TippersViewModel>().selectedTipper;
+    final refinement = sections.isEmpty || tipsViewModel == null
+        ? 0.0
+        : intraRoundScrollRefinement(
             selectedComp: selectedComp,
             sections: sections,
             targetSectionIndex: targetSectionIndex,
-          ),
+            firstUntippedGameIndex: (games) =>
+                tipsViewModel.firstUntippedGameIndex(games, tipper),
+            cardExtent: cardExtent,
+          );
+    // Round 1 opens on the welcome until a game in it starts, unless a later
+    // game in it is the one to tip. A live game is somewhere to go.
+    final roundUnderway =
+        sections.isNotEmpty &&
+        selectedComp.daurounds[sections[targetSectionIndex].roundIndex].games
+            .any(
+              (game) =>
+                  game.gameState == GameState.startedResultNotKnown ||
+                  game.gameState == GameState.startedResultKnown,
+            );
+    if (targetSectionIndex == 0 && refinement == 0 && !roundUnderway) {
+      return (offset: 0.0, sectionIndex: 0);
+    }
+    return (
+      offset:
+          tipsSectionHeaderTop(
+            sections: sections,
+            sectionIndex: targetSectionIndex,
+            leadingExtent: WelcomeHeader.height,
+          ) +
+          refinement,
       sectionIndex: targetSectionIndex,
     );
   }
 
-  int _sectionIndexForRoundAndLeague({
-    required List<TipsLeagueSection> sections,
-    required int roundIndex,
-    required League league,
-  }) {
-    return sections.indexWhere(
-      (section) =>
-          section.roundIndex == roundIndex && section.league == league,
-    );
-  }
-
-  void _handleScrollChanged() {
-    if (!mounted) {
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final distance = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowDown => 100.0,
+      LogicalKeyboardKey.arrowUp => -100.0,
+      LogicalKeyboardKey.space => 300.0,
+      LogicalKeyboardKey.pageDown => viewportHeight,
+      LogicalKeyboardKey.pageUp => -viewportHeight,
+      _ => null,
+    };
+    final controller = _scrollController;
+    if (distance == null || controller == null || !controller.hasClients) {
       return;
     }
-    final visibilityChanged = _updateStickyHeaderVisibility();
-    final sectionChanged = _updateActiveSectionIndex();
-    _updateStickyHeaderPushUp();
-    if (visibilityChanged || sectionChanged) {
-      setState(() {});
-    }
-  }
-
-  int _targetStartupSectionIndex(
-    DAUComp selectedComp,
-    List<TipsLeagueSection> sections,
-  ) {
-    return targetStartupSectionIndex(selectedComp, sections);
-  }
-
-  double _startupScrollOffset({
-    required List<TipsLeagueSection> sections,
-    required int targetSectionIndex,
-  }) {
-    var offset = _welcomeSliverHeight;
-    for (var index = 0; index < targetSectionIndex; index++) {
-      if (index != 0) {
-        offset += sections[index].headerExtent;
-      }
-      offset += sections[index].bodyExtent;
-    }
-    return targetSectionIndex == 0
-        ? offset
-        : (offset - _topSafeInset).clamp(0.0, double.infinity);
-  }
-
-  double _intraRoundScrollRefinement({
-    required DAUComp selectedComp,
-    required List<TipsLeagueSection> sections,
-    required int targetSectionIndex,
-  }) {
-    final tipsViewModel = daucompsViewModel.selectedTipperTipsViewModel;
-    if (tipsViewModel == null || !tipsViewModel.isInitialLoadComplete) {
-      return 0;
-    }
-
-    final tipper = di<TippersViewModel>().selectedTipper;
-    return intraRoundScrollRefinement(
-      selectedComp: selectedComp,
-      sections: sections,
-      targetSectionIndex: targetSectionIndex,
-      firstUntippedGameIndex: (games) =>
-          tipsViewModel.firstUntippedGameIndex(games, tipper),
-    );
-  }
-
-  double _endFooterStartupOffset(List<TipsLeagueSection> sections) {
-    if (sections.isEmpty) {
-      return 0;
-    }
-
-    var offset = _welcomeSliverHeight + sections.first.bodyExtent;
-    for (var index = 1; index < sections.length; index++) {
-      offset += sections[index].headerExtent + sections[index].bodyExtent;
-    }
-
-    final stickyOverlayExtent = sections.last.headerExtent + _topSafeInset;
-    return (offset - stickyOverlayExtent).clamp(0.0, double.infinity);
-  }
-
-  bool _updateStickyHeaderVisibility({double? scrollOffsetOverride}) {
-    final scrollOffset =
-        scrollOffsetOverride ??
-        (scrollController.hasClients ? scrollController.offset : 0);
-    final nextVisibility = scrollOffset >= _welcomeSliverHeight;
-    if (_stickyHeaderVisible == nextVisibility) {
-      return false;
-    }
-    _stickyHeaderVisible = nextVisibility;
-    return true;
-  }
-
-  void _syncStickyHeaderVisibility({double? scrollOffsetOverride}) {
-    if (_updateStickyHeaderVisibility(
-      scrollOffsetOverride: scrollOffsetOverride,
-    )) {
-      setState(() {});
-    }
-  }
-
-  bool _updateActiveSectionIndex({double? scrollOffsetOverride}) {
-    final sections = _cachedSections;
-    if (sections.isEmpty) {
-      return false;
-    }
-
-    final scrollOffset =
-        scrollOffsetOverride ??
-        (scrollController.hasClients ? scrollController.offset : 0);
-    final nextIndex = activeStickyTipsLeagueSectionIndex(
-      sections: sections,
-      scrollOffset: scrollOffset,
-      leadingExtent: _welcomeSliverHeight,
-      topSafeInset: _topSafeInset,
-    );
-
-    if (_activeSectionIndex == nextIndex) {
-      return false;
-    }
-    _activeSectionIndex = nextIndex;
-    return true;
-  }
-
-  void _syncActiveSectionIndex({double? scrollOffsetOverride}) {
-    if (_updateActiveSectionIndex(scrollOffsetOverride: scrollOffsetOverride)) {
-      setState(() {});
-    }
-  }
-
-  bool _showsInlineHeaderForSection(int index, {required bool stickyVisible}) {
-    return index != 0 || !stickyVisible;
-  }
-
-  double _sectionHeaderTopOffset(
-    int targetSectionIndex, {
-    required bool stickyVisible,
-    List<TipsLeagueSection>? sections,
-  }) {
-    final activeSections = sections ?? _cachedSections;
-    var offset = _welcomeSliverHeight;
-    for (var index = 0; index < targetSectionIndex; index++) {
-      if (_showsInlineHeaderForSection(index, stickyVisible: stickyVisible)) {
-        offset += activeSections[index].headerExtent;
-      }
-      offset += activeSections[index].bodyExtent;
-    }
-    return offset;
-  }
-
-  bool _updateStickyHeaderPushUp({double? scrollOffsetOverride}) {
-    final sections = _cachedSections;
-    if (!_stickyHeaderVisible ||
-        sections.isEmpty ||
-        _activeSectionIndex >= sections.length - 1) {
-      if (_stickyHeaderPushUpOffset.value == 0) {
-        return false;
-      }
-      _stickyHeaderPushUpOffset.value = 0;
-      return true;
-    }
-
-    final scrollOffset =
-        scrollOffsetOverride ??
-        (scrollController.hasClients ? scrollController.offset : 0);
-    final stickyHeight = sections[_activeSectionIndex].headerExtent;
-    final nextHeaderTop = _sectionHeaderTopOffset(
-      _activeSectionIndex + 1,
-      stickyVisible: true,
-      sections: sections,
-    );
-    final distanceToNextHeader =
-        nextHeaderTop - (scrollOffset + _topSafeInset);
-    final nextPushUp = (stickyHeight - distanceToNextHeader).clamp(
-      0.0,
-      stickyHeight,
-    );
-
-    if ((_stickyHeaderPushUpOffset.value - nextPushUp).abs() <= 0.5) {
-      return false;
-    }
-
-    _stickyHeaderPushUpOffset.value = nextPushUp;
-    return true;
-  }
-
-  void _syncStickyHeaderPushUp({double? scrollOffsetOverride}) {
-    _updateStickyHeaderPushUp(scrollOffsetOverride: scrollOffsetOverride);
-  }
-
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      final double viewportHeight = MediaQuery.of(context).size.height;
-
-      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        _scrollBy(100);
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        _scrollBy(-100);
-      } else if (event.logicalKey == LogicalKeyboardKey.space) {
-        _scrollBy(300);
-      } else if (event.logicalKey == LogicalKeyboardKey.pageDown) {
-        _scrollBy(viewportHeight);
-      } else if (event.logicalKey == LogicalKeyboardKey.pageUp) {
-        _scrollBy(-viewportHeight);
-      }
-    }
-  }
-
-  void _scrollBy(double offset) {
-    scrollController.animateTo(
-      scrollController.offset + offset,
+    controller.animateTo(
+      controller.offset + distance,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_showLoadingPlaceholder || daucompsViewModel.selectedDAUComp == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.orange),
-      );
+  /// Measures once per competition, width, text scale and set of names. The
+  /// width comes from the list's own constraints and never from MediaQuery:
+  /// the app shell caps the content, so the window is a different box from
+  /// the card. The names and grounds the cards are measured for arrive with
+  /// the games, and a finals placeholder gives way to a team's name.
+  TipsCardLayout _syncCardLayout(
+    BuildContext context,
+    double width,
+    DAUComp selectedComp,
+  ) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textTheme = Theme.of(context).textTheme;
+    final key =
+        '${selectedComp.dbkey}:$width:${textScaler.scale(16)}:'
+        '${_measuredTextKey(selectedComp)}';
+    final current = _cardLayout;
+    if (key == _cardLayoutKey && current != null) {
+      return current;
     }
-
-    return KeyboardListener(
-      focusNode: focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<DAUCompsViewModel>.value(
-            value: daucompsViewModel,
-          ),
-        ],
-        child: Theme(
-          data: myTheme,
-          child: Consumer<DAUCompsViewModel>(
-            builder: (context, daucompsViewmodelConsumer, client) {
-              final sections = _cachedSections;
-              if (sections.isEmpty) {
-                return ChangeNotifierProvider<StatsViewModel?>.value(
-                  value: daucompsViewmodelConsumer.statsViewModel,
-                  child: CustomScrollView(
-                    controller: scrollController,
-                    restorationId: 'tipsListView',
-                    slivers: const [SliverToBoxAdapter(child: EndFooter())],
-                  ),
-                );
-              }
-              final stickySection =
-                  sections[_activeSectionIndex.clamp(0, sections.length - 1)];
-
-              return ChangeNotifierProvider<StatsViewModel?>.value(
-                value: daucompsViewmodelConsumer.statsViewModel,
-                child: Stack(
-                  children: [
-                    CustomScrollView(
-                      controller: scrollController,
-                      restorationId: 'tipsListView',
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            height: _welcomeSliverHeight,
-                            child: Column(
-                              children: [
-                                SizedBox(height: _topSafeInset),
-                                Expanded(
-                                  child: WelcomeHeader(
-                                    daucompsViewmodelConsumer:
-                                        daucompsViewmodelConsumer,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        for (
-                          var sectionIndex = 0;
-                          sectionIndex < sections.length;
-                          sectionIndex++
-                        )
-                          ...buildRoundLeagueSectionSlivers(
-                            section: sections[sectionIndex],
-                            roundIndex: sections[sectionIndex].roundIndex,
-                            league: sections[sectionIndex].league,
-                            dauCompsViewModel: daucompsViewmodelConsumer,
-                            currentTipper:
-                                di<TippersViewModel>().selectedTipper,
-                            isPercentStatsPage: false,
-                            showInlineHeader:
-                                sectionIndex != 0 || !_stickyHeaderVisible,
-                            hideInlineHeaderVisual:
-                                _stickyHeaderVisible &&
-                                sectionIndex == _activeSectionIndex,
-                          ),
-                        const SliverToBoxAdapter(child: EndFooter()),
-                      ],
-                    ),
-                    if (_stickyHeaderVisible)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: IgnorePointer(
-                          child: ValueListenableBuilder<double>(
-                            valueListenable: _stickyHeaderPushUpOffset,
-                            builder: (context, pushUpOffset, child) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SizedBox(height: _topSafeInset),
-                                  Transform.translate(
-                                    offset: Offset(0, -pushUpOffset),
-                                    child: child,
-                                  ),
-                                ],
-                              );
-                            },
-                            child: TipsStickyHeader(
-                              section: stickySection,
-                              dauCompsViewModel: daucompsViewmodelConsumer,
-                              currentTipper:
-                                  di<TippersViewModel>().selectedTipper,
-                              isPercentStatsPage: false,
-                              topPadding: 0,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    _cardLayoutKey = key;
+    return _cardLayout = TipsCardLayout.measure(
+      width: width,
+      textScaler: textScaler,
+      textTheme: textTheme,
+      textDirection: Directionality.of(context),
+      cards: [
+        for (final card in tipsMeasurementCards(selectedComp.daurounds))
+          card.content(textTheme),
+      ],
     );
   }
 
-  String _buildItemExtentCacheKey(DAUComp selectedComp) {
-    final buffer = StringBuffer('${selectedComp.dbkey}|');
+  /// Folded in one game at a time: the tab builds on every notification, and
+  /// listing every name first allocated a list as long as the season.
+  int _measuredTextKey(DAUComp selectedComp) {
+    var key = 0;
     for (final dauRound in selectedComp.daurounds) {
-      buffer
-        ..write(dauRound.dAUroundNumber)
-        ..write(':')
-        ..write(dauRound.roundState.index)
-        ..write(':')
-        ..write(dauRound.getGamesForLeague(League.nrl).length)
-        ..write(':')
-        ..write(dauRound.getGamesForLeague(League.afl).length)
-        ..write(';');
+      for (final game in dauRound.games) {
+        key = Object.hash(
+          key,
+          dauRound.dAUroundNumber,
+          game.homeTeam.name,
+          game.awayTeam.name,
+          game.location,
+        );
+      }
     }
-    return buffer.toString();
+    return key;
   }
 
   @override
   void dispose() {
-    daucompsViewModel.removeListener(_onDAUCompsChanged);
-    scrollController.removeListener(_handleScrollChanged);
-    _stickyHeaderPushUpOffset.dispose();
     focusNode.dispose();
-    scrollController.dispose();
+    _scrollController?.dispose();
     super.dispose();
   }
 }
 
+/// The last card of the list.
+///
+/// Taller by the room the floating controls take along the bottom, so the card
+/// can scroll clear of them. Its content stays where it was, at the top, and the
+/// extra is simply card below it.
 class EndFooter extends StatelessWidget {
   const EndFooter({super.key});
 
   static const double height = kTipsEndFooterHeight;
 
+  /// The footer's height here, the room for the floating controls included.
+  static double extentIn(BuildContext context) =>
+      height + MediaQuery.paddingOf(context).bottom;
+
   @override
   Widget build(BuildContext context) {
+    final controlsRoom = MediaQuery.paddingOf(context).bottom;
     return SizedBox(
-      height: height,
-      child: const _CompBoundaryCard(
+      height: extentIn(context),
+      child: _CompBoundaryCard(
         iconSize: 46,
         title: 'End of regular competition',
         body: 'Hope to see you again next year.',
+        bottomRoom: controlsRoom,
       ),
     );
   }
@@ -694,8 +483,7 @@ class WelcomeHeader extends StatelessWidget {
       iconSize: 64,
       title:
           'Start of competition\n${daucompsViewmodelConsumer.selectedDAUComp!.name}',
-      body:
-          'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
+      body: 'New here? You will find instructions and scoring information in the [Help...] section on the Profile Tab.',
     );
   }
 }
@@ -705,19 +493,25 @@ class _CompBoundaryCard extends StatelessWidget {
     required this.iconSize,
     required this.title,
     this.body,
+    this.bottomRoom = 0,
   });
 
   final double iconSize;
   final String title;
   final String? body;
 
+  /// Extra card kept empty below the content.
+  final double bottomRoom;
+
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
       color: Colors.black38,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 10.0),
+        padding: EdgeInsets.fromLTRB(18.0, 10.0, 18.0, 10.0 + bottomRoom),
         child: Row(
           children: [
             SizedBox(

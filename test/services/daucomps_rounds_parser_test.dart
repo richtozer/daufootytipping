@@ -35,7 +35,34 @@ void main() {
       expect(d, DateTime.parse('2025-08-12T00:00:00Z'));
     });
 
-    test('applyCutoffFilter removes rounds after cutoff', () {
+    test('applyCutoffFilter removes rounds after cutoff when both leagues have a cutoff', () {
+      final rounds = <DAURound>[
+        DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.parse('2025-08-01T00:00:00Z'),
+          lastGameKickOffUTC: DateTime.parse('2025-08-01T12:00:00Z'),
+        ),
+        DAURound(
+          dAUroundNumber: 2,
+          firstGameKickOffUTC: DateTime.parse('2025-09-01T00:00:00Z'),
+          lastGameKickOffUTC: DateTime.parse('2025-09-01T12:00:00Z'),
+        ),
+      ];
+      final comp = DAUComp(
+        dbkey: 'c',
+        name: 'Comp',
+        aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+        nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+        daurounds: rounds,
+        aflRegularCompEndDateUTC: DateTime.parse('2025-08-15T00:00:00Z'),
+        nrlRegularCompEndDateUTC: DateTime.parse('2025-08-20T00:00:00Z'),
+      );
+      parser.applyCutoffFilter(comp);
+      expect(comp.daurounds.length, 1);
+      expect(comp.daurounds.first.dAUroundNumber, 1);
+    });
+
+    test('applyCutoffFilter keeps all rounds when only one league has a cutoff', () {
       final rounds = <DAURound>[
         DAURound(
           dAUroundNumber: 1,
@@ -56,9 +83,9 @@ void main() {
         daurounds: rounds,
         aflRegularCompEndDateUTC: DateTime.parse('2025-08-15T00:00:00Z'),
       );
+      expect(parser.computeGreaterEndDate(comp), isNull);
       parser.applyCutoffFilter(comp);
-      expect(comp.daurounds.length, 1);
-      expect(comp.daurounds.first.dAUroundNumber, 1);
+      expect(comp.daurounds.length, 2);
     });
   });
 }

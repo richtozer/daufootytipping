@@ -39,6 +39,34 @@ seed_namespace() {
     return 1
   fi
 
+  # The app links a signed-in account to its tipper through the identity callables, which
+  # refuse everyone unless the server mode allows it, and a production snapshot holds no
+  # identity data for the emulator's own accounts. Without this a fresh emulator greets the
+  # first sign-in with "Signing in is not available right now". `coexist` lets a new
+  # emulator account create its tipper; set SEED_IDENTITY_MODE=off to test the refusal.
+  local identity_mode="${SEED_IDENTITY_MODE:-coexist}"
+  curl --fail --silent --show-error \
+    -X PUT \
+    -H "Authorization: Bearer owner" \
+    -H "Content-Type: application/json" \
+    --data "\"${identity_mode}\"" \
+    "${base_url}/ServerConfig/identity/mode.json?ns=${ns}" >/dev/null
+  echo "Identity server mode set to ${identity_mode} (ns=${ns})."
+
+  # Exports taken before /TeamLogos existed have no logos, so lay the checked-in ones over
+  # the snapshot. This is the same patch scripts/seed_team_logos.mjs builds for production.
+  local logos_patch
+  logos_patch="$(mktemp)"
+  node "$(dirname "$0")/seed_team_logos.mjs" --patch-out "${logos_patch}" >/dev/null
+  curl --fail --silent --show-error \
+    -X PATCH \
+    -H "Authorization: Bearer owner" \
+    -H "Content-Type: application/json" \
+    --data-binary @"${logos_patch}" \
+    "${base_url}/.json?ns=${ns}" >/dev/null
+  rm -f "${logos_patch}"
+  echo "Team logos seeded from team_logos/ (ns=${ns})."
+
   echo "Seeded Realtime Database emulator successfully (ns=${ns})."
   return 0
 }

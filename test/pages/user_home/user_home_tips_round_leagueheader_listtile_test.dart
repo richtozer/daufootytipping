@@ -14,7 +14,6 @@ import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:provider/provider.dart';
 
 class MockDAUCompsViewModel extends Mock implements DAUCompsViewModel {}
 
@@ -26,12 +25,7 @@ void main() {
   testWidgets('masks rank change when no game has a known result', (
     tester,
   ) async {
-    await _pumpHeader(
-      tester,
-      hasScoredGame: false,
-      rank: 1,
-      rankChange: 4,
-    );
+    await _pumpHeader(tester, hasScoredGame: false, rank: 1, rankChange: 4);
 
     expect(find.text('Rank: ?  '), findsOneWidget);
     expect(find.text('Rank: 1  '), findsNothing);
@@ -94,9 +88,7 @@ Future<void> _pumpHeader(
     homeTeam: Team(dbkey: 'home', name: 'Home', league: League.nrl),
     awayTeam: Team(dbkey: 'away', name: 'Away', league: League.nrl),
     location: 'Test Oval',
-    startTimeUTC: now.subtract(
-      Duration(hours: hasScoredGame ? 3 : 1),
-    ),
+    startTimeUTC: now.subtract(Duration(hours: hasScoredGame ? 3 : 1)),
     fixtureRoundNumber: 1,
     fixtureMatchNumber: 1,
     scoring: hasScoredGame
@@ -150,9 +142,8 @@ Future<void> _pumpHeader(
     aflTipsOutstanding: 0,
   );
 
-  when(
-    () => compsViewModel.selectedTipperTipsViewModel,
-  ).thenReturn(tipsViewModel);
+  when(() => compsViewModel.selectedTipperTipsViewModel)
+      .thenReturn(tipsViewModel);
   when(() => compsViewModel.selectedDAUComp).thenReturn(comp);
   when(
     () => tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
@@ -168,24 +159,20 @@ Future<void> _pumpHeader(
   ).thenReturn(0);
   when(() => statsViewModel.addListener(any())).thenReturn(null);
   when(() => statsViewModel.removeListener(any())).thenReturn(null);
-  when(
-    () => statsViewModel.getScoringRoundStats(round, tipper),
-  ).thenReturn(roundStats);
+  when(() => statsViewModel.getScoringRoundStats(round, tipper))
+      .thenReturn(roundStats);
+  when(() => compsViewModel.statsViewModel).thenReturn(statsViewModel);
 
   await tester.pumpWidget(
     MaterialApp(
-      home: ChangeNotifierProvider<StatsViewModel?>.value(
-        value: statsViewModel,
-        child: Scaffold(
-          body: RoundLeagueHeaderListTile(
-            league: League.nrl,
-            logoWidth: 50,
-            logoHeight: 50,
-            dauRound: round,
-            dauCompsViewModel: compsViewModel,
-            selectedTipper: tipper,
-            isPercentStatsPage: false,
-          ),
+      home: Scaffold(
+        body: RoundLeagueHeaderListTile(
+          league: League.nrl,
+          logoWidth: 50,
+          logoHeight: 50,
+          dauRound: round,
+          dauCompsViewModel: compsViewModel,
+          selectedTipper: tipper,
         ),
       ),
     ),

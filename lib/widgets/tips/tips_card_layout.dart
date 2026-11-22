@@ -1,0 +1,553 @@
+import 'dart:math' as math;
+
+import 'package:daufootytipping/theme_data.dart';
+import 'package:flutter/material.dart';
+
+/// How a card is arranged.
+///
+/// [wide] is one row, both names beside the "V". [compact] is the carousel
+/// beside a narrow two-line matchup, each logo next to its name, for a short
+/// wide pane such as a phone in landscape. [standard] is the carousel beside
+/// the older three-line matchup. [stacked] puts the matchup above the carousel.
+enum TipsCardMode { wide, compact, standard, stacked }
+
+/// Space either side of a score inside its highlight.
+const double kScoreBadgePadding = 4;
+
+/// A winning score, drawn as a small rounded badge inline with the team's name.
+///
+/// A text background cannot be rounded, so the badge is a widget. It reports
+/// its own size, so measuring the name as text, which has no widgets to ask,
+/// still gives the height and width it will really take.
+class ScoreBadgeSpan extends WidgetSpan {
+  ScoreBadgeSpan({
+    required this.score,
+    required this.scoreStyle,
+    required Color fill,
+    required Color textColor,
+  }) : super(
+         alignment: PlaceholderAlignment.baseline,
+         baseline: TextBaseline.alphabetic,
+         child: DecoratedBox(
+           decoration: BoxDecoration(
+             color: fill,
+             borderRadius: BorderRadius.circular(kCardCornerRadius),
+           ),
+           child: Padding(
+             padding: const EdgeInsets.symmetric(
+               horizontal: kScoreBadgePadding,
+             ),
+             // Not scaled here: the paragraph scales an inline widget by the text
+             // size itself, so scaling the text too would count it twice.
+             child: Text(
+               score,
+               style: scoreStyle.copyWith(color: textColor),
+               textScaler: TextScaler.noScaling,
+             ),
+           ),
+         ),
+       );
+
+  final String score;
+  final TextStyle scoreStyle;
+
+  /// The badge's size and where its text sits, which is what the surrounding
+  /// text needs to place it on its own baseline.
+  PlaceholderDimensions dimensions(TextScaler scaler, TextDirection direction) {
+    final painter = TextPainter(
+      text: TextSpan(text: score, style: scoreStyle),
+      textScaler: scaler,
+      textDirection: direction,
+    )..layout();
+    final dimensions = PlaceholderDimensions(
+      size: Size(
+        painter.width + 2 * scaler.scale(kScoreBadgePadding),
+        painter.height,
+      ),
+      alignment: PlaceholderAlignment.baseline,
+      baseline: TextBaseline.alphabetic,
+      baselineOffset: painter.computeDistanceToActualBaseline(
+        TextBaseline.alphabetic,
+      ),
+    );
+    painter.dispose();
+    return dimensions;
+  }
+}
+
+/// Tells [painter] how big each inline badge in its text will be, which a bare
+/// TextPainter needs before it can lay out text that contains widgets.
+void setBadgeDimensions(TextPainter painter) {
+  final span = painter.text;
+  if (span == null) return;
+  final dimensions = <PlaceholderDimensions>[];
+  span.visitChildren((child) {
+    if (child is PlaceholderSpan) {
+      dimensions.add(
+        child is ScoreBadgeSpan
+            ? child.dimensions(painter.textScaler, painter.textDirection!)
+            : PlaceholderDimensions.empty,
+      );
+    }
+    return true;
+  });
+  if (dimensions.isNotEmpty) painter.setPlaceholderDimensions(dimensions);
+}
+
+/// The width the round block is held to while its label is stacked above the
+/// number. Going inline needs more, and takes it from the stats beside it.
+const double kStackedRoundBlockWidth = 86;
+
+enum TipsChoiceArrangement { inline, paired, vertical }
+
+/// Space between a team's logo and its name in the stacked matchup.
+const double kStackedLogoGap = 4;
+
+/// Space the "V" (or the edit pencil) takes beside the name it shares a line
+/// with, on top of its own width.
+const double kStackedMarkGap = 8;
+
+/// The exact styled content rendered by one card, grouped for height measurement.
+class TipsCardContent {
+  const TipsCardContent({
+    required this.home,
+    required this.away,
+    required this.info,
+    required this.results,
+    required this.editable,
+    required this.choiceLabels,
+  });
+  final List<String> choiceLabels;
+  final TextSpan home;
+  final TextSpan away;
+  final String info;
+  final List<TextSpan> results;
+  final bool editable;
+}
+
+/// Measurements shared by all cards in one list, including its scroll offsets.
+/// TextPainter uses the actual scaler rather than assuming linear font scaling.
+class TipsCardLayout {
+  const TipsCardLayout({
+    this.carouselViewportFraction = viewportFraction,
+    required this.mode,
+    required this.choices,
+    required this.cardExtent,
+    required this.carouselHeight,
+    required this.matchupWidth,
+    required this.matchupHeight,
+    required this.standardMinWidth,
+    required this.compactMinWidth,
+    required this.wideMinWidth,
+    required this.headerExtent,
+    required this.inlineRoundLabel,
+  });
+
+  final TipsCardMode mode;
+  final double carouselViewportFraction;
+  final TipsChoiceArrangement choices;
+  final double cardExtent;
+  final double carouselHeight;
+  final double matchupWidth;
+  final double matchupHeight;
+  final double standardMinWidth;
+  final double compactMinWidth;
+  final double wideMinWidth;
+
+  /// Whether the round header can sit its label beside the number rather
+  /// than above it. A property of the header's own width, not of the card's
+  /// arrangement: a standard card in landscape has the room for it.
+  final bool inlineRoundLabel;
+
+  /// Height of a round header at this geometry. The header's stats sit on
+  /// one line where the width allows and stack where it does not, so a
+  /// fixed height either clips the tall case or pads out the short one.
+  final double headerExtent;
+
+  static const double viewportFraction = 0.9;
+  static const double standardTeamWidth = 135;
+
+  /// Which line of the stacked matchup carries the "V": the shorter name's, since
+  /// that is the line with room for it. The widget and the height measurement
+  /// both ask this, so they cannot disagree about where it went. A tie goes to
+  /// the home line.
+  static bool markOnHomeLine({
+    required double homeNameWidth,
+    required double awayNameWidth,
+  }) => homeNameWidth <= awayNameWidth;
+
+  static double teamLogoSize(TextScaler scaler, TextTheme theme) {
+    return scaledIconSize(scaler, theme, size: 25);
+  }
+
+  static double scaledIconSize(
+    TextScaler scaler,
+    TextTheme theme, {
+    double size = 24,
+  }) {
+    final fontSize = theme.titleMedium?.fontSize ?? 16;
+    return size * scaler.scale(fontSize) / fontSize;
+  }
+
+  static TipsCardLayout measure({
+    required double width,
+    required TextScaler textScaler,
+    required TextTheme textTheme,
+    required TextDirection textDirection,
+    required List<TipsCardContent> cards,
+    bool percentStats = false,
+  }) {
+    final label = textTheme.labelLarge ?? const TextStyle(fontSize: 14);
+    final info = textTheme.labelSmall ?? const TextStyle(fontSize: 11);
+    final body = textTheme.bodyMedium ?? const TextStyle(fontSize: 14);
+    // Reuse repeated labels within this measurement pass.
+    final measured = <(TextSpan, double), Size>{};
+    Size measureSpan(TextSpan text, [double maxWidth = double.infinity]) {
+      final key = (text, maxWidth);
+      final cached = measured[key];
+      if (cached != null) return cached;
+      final painter = TextPainter(
+        text: text,
+        textScaler: textScaler,
+        textDirection: textDirection,
+      );
+      setBadgeDimensions(painter);
+      painter.layout(maxWidth: math.max(1, maxWidth));
+      final size = painter.size;
+      painter.dispose();
+      measured[key] = size;
+      return size;
+    }
+
+    Size measureText(
+      String text,
+      TextStyle style, [
+      double maxWidth = double.infinity,
+    ]) => measureSpan(TextSpan(text: text, style: style), maxWidth);
+
+    final labels = cards.expand((card) => card.choiceLabels).toSet();
+    final chipWidths = List.generate(
+      5,
+      (index) => cards.fold<double>(
+        0,
+        (width, card) => math.max(
+          width,
+          measureText(card.choiceLabels[index], label).width + 22,
+        ),
+      ),
+    );
+    // Include the result trophy and a loaded percentage's full footprint.
+    final percentLabelWidth = math.max(
+      measureText('100.0%', label).width,
+      labels.fold<double>(
+        0,
+        (width, text) => math.max(width, measureText(text, info).width),
+      ),
+    );
+    final percentWidth = percentLabelWidth + 16;
+    final trophySize = scaledIconSize(textScaler, textTheme, size: 18);
+    final trophyGrowth = math.max(0.0, trophySize - 18);
+    final pairedWidth =
+        (percentStats
+            ? percentWidth * 2 + 48 + trophyGrowth
+            : math.max(
+                chipWidths[0] + chipWidths[1],
+                chipWidths[3] + chipWidths[4],
+              )) +
+        24;
+    // Normal chips retain their existing visible dimensions; adaptive chips
+    // reserve at least 48 logical pixels per row for larger text/touch access.
+    final textHeight = labels.fold<double>(
+      0,
+      (height, text) => math.max(height, measureText(text, label).height),
+    );
+    final compactChipHeight = math.max(32.0, textHeight + 16);
+    final adaptiveChipHeight = math.max(48.0, textHeight + 16);
+    final largestName = cards.fold<double>(
+      0,
+      (value, card) => math.max(
+        value,
+        math.max(measureSpan(card.home).width, measureSpan(card.away).width),
+      ),
+    );
+    final logoSize = teamLogoSize(textScaler, textTheme);
+    final middleWidth = logoSize * 2 + measureText(' V ', body).width;
+    final inlineTeamWidth = largestName * 2 + math.max(88.0, middleWidth + 16);
+    // A row of five percentage chips is their widths, the four 8 px gaps, the
+    // row's 8 px either side, the result trophy's room in one of them, and the
+    // card's margins: counted up, not rounded generously, so a card goes inline
+    // as soon as the chips really fit.
+    final inlineChoicesWidth = percentStats
+        ? percentWidth * 5 + 32 + 16 + trophySize + 6 + 8 + 4
+        : chipWidths.fold<double>(0, (a, b) => a + b) + 48 + 32;
+    // Card margins, panel padding and chip border/rounding allowance are included.
+    final scaledTeamWidth = math.max(
+      standardTeamWidth,
+      standardTeamWidth * textScaler.scale(16) / 16,
+    );
+    // The compact matchup is two lines, each a logo beside its name, with the
+    // "V" on the shorter name's line. A live card has no logos, and its edit
+    // pencil takes the "V"'s place. Its column is as wide as the longest of
+    // those lines, so no name ever wraps and it is always exactly two lines.
+    double markWidthFor(TipsCardContent card) =>
+        (card.editable
+            ? scaledIconSize(textScaler, textTheme)
+            : measureText('V', body).width) +
+        kStackedMarkGap;
+    double logoRoomFor(TipsCardContent card) =>
+        card.editable ? 0.0 : logoSize + kStackedLogoGap;
+    double compactLineWidth(TipsCardContent card) {
+      final homeWidth = measureSpan(card.home).width;
+      final awayWidth = measureSpan(card.away).width;
+      final markOnHome = markOnHomeLine(
+        homeNameWidth: homeWidth,
+        awayNameWidth: awayWidth,
+      );
+      final mark = markWidthFor(card);
+      return logoRoomFor(card) +
+          math.max(
+            homeWidth + (markOnHome ? mark : 0),
+            awayWidth + (markOnHome ? 0 : mark),
+          );
+    }
+
+    // 16 is the card's margin and the line's padding either side.
+    final compactTeamWidth =
+        cards
+            .fold<double>(
+              0,
+              (value, card) => math.max(value, compactLineWidth(card)),
+            )
+            .ceilToDouble() +
+        16;
+    final standardMin = scaledTeamWidth + pairedWidth / viewportFraction + 8;
+    final wideMin = inlineTeamWidth + inlineChoicesWidth / viewportFraction + 8;
+    // Only where the carousel keeps room for its chips on one row. Past that
+    // they fall to a grid, which costs more height than the matchup saves.
+    final compactMin =
+        compactTeamWidth + inlineChoicesWidth / viewportFraction + 8;
+    final modeForWidth = width >= wideMin
+        ? TipsCardMode.wide
+        : width >= compactMin
+        ? TipsCardMode.compact
+        : width >= standardMin
+        ? TipsCardMode.standard
+        : TipsCardMode.stacked;
+    // A percentage card whose chips would be left in the 2 / 1 / 2 pyramid beside
+    // the matchup goes to the stacked layout when that gives the chips a single
+    // row: the matchup above, the five percentages below it.
+    final bool stackedGivesInlineChips =
+        percentStats &&
+        modeForWidth == TipsCardMode.standard &&
+        (width - 8 - scaledTeamWidth) * viewportFraction < inlineChoicesWidth &&
+        (width - 8) * viewportFraction >= inlineChoicesWidth;
+    final mode = stackedGivesInlineChips ? TipsCardMode.stacked : modeForWidth;
+    final matchupWidth = switch (mode) {
+      TipsCardMode.wide => inlineTeamWidth,
+      TipsCardMode.compact => compactTeamWidth,
+      _ => scaledTeamWidth,
+    };
+    final carouselWidth = mode == TipsCardMode.stacked
+        ? width - 8
+        : width - 8 - matchupWidth;
+    // The legacy allowance exceeds the rendered plain paired row by 16 px
+    // with the app's chip theme. Keep the legacy standard breakpoint, but use
+    // the rendered footprint for stacked mode (covered by layout tests).
+    final requiredPairedWidth = mode == TipsCardMode.stacked && !percentStats
+        ? pairedWidth - 16
+        : pairedWidth;
+    // All layouts prioritise content width over the empty neighbouring strip.
+    const fraction = viewportFraction;
+    final panelWidth = math.max(1.0, carouselWidth * fraction - 24);
+    // Measured like the step below it rather than taken from the card's
+    // arrangement: a standard card in landscape has room for one row of chips
+    // and was given the 2/1/2 pyramid anyway, which costs two chip rows of
+    // height the panel then has to carry.
+    final arrangement = carouselWidth * fraction >= inlineChoicesWidth
+        ? TipsChoiceArrangement.inline
+        : carouselWidth * fraction >= requiredPairedWidth
+        ? TipsChoiceArrangement.paired
+        : TipsChoiceArrangement.vertical;
+    final percentageContentWidth = math.min(
+      percentLabelWidth,
+      math.max(1.0, panelWidth - 72 - trophyGrowth),
+    );
+    final percentageHeight =
+        math.max(
+          20.0,
+          measureText('100.0%', label, percentageContentWidth).height,
+        ) +
+        2 +
+        labels.fold<double>(
+          0,
+          (height, text) => math.max(
+            height,
+            measureText(text, info, percentageContentWidth).height,
+          ),
+        ) +
+        16;
+    final chipHeight = percentStats
+        ? math.max(trophySize + 16, math.max(48.0, percentageHeight))
+        : mode == TipsCardMode.standard
+        ? compactChipHeight
+        : adaptiveChipHeight;
+    final choiceHeight = switch (arrangement) {
+      TipsChoiceArrangement.inline => chipHeight + 8,
+      TipsChoiceArrangement.paired => chipHeight * 3 + 8,
+      TipsChoiceArrangement.vertical =>
+        5.0 *
+                math.max(
+                  chipHeight,
+                  labels.fold<double>(
+                        0,
+                        (height, text) => math.max(
+                          height,
+                          measureText(text, label, panelWidth - 24).height,
+                        ),
+                      ) +
+                      16,
+                ) +
+            24,
+    };
+    // Inner card margins are 8 px; results add 2 px padding on each side.
+    final resultWidth = carouselWidth * fraction - 12;
+    double resultHeight(TipsCardContent card) {
+      if (card.results.isEmpty) return 0;
+      // Match Wrap's actual runs, including the 12 px gap between groups.
+      // Every mode wraps now, and a width with room for only one per run
+      // gives back the same total the plain column used to.
+      var total = 8.0;
+      var runWidth = 0.0;
+      var runHeight = 0.0;
+      for (final row in card.results) {
+        final size = measureSpan(row, resultWidth);
+        final itemWidth = size.width + 4;
+        if (runWidth > 0 && runWidth + 12 + itemWidth > resultWidth + 4) {
+          total += runHeight;
+          runWidth = 0;
+          runHeight = 0;
+        }
+        runWidth += (runWidth == 0 ? 0 : 12) + itemWidth;
+        runHeight = math.max(runHeight, size.height + 4);
+      }
+      return total + runHeight;
+    }
+
+    final panelHeight = percentStats
+        ? choiceHeight
+        : cards.fold<double>(
+            choiceHeight,
+            (height, card) => math.max(
+              height,
+              math.max(
+                resultHeight(card),
+                measureText(card.info, info, panelWidth).height + 24,
+              ),
+            ),
+          );
+    final teamWidth = mode == TipsCardMode.stacked
+        ? width - 16
+        : matchupWidth - 8;
+    // The stacked and compact matchups are two lines of the same layout.
+    double stackedMatchupHeight(TipsCardContent card) {
+      final markWidth = markWidthFor(card);
+      final logoRoom = logoRoomFor(card);
+      final markOnHome = markOnHomeLine(
+        homeNameWidth: measureSpan(card.home).width,
+        awayNameWidth: measureSpan(card.away).width,
+      );
+      double line(TextSpan name, bool hasMark) {
+        final room = teamWidth - 8 - logoRoom - (hasMark ? markWidth : 0);
+        return math.max(
+          card.editable ? 0.0 : logoSize,
+          measureSpan(name, room).height,
+        );
+      }
+
+      return line(card.home, markOnHome) + line(card.away, !markOnHome) + 16;
+    }
+
+    final matchupHeight = cards.fold<double>(0, (height, card) {
+      if (mode == TipsCardMode.stacked || mode == TipsCardMode.compact) {
+        return math.max(height, stackedMatchupHeight(card));
+      }
+      final middleHeight = card.editable
+          ? scaledIconSize(textScaler, textTheme)
+          : math.max(logoSize, measureText(' V ', body).height);
+      final nameWidth = mode == TipsCardMode.wide
+          ? (matchupWidth - middleWidth) / 2 - 8
+          : teamWidth;
+      final homeHeight = measureSpan(card.home, nameWidth).height;
+      final awayHeight = measureSpan(card.away, nameWidth).height;
+      return math.max(
+        height,
+        mode == TipsCardMode.wide
+            ? math.max(math.max(homeHeight, awayHeight), middleHeight) + 16
+            : homeHeight + awayHeight + middleHeight + 16,
+      );
+    });
+    // Round header: the label beside its number where the header itself has
+    // the room, stacked otherwise; its stats on one line when they fit. The
+    // league badge sets the floor.
+    final roundLabel = measureText('Round', body);
+    final roundNumber = measureSpan(
+      TextSpan(text: '88', style: body.copyWith(fontSize: 30)),
+    );
+    final headerStat = measureText('UPS/Margins: 88 / 88', body);
+    final headerStatsWidth = headerStat.width * 3 + 32;
+    // Asked of the header rather than of the card's arrangement: a standard
+    // card in landscape has the width for this even though its own layout is
+    // not the inline one. Going inline widens the round block past the 86 it
+    // is held to when stacked, which comes out of the stats' room -- so only
+    // where they can still manage a single line. Trading two header lines for
+    // three is no saving.
+    final roundInlineWidth = roundLabel.width + 6 + roundNumber.width;
+    // Only for the arrangements with width to spare, so the familiar portrait
+    // header, with Round stacked over its number, is unchanged.
+    final inlineRoundLabel =
+        (mode == TipsCardMode.wide || mode == TipsCardMode.compact) &&
+        headerStatsWidth + kStackedRoundBlockWidth + roundInlineWidth <=
+            width - 8;
+    final headerRound = inlineRoundLabel
+        ? math.max(roundLabel.height, roundNumber.height)
+        : roundLabel.height + roundNumber.height;
+    final headerRoom =
+        width - 8 - 172 - (inlineRoundLabel ? roundInlineWidth - 86 : 0);
+    final headerStats = headerStatsWidth <= headerRoom
+        ? headerStat.height
+        : headerStat.height * 3;
+    // The league badge sets the floor: the header draws it at 50, the AFL
+    // mark 10 taller than that, plus 12 of room for the outstanding count.
+    const headerBadge = 50.0 + 10 + 12;
+    final headerExtent =
+        math.max(math.max(headerRound, headerStats), headerBadge) + 28;
+
+    // Measured, not floored. The standard arrangement was held to a legacy
+    // 128 whatever it contained. In portrait the chips and the info panel
+    // fill that on their own, so the floor never bound; in landscape, with
+    // the chips now on one row, it was padding every card by the two rows it
+    // had stopped needing. The chips keep their own room regardless --
+    // panelHeight starts from choiceHeight.
+    final carouselHeight = math.max(
+      panelHeight,
+      mode == TipsCardMode.stacked ? 0.0 : matchupHeight,
+    );
+    return TipsCardLayout(
+      carouselViewportFraction: fraction,
+      mode: mode,
+      choices: arrangement,
+      cardExtent:
+          carouselHeight +
+          8 +
+          (mode == TipsCardMode.stacked ? matchupHeight : 0),
+      carouselHeight: carouselHeight,
+      matchupWidth: matchupWidth,
+      matchupHeight: matchupHeight,
+      standardMinWidth: standardMin,
+      compactMinWidth: compactMin,
+      wideMinWidth: wideMin,
+      headerExtent: headerExtent,
+      inlineRoundLabel: inlineRoundLabel,
+    );
+  }
+}

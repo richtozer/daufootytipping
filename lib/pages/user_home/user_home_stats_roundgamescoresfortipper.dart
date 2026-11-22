@@ -1,4 +1,8 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'dart:async';
+
+import 'package:daufootytipping/services/tipping_deadline.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
+import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -12,6 +16,7 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:watch_it/watch_it.dart';
@@ -21,8 +26,12 @@ class StatRoundGameScoresForTipper extends StatefulWidget {
     this.statsTipper,
     this.roundNumberToDisplay, {
     super.key,
+    this.createTipsViewModel,
   });
 
+  /// The page owns and disposes the returned model; defaults to Firebase-backed tips.
+  final TipsViewModel Function(DAUComp comp, Tipper tipper)?
+  createTipsViewModel;
   final Tipper statsTipper;
   final int roundNumberToDisplay;
 
@@ -41,15 +50,98 @@ class _StatRoundGameScoresForTipperState
     League.afl: const <Game>[],
   };
   final Map<String, Tip?> _tipsByGameKey = {};
+  // Leagues with games this round, started or not. Games still open for
+  // tipping are left out of the table, as another tipper's tips stay hidden
+  // until kickoff, so an empty league may only be waiting for its first game.
+  Set<League> _leaguesWithGames = {};
   late DAURound roundToDisplay;
 
-  final List<String> columns = [
-    'Teams/\nScores',
-    'Result',
-    'Tip',
-    'Points',
-    'Max\nPoints',
+  static const columns = [
+    AppColumn.text('Teams / Scores'),
+    AppColumn.text('Result'),
+    AppColumn.text('Tip'),
+    AppColumn.numeric('Points', headingGroup: 'points'),
+    AppColumn.numeric('Max Points', headingGroup: 'points'),
   ];
+  List<Object?> _renderedValues = const [];
+  List<AppRow> _rows = const [];
+
+  List<AppRow> _tableRows(BuildContext context) {
+    final titleStyle = Theme.of(context).textTheme.titleLarge;
+    final values = <Object?>[
+      titleStyle,
+      ..._leaguesWithGames,
+      for (final league in [League.nrl, League.afl])
+        for (final game in games[league] ?? <Game>[]) ...[
+          game.dbkey,
+          league,
+          game.homeTeam.name,
+          game.awayTeam.name,
+          game.scoring?.homeTeamScore,
+          game.scoring?.awayTeamScore,
+          game.scoring?.getGameResultCalculated(league),
+          _tipsByGameKey[game.dbkey]?.tip,
+          _tipsByGameKey[game.dbkey]?.getTipPointsCalculated(),
+          _tipsByGameKey[game.dbkey]?.getMaxPointsCalculated(),
+        ],
+    ];
+    if (listEquals(_renderedValues, values)) return _rows;
+    _renderedValues = values;
+    _rows = [
+      for (final league in [League.nrl, League.afl]) ...[
+        AppRow(
+          key: ValueKey(league),
+          cells: [
+            AppCell.text(
+              league.name.toUpperCase(),
+              style: titleStyle,
+              leading: SvgPicture.asset(league.logo, width: 20, height: 20),
+              leadingSize: const Size(20, 20),
+            ),
+            for (var i = 1; i < columns.length; i++) const AppCell.text(''),
+          ],
+        ),
+        if (games[league]?.isEmpty ?? true)
+          AppRow(
+            key: ValueKey('${league.name}-no-games'),
+            cells: [
+              AppCell.text(
+                _leaguesWithGames.contains(league)
+                    ? 'Games show here once they kick off'
+                    : 'No games this round',
+                style: const TextStyle(fontStyle: FontStyle.italic),
+              ),
+              for (var i = 1; i < columns.length; i++) const AppCell.text(''),
+            ],
+          ),
+        for (final game in games[league] ?? <Game>[]) _gameRow(game),
+      ],
+    ];
+    return _rows;
+  }
+
+  AppRow _gameRow(Game game) {
+    final tip = _tipsByGameKey[game.dbkey];
+    final result = game.scoring?.getGameResultCalculated(game.league);
+    // The league's own wording only; the enum name it came from added a
+    // parenthesised letter that said the same thing twice.
+    String label(GameResult value) =>
+        game.league == League.afl ? value.afl : value.nrl;
+    return AppRow(
+      key: ValueKey(game.dbkey),
+      cells: [
+        AppCell.text(
+          '${game.homeTeam.name} v ${game.awayTeam.name}\n'
+          '${game.scoring?.homeTeamScore ?? ''} - ${game.scoring?.awayTeamScore ?? ''}',
+          maxLines: 2,
+        ),
+        AppCell.text(result == null ? '-' : label(result)),
+        AppCell.text(tip == null ? 'loading..' : label(tip.tip)),
+        AppCell.text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
+        AppCell.text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -61,6 +153,7 @@ class _StatRoundGameScoresForTipperState
 
   @override
   void dispose() {
+    _tipDeadlineRefresh?.cancel();
     dauCompsViewModel.removeListener(_refreshTableData);
     allTipsViewModel?.removeListener(_refreshTableData);
     allTipsViewModel?.dispose();
@@ -76,15 +169,19 @@ class _StatRoundGameScoresForTipperState
     allTipsViewModel?.removeListener(_refreshTableData);
     allTipsViewModel?.dispose();
 
-    allTipsViewModel = TipsViewModel.forTipper(
-      di<TippersViewModel>(),
-      selectedComp,
-      dauCompsViewModel.gamesViewModel!,
-      widget.statsTipper,
-    );
+    allTipsViewModel =
+        widget.createTipsViewModel?.call(selectedComp, widget.statsTipper) ??
+        TipsViewModel.forTipperGames(
+          di<TippersViewModel>(),
+          selectedComp,
+          dauCompsViewModel.gamesViewModel!,
+          widget.statsTipper,
+        );
     _allTipsViewModelCompDbKey = selectedComp.dbkey;
     allTipsViewModel!.addListener(_refreshTableData);
   }
+
+  Timer? _tipDeadlineRefresh;
 
   Future<void> _refreshTableData() async {
     final selectedComp = dauCompsViewModel.selectedDAUComp;
@@ -101,20 +198,38 @@ class _StatRoundGameScoresForTipperState
 
     roundToDisplay = selectedComp.daurounds[widget.roundNumberToDisplay - 1];
 
-    final groupedGames = dauCompsViewModel.groupGamesIntoLeagues(roundToDisplay);
+    final groupedGames = dauCompsViewModel.groupGamesIntoLeagues(
+      roundToDisplay,
+    );
     final filteredGames = <League, List<Game>>{
       League.nrl: List<Game>.from(groupedGames[League.nrl] ?? const <Game>[]),
       League.afl: List<Game>.from(groupedGames[League.afl] ?? const <Game>[]),
     };
 
+    // Revisit the screen at the next tipping deadline even if no score changes.
+    _tipDeadlineRefresh?.cancel();
+    final now = tippingNow();
+    final deadlines =
+        filteredGames.values
+            .expand((games) => games)
+            .map((game) => tippingDeadline(game.startTimeUTC))
+            .where((deadline) => deadline.isAfter(now))
+            .toList()
+          ..sort();
+    if (deadlines.isNotEmpty) {
+      _tipDeadlineRefresh = Timer(
+        deadlines.first.difference(now),
+        _refreshTableData,
+      );
+    }
     filteredGames.forEach((league, gameList) {
       gameList.retainWhere(
-        (game) =>
-            game.gameState == GameState.startedResultNotKnown ||
-            game.gameState == GameState.startedResultKnown,
+        (game) => !tippingIsOpen(game.startTimeUTC, now: now),
       );
     });
 
+    // Another tipper's tips can only be read one started game at a time.
+    await localTipsViewModel.watchGames(filteredGames.values.expand((g) => g));
     await localTipsViewModel.initialLoadCompleted;
     if (!mounted ||
         selectedComp.dbkey != dauCompsViewModel.selectedDAUComp?.dbkey ||
@@ -137,6 +252,11 @@ class _StatRoundGameScoresForTipperState
     }
 
     setState(() {
+      _leaguesWithGames = {
+        for (final MapEntry(key: league, value: leagueGames)
+            in groupedGames.entries)
+          if (leagueGames.isNotEmpty) league,
+      };
       games = filteredGames;
       _tipsByGameKey
         ..clear()
@@ -162,198 +282,34 @@ class _StatRoundGameScoresForTipperState
     List<Game>? nrlGames,
     bool isLargeScreen,
   ) {
-    Orientation orientation = MediaQuery.of(context).orientation;
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
-
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: fabBackgroundColor,
-        foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Icon(Icons.arrow_back),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (orientation == Orientation.portrait)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      avatarPic(
-                        widget.statsTipper,
-                        widget.roundNumberToDisplay,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Round ${widget.roundNumberToDisplay} Games',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                widget.statsTipper.name,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(color: Colors.grey[700]),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            LiveScoresWarningCard(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
-                  ),
-                  columnSpacing: 0,
-                  horizontalMargin: 0,
-                  minWidth: 800,
-                  fixedTopRows: 1,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: false,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns),
-                  rows: [
-                    _buildLeagueHeaderRow(context, League.nrl),
-                    ...List<DataRow>.generate(nrlGames?.length ?? 0, (index) {
-                      return buildDataRow(nrlGames!, index);
-                    }),
-                    _buildLeagueHeaderRow(context, League.afl),
-                    ...List<DataRow>.generate(aflGames?.length ?? 0, (index) {
-                      return buildDataRow(aflGames!, index);
-                    }),
-                  ],
-                ),
-              ),
+      body: AppUnderControlsArea(
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: avatarPic(widget.statsTipper, widget.roundNumberToDisplay),
+            title: 'Round ${widget.roundNumberToDisplay} Games',
+            subtitle: widget.statsTipper.name,
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context),
+              frozenLeading: 1,
             ),
-              const SizedBox(height: 100),
-            ],
           ),
         ),
       ),
     );
   }
-
-  DataRow _buildLeagueHeaderRow(BuildContext context, League league) {
-    return DataRow(
-      cells: [
-        DataCell(
-          Row(
-            children: [
-              SvgPicture.asset(league.logo, width: 20, height: 20),
-              Text(league.name.toUpperCase(), style: Theme.of(context).textTheme.titleLarge),
-            ],
-          ),
-        ),
-        ...List<DataCell>.generate(
-          columns.length - 1,
-          (_) => DataCell(Text('', style: Theme.of(context).textTheme.titleLarge)),
-        ),
-      ],
-    );
-  }
-
-  DataRow buildDataRow(List<Game> games, int index) {
-    final game = games[index];
-    final tip = _tipsByGameKey[game.dbkey];
-    final gameResult = game.scoring!.getGameResultCalculated(game.league);
-    return DataRow(
-      cells: [
-        DataCell(
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Center(
-                child: Text(
-                  '${game.homeTeam.name} v ${game.awayTeam.name}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Center(
-                child: Text(
-                  '${game.scoring!.homeTeamScore ?? ''} - ${game.scoring!.awayTeamScore ?? ''}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-        DataCell(
-          Text(
-            game.league == League.afl
-                ? '${gameResult.afl} (${gameResult.name})'
-                : '${gameResult.nrl} (${gameResult.name})',
-          ),
-        ),
-        DataCell(
-          Text(
-            tip == null
-                ? 'loading..'
-                : game.league == League.afl
-                ? '${tip.tip.afl} (${tip.tip.name})'
-                : '${tip.tip.nrl} (${tip.tip.name})',
-          ),
-        ),
-        DataCell(
-          Text(tip?.getTipPointsCalculated().toString() ?? 'loading..'),
-        ),
-        DataCell(
-          Text(tip?.getMaxPointsCalculated().toString() ?? 'loading..'),
-        ),
-      ],
-    );
-  }
-
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .map(
-        (String column) => DataColumn2(
-          fixedWidth: column.startsWith('Teams')
-              ? 175
-              : column.startsWith('Tip')
-              ? 60
-              : 60,
-          numeric: column.startsWith('Max') || column == 'Points'
-              ? true
-              : false,
-          label: Text(column),
-        ),
-      )
-      .toList();
 
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-      tag:
-          '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      tag: '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
 
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,

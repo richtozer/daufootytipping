@@ -1,0 +1,761 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/team_logo.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import 'tips_card_layout.dart';
+import 'tips_team_name.dart';
+import 'tips_choice_panel.dart';
+
+enum TipsPanel { tips, result, info, percentages }
+
+enum TipsStatus { upcoming, today, live, interim, finalScore }
+
+/// Presentation values only: the live adapter will retain ownership of saving,
+/// permissions, score calculation and Firebase subscriptions.
+class TipsTeamDisplay {
+  const TipsTeamDisplay(
+    this.name,
+    this.teamDbKey, {
+    this.score,
+    this.rank,
+    this.winner = false,
+    this.heroTag,
+  });
+  final String name;
+
+  /// The team's database key, which locates its logo.
+  final String teamDbKey;
+  final int? score;
+  final String? rank;
+  final bool winner;
+
+  /// Supplied by the live adapter so the ladder transition keeps its animation.
+  /// Must be unique within the route: one tag per team per screen.
+  final String? heroTag;
+
+  /// The team's line: rank, name and score. A winning score is a rounded badge
+  /// in [highlight], with [onHighlight] text; otherwise it is plain bold text.
+  /// The colours matter only when drawing, not when measuring.
+  TextSpan text(
+    TextTheme theme, {
+    bool rankAfterName = false,
+    Color highlight = kSelectionLightColor,
+    Color onHighlight = kOnSelectionLightColor,
+  }) {
+    final scoreStyle = (theme.titleMedium ?? const TextStyle()).copyWith(
+      fontWeight: FontWeight.bold,
+    );
+    return TextSpan(
+      style: theme.titleMedium,
+      children: [
+        if (rank != null && !rankAfterName)
+          TextSpan(text: '$rank ', style: theme.labelSmall),
+        TextSpan(text: name),
+        if (rank != null && rankAfterName)
+          TextSpan(text: ' $rank', style: theme.labelSmall),
+        if (score != null && winner) ...[
+          const TextSpan(text: ' '),
+          ScoreBadgeSpan(
+            score: '$score',
+            scoreStyle: scoreStyle,
+            fill: highlight,
+            textColor: onHighlight,
+          ),
+        ] else if (score != null)
+          TextSpan(
+            text: ' $score',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+      ],
+    );
+  }
+}
+
+class TipsCardDisplay {
+  const TipsCardDisplay({
+    required this.id,
+    required this.home,
+    required this.away,
+    required this.league,
+    required this.info,
+    this.status = TipsStatus.upcoming,
+    this.selected,
+    this.result,
+    this.points = '? / ?',
+    this.average = '? / ?',
+    this.percentages,
+    this.loading = false,
+    this.saving = false,
+    this.canTip = true,
+    this.defaultTip = false,
+  });
+  final String id;
+  final TipsTeamDisplay home;
+  final TipsTeamDisplay away;
+  final League league;
+  final String info;
+  final TipsStatus status;
+  final GameResult? selected;
+  final GameResult? result;
+  final String points;
+  final String average;
+  final List<double>? percentages;
+  final bool loading;
+  final bool saving;
+  final bool canTip;
+
+  /// The tip was given automatically for a missed game, not chosen.
+  final bool defaultTip;
+
+  String label(GameResult value) =>
+      league == League.afl ? value.afl : value.nrl;
+  static const options = [
+    GameResult.a,
+    GameResult.b,
+    GameResult.c,
+    GameResult.d,
+    GameResult.e,
+  ];
+  List<String> get choiceLabels => options.map(label).toList();
+  bool get hasResult =>
+      status == TipsStatus.live ||
+      status == TipsStatus.interim ||
+      status == TipsStatus.finalScore;
+  List<String> get resultLines =>
+      [
+        'Result: ${label(result ?? GameResult.z)}',
+        'Your tip: ${selected == null ? 'Not tipped' : label(selected!)}',
+        'Your Points: $points',
+        'Avg Points: $average',
+      ].map((text) {
+        // Keep each value together so wrapping prefers the space after the colon.
+        // These same strings are measured when reserving the panel's height.
+        final valueStart = text.indexOf(':') + 2;
+        return text.substring(0, valueStart) +
+            text.substring(valueStart).replaceAll(' ', '\u00a0');
+      }).toList();
+
+  List<TextSpan> resultSpans(TextTheme theme) => resultLines.map((text) {
+    final split = text.indexOf(':') + 1;
+    return TextSpan(
+      style: theme.bodyMedium,
+      children: [
+        TextSpan(
+          text: text.substring(0, split),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        TextSpan(text: text.substring(split)),
+      ],
+    );
+  }).toList();
+
+  TipsCardContent content(TextTheme theme) => TipsCardContent(
+    home: home.text(theme),
+    away: away.text(theme),
+    info: info,
+    results: hasResult ? resultSpans(theme) : [],
+    choiceLabels: choiceLabels,
+    editable: status == TipsStatus.live || status == TipsStatus.interim,
+  );
+}
+
+/// Reusable presentation component, exercised in the prototype before the live
+/// Tips/Stats adapters adopt it. It never reads or writes application services.
+class AdaptiveTipsCard extends StatelessWidget {
+  const AdaptiveTipsCard({
+    super.key,
+    required this.data,
+    required this.layout,
+    required this.activePanel,
+    required this.onPanelChanged,
+    this.percentStats = false,
+    this.onTip,
+    this.onMatchup,
+    this.onInterimScore,
+  });
+  final TipsCardDisplay data;
+  final TipsCardLayout layout;
+  final TipsPanel activePanel;
+  final ValueChanged<TipsPanel> onPanelChanged;
+  final bool percentStats;
+  final ValueChanged<GameResult>? onTip;
+  final VoidCallback? onMatchup;
+
+  /// Tapping the result of a game on an interim score, which lists the games
+  /// whose scores can be corrected.
+  final VoidCallback? onInterimScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final panels = percentStats
+        ? [TipsPanel.percentages]
+        : [
+            if (data.hasResult) TipsPanel.result,
+            TipsPanel.tips,
+            TipsPanel.info,
+          ];
+    final page = panels.contains(activePanel) ? panels.indexOf(activePanel) : 0;
+    final carousel = _TipsCarousel(
+      // Panel-set changes recreate the page view at the same semantic panel.
+      key: ValueKey('${data.id}:${panels.join(',')}'),
+      layout: layout,
+      initialPage: page,
+      onPanelChanged: (index) => onPanelChanged(panels[index]),
+      items: [
+        for (final panel in panels)
+          Semantics(
+            container: true,
+            label: '${data.home.name} versus ${data.away.name}, ${panel.name}',
+            child: switch (panel) {
+              TipsPanel.tips => _choices(context, false),
+              TipsPanel.percentages => _choices(context, true),
+              TipsPanel.info => _info(context),
+              TipsPanel.result => _result(context),
+            },
+          ),
+      ],
+    );
+    final matchup = _matchup(context);
+    Widget card = Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
+      color: appPanelColor(context),
+      surfaceTintColor: League.nrl.colour,
+      child: layout.mode == TipsCardMode.stacked
+          ? Column(
+              children: [
+                SizedBox(height: layout.matchupHeight, child: matchup),
+                carousel,
+              ],
+            )
+          : Row(
+              children: [
+                SizedBox(width: layout.matchupWidth, child: matchup),
+                Expanded(child: carousel),
+              ],
+            ),
+    );
+    final (message, color) = switch (data.status) {
+      TipsStatus.today => ('Game today', Colors.orange),
+      TipsStatus.live => ('Live', League.afl.colour),
+      TipsStatus.interim => ('* Interim', Colors.grey.shade600),
+      _ => ('', Colors.transparent),
+    };
+    if (message.isNotEmpty) {
+      // The ribbon crosses the matchup's corner, clear of the tip buttons.
+      card = Banner(
+        message: message,
+        color: color,
+        textStyle: const Banner(message: '', location: BannerLocation.topStart)
+            .textStyle
+            .copyWith(
+              fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+            ),
+        location: BannerLocation.topStart,
+        child: card,
+      );
+    }
+    return SizedBox(height: layout.cardExtent, child: card);
+  }
+
+  Widget _matchup(BuildContext context) {
+    final editable =
+        data.status == TipsStatus.live || data.status == TipsStatus.interim;
+    final logoSize = TipsCardLayout.teamLogoSize(
+      MediaQuery.textScalerOf(context),
+      Theme.of(context).textTheme,
+    );
+    Widget logo(TipsTeamDisplay team) {
+      final picture = TeamLogo(
+        teamDbKey: team.teamDbKey,
+        teamName: team.name,
+        size: logoSize,
+      );
+      final tag = team.heroTag;
+      return tag == null ? picture : Hero(tag: tag, child: picture);
+    }
+
+    TextSpan name(TipsTeamDisplay team, {bool rankAfterName = false}) =>
+        team.text(
+          appPanelTextTheme(context),
+          rankAfterName: rankAfterName,
+          highlight: appSelectionColor(context),
+          onHighlight: appOnSelectionColor(context),
+        );
+    final middle = editable
+        ? Icon(
+            Icons.edit,
+            size: TipsCardLayout.scaledIconSize(
+              MediaQuery.textScalerOf(context),
+              Theme.of(context).textTheme,
+            ),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [logo(data.home), const Text(' V '), logo(data.away)],
+          );
+    return Semantics(
+      button: onMatchup != null,
+      label: editable ? 'Edit live score' : 'Compare teams',
+      child: InkWell(
+        onTap: onMatchup,
+        // The "V" and the edit pencil take the panel's text colour too.
+        child: DefaultTextStyle.merge(
+          style: TextStyle(color: appPanelTextColor(context)),
+          child: IconTheme.merge(
+            data: IconThemeData(color: appPanelTextColor(context)),
+            child: Center(
+              child: layout.mode == TipsCardMode.wide
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: TipsNameLine.padded(name(data.home)).child,
+                        ),
+                        middle,
+                        Flexible(
+                          child: TipsNameLine.padded(
+                            name(
+                              data.away,
+                              rankAfterName:
+                                  data.status == TipsStatus.upcoming ||
+                                  data.status == TipsStatus.today,
+                            ),
+                          ).child,
+                        ),
+                      ],
+                    )
+                  : layout.mode == TipsCardMode.stacked ||
+                        layout.mode == TipsCardMode.compact
+                  ? TipsStackedTeams(
+                      home: data.home,
+                      away: data.away,
+                      editable: editable,
+                      logo: logo,
+                    )
+                  : TipsNamesColumn(
+                      home: TipsNameLine.padded(name(data.home)),
+                      away: TipsNameLine.padded(name(data.away)),
+                      between: middle,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _choices(BuildContext context, bool percentages) {
+    final trophySize = TipsCardLayout.scaledIconSize(
+      MediaQuery.textScalerOf(context),
+      Theme.of(context).textTheme,
+      size: 18,
+    );
+    const options = TipsCardDisplay.options;
+    Widget inert(Widget chip) =>
+        percentages ? ExcludeFocus(child: IgnorePointer(child: chip)) : chip;
+    // In dark mode the chips are see-through and light-on-dark, not the bright
+    // light-theme chips the forced theme would hand them, which glared against
+    // the dark panel they sit in.
+    final bool dark =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final Color? chipText = appPanelTextColor(context);
+    return Stack(
+      children: [
+        TipsChoicePanel(
+          arrangement: layout.choices,
+          children: [
+            for (var index = 0; index < options.length; index++)
+              inert(
+                ChoiceChip.elevated(
+                  label: percentages
+                      ? SizedBox(
+                          width: _percentageWidth(context),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (data.loading)
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  data.percentages == null
+                                      // Unknown, not empty: the live tab has
+                                      // always marked a missing percentage.
+                                      ? '?'
+                                      : '${data.percentages![index].toStringAsFixed(1)}%',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color:
+                                            chipText ??
+                                            Theme.of(context)
+                                                .colorScheme
+                                                .onSurface,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              const SizedBox(height: 2),
+                              Text(
+                                data.label(options[index]),
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: dark
+                                          ? Colors.white70
+                                          : Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          data.label(options[index]),
+                          textAlign: TextAlign.center,
+                        ),
+                  avatar: percentages && data.result == options[index]
+                      ? Icon(
+                          Icons.emoji_events,
+                          color: dark ? Colors.white : Colors.black,
+                          size: trophySize,
+                        )
+                      : null,
+                  avatarBoxConstraints: BoxConstraints.tightFor(
+                    width: trophySize,
+                    height: trophySize,
+                  ),
+                  tooltip: data.league == League.afl
+                      ? options[index].aflTooltip
+                      : options[index].nrlTooltip,
+                  showCheckmark: false,
+                  materialTapTargetSize: layout.mode == TipsCardMode.standard
+                      ? MaterialTapTargetSize.shrinkWrap
+                      : MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kCardCornerRadius),
+                  ),
+                  padding: EdgeInsets.zero,
+                  // The chip draws its colour over an opaque canvas of its own, so
+                  // a see-through colour only washes out to white: the dark
+                  // chips are solid, a step up from the panel they sit in.
+                  color: dark
+                      ? WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? kChipSelectedDarkColor
+                              : kChipDarkColor,
+                        )
+                      : null,
+                  surfaceTintColor: dark ? Colors.transparent : null,
+                  selectedColor: dark ? null : Colors.lightGreen[500],
+                  labelStyle: chipText == null
+                      ? null
+                      : TextStyle(color: chipText),
+                  selected: data.selected == options[index],
+                  // The percentages are read-only, but a disabled chip is faded
+                  // by its own painting, which dimmed the figures. They are
+                  // enabled instead, and kept inert by the wrapper.
+                  onSelected: percentages
+                      ? (_) {}
+                      : data.saving || !data.canTip || onTip == null
+                      ? null
+                      : (_) => onTip?.call(options[index]),
+                ),
+              ),
+          ],
+        ),
+        if (data.saving)
+          Positioned.fill(
+            child: ColoredBox(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  double _percentageWidth(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: '100.0%',
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    )..layout();
+    var width = painter.width;
+    for (final option in [GameResult.a, GameResult.e]) {
+      painter.text = TextSpan(
+        text: data.label(option),
+        style: Theme.of(context).textTheme.labelSmall,
+      );
+      painter.layout();
+      if (painter.width > width) width = painter.width;
+    }
+    painter.dispose();
+    return width;
+  }
+
+  Widget _info(BuildContext context) {
+    final theme = appPanelTextTheme(context);
+    return Card(
+      color: appInnerPanelColor(context),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: LayoutBuilder(
+          builder: (context, bounds) {
+            final small = theme.labelSmall!;
+            final target = theme.bodyMedium!;
+            final painter = TextPainter(
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+              textAlign: TextAlign.center,
+            );
+            bool fits(TextStyle style) {
+              painter.text = TextSpan(text: data.info, style: style);
+              painter.layout(maxWidth: bounds.maxWidth);
+              return painter.height <= bounds.maxHeight;
+            }
+
+            var style = target;
+            if (!fits(target)) {
+              var low = 0.0;
+              var high = 1.0;
+              // Fill the existing space, without changing shared card heights or
+              // reducing text below its previous size. Respect the user's scaler.
+              for (var step = 0; step < 12; step++) {
+                final middle = (low + high) / 2;
+                if (fits(TextStyle.lerp(small, target, middle)!)) {
+                  low = middle;
+                } else {
+                  high = middle;
+                }
+              }
+              style = TextStyle.lerp(small, target, low)!;
+            }
+            painter.dispose();
+            return Center(
+              child: Text(data.info, style: style, textAlign: TextAlign.center),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// What a tipper is told when they tap the (i) on a tip they were given.
+  static const String _defaultTipNote =
+      'You did not tip this game and were automatically given a default tip of [Away].\n\n'
+      'The app will send out reminders to late tippers, however you need to keep notifications from DAU Tips turned on in your phone settings.\n\nWith the world\'s best Footy Tipping app, you have no excuse to miss a tip! 😄';
+
+  void _showDefaultTipNote(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 10),
+        backgroundColor: Colors.orange,
+        content: Text(_defaultTipNote, style: TextStyle(color: Colors.black)),
+      ),
+    );
+  }
+
+  static const String _averagePointsNote =
+      'This is the average points collected by tippers for this game. Your aim is to collect more points than this to improve your ranking. If the game score is not finalised then this is an interim average.';
+
+  static const String _interimScoreNote =
+      'Scores are based on interim live score data.';
+
+  Widget _result(BuildContext context) {
+    final lines = data.resultSpans(appPanelTextTheme(context));
+    // A tip the tipper was given, not chosen, is picked out in orange with an
+    // (i) that says why.
+    final Color defaultTipColour =
+        MediaQuery.platformBrightnessOf(context) == Brightness.dark
+        ? Colors.orange.shade300
+        : Colors.orange.shade800;
+    Widget line(TextSpan text, {bool defaultTip = false}) {
+      if (!defaultTip) {
+        return Padding(
+          padding: const EdgeInsets.all(2),
+          child: Text.rich(text, textAlign: TextAlign.center),
+        );
+      }
+      final tinted = TextSpan(
+        style: text.style?.copyWith(color: defaultTipColour),
+        children: text.children,
+      );
+      return Padding(
+        padding: const EdgeInsets.all(2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text.rich(tinted, textAlign: TextAlign.center)),
+            const SizedBox(width: 2),
+            InkWell(
+              onTap: () => _showDefaultTipNote(context),
+              child: Icon(
+                Icons.info_outline,
+                size: 18,
+                color: defaultTipColour,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Break by meaning: the result and the tip belong together, as do the two
+    // point totals. Whether the pairs share a line is settled by the longest
+    // they can be, not by this card's own text, so every card in the list
+    // reads alike: a short result must not sit inline beside its tip when the
+    // card above stacks them.
+    final tiles = [
+      for (var i = 0; i < lines.length; i++)
+        i == 3
+            ? Tooltip(message: _averagePointsNote, child: line(lines[i]))
+            : line(lines[i], defaultTip: data.defaultTip && i == 1),
+    ];
+    Widget group(Iterable<Widget> items) => Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 12,
+      children: items.toList(),
+    );
+    final half = (lines.length / 2).ceil();
+
+    final Widget result = Card(
+      color: appInnerPanelColor(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final style = DefaultTextStyle.of(context).style
+              .merge(lines.firstOrNull?.style)
+              .copyWith(fontWeight: FontWeight.bold);
+          final scaler = MediaQuery.textScalerOf(context);
+          double widthOf(String text) {
+            final painter = TextPainter(
+              text: TextSpan(text: text, style: style),
+              textDirection: Directionality.of(context),
+              textScaler: scaler,
+            )..layout();
+            final width = painter.width + 4;
+            painter.dispose();
+            return width;
+          }
+
+          double pair(String first, String second) =>
+              widthOf(first) + widthOf(second) + 12;
+          final pairsFit =
+              constraints.maxWidth >=
+              math.max(
+                pair('Result: Away 13+', 'Your tip: Away 13+'),
+                pair('Your Points: -2 / 4', 'Avg Points: -0.12 / 4'),
+              );
+          return Center(
+            child: pairsFit
+                ? Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    children: [
+                      group(tiles.take(half)),
+                      if (tiles.length > half) group(tiles.skip(half)),
+                    ],
+                  )
+                : Column(mainAxisSize: MainAxisSize.min, children: tiles),
+          );
+        },
+      ),
+    );
+    final onInterimScore = this.onInterimScore;
+    if (data.status != TipsStatus.interim || onInterimScore == null) {
+      return result;
+    }
+    // A game on an interim score says so, and opens the list of games whose
+    // scores can be corrected.
+    return Tooltip(
+      message: _interimScoreNote,
+      child: InkWell(
+        onTap: onInterimScore,
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+        child: result,
+      ),
+    );
+  }
+}
+
+/// Owns the carousel controller so it survives the rebuilds the live view
+/// models trigger. A controller built inside `build` is replaced on every
+/// score or tip update, leaving keyboard navigation driving a detached one.
+class _TipsCarousel extends StatefulWidget {
+  const _TipsCarousel({
+    super.key,
+    required this.layout,
+    required this.initialPage,
+    required this.onPanelChanged,
+    required this.items,
+  });
+
+  final TipsCardLayout layout;
+  final int initialPage;
+  final ValueChanged<int> onPanelChanged;
+  final List<Widget> items;
+
+  @override
+  State<_TipsCarousel> createState() => _TipsCarouselState();
+}
+
+class _TipsCarouselState extends State<_TipsCarousel> {
+  final CarouselSliderController _controller = CarouselSliderController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent || widget.items.length < 2) {
+          return KeyEventResult.ignored;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          unawaited(_controller.nextPage());
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          unawaited(_controller.previousPage());
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: CarouselSlider(
+        carouselController: _controller,
+        options: CarouselOptions(
+          height: widget.layout.carouselHeight,
+          viewportFraction: widget.layout.carouselViewportFraction,
+          initialPage: widget.initialPage,
+          enlargeFactor: 1,
+          enlargeCenterPage: true,
+          enlargeStrategy: CenterPageEnlargeStrategy.zoom,
+          enableInfiniteScroll: false,
+          onPageChanged: (index, reason) => widget.onPanelChanged(index),
+        ),
+        items: widget.items,
+      ),
+    );
+  }
+}

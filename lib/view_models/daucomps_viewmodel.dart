@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -8,11 +9,7 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/ladder_calculation_service.dart'; // Added import
 import 'package:daufootytipping/models/league_ladder.dart'; // Added import
-import 'package:daufootytipping/services/combined_rounds_service.dart';
-import 'package:daufootytipping/services/combined_rounds_persistence.dart';
-import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/daucomps_snapshot_applier.dart';
-import 'package:daufootytipping/services/lock_manager.dart';
 import 'package:daufootytipping/services/url_health_checker.dart';
 import 'package:daufootytipping/repositories/daucomps_repository.dart';
 import 'package:daufootytipping/services/rounds_linking_service.dart';
@@ -20,10 +17,6 @@ import 'package:daufootytipping/view_models/games_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
-import 'package:daufootytipping/services/fixture_download_service.dart';
-import 'package:daufootytipping/services/fixture_update_service.dart';
-import 'package:daufootytipping/services/analytics_service.dart';
-import 'package:daufootytipping/services/fixture_import_applier.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/services/selection_init_coordinator.dart';
 import 'package:dau_shared/constants/function_endpoints.dart';
@@ -35,34 +28,21 @@ import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart';
 
-enum LeagueLadderAvailability {
-  unknown,
-  ready,
-  insufficientData,
-  unavailable,
-}
+enum LeagueLadderAvailability { unknown, ready, insufficientData, unavailable }
 
 class DAUCompsViewModel extends ChangeNotifier {
   List<DAUComp> _daucomps = [];
   List<DAUComp> get daucomps => _daucomps;
-  // Lazily access database reference to avoid Firebase initialization during pure unit tests
-  DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _daucompsStream;
 
-  final String?
-  _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
-  String? get initDAUCompDbKey => _initDAUCompDbKey;
+  final String? _initDAUCompDbKey; // this is the comp to init with. typically the active comp, but can be any comp when in admin mode
 
   DAUComp? _activeDAUComp;
-  DAUComp? get activeDAUComp =>
-      _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
+  DAUComp? get activeDAUComp => _activeDAUComp; // this is the comp flagged by admins in the daucomp list as the active comp
 
   DAUComp? _selectedDAUComp;
   DAUComp? get selectedDAUComp =>
       _selectedDAUComp; // this is the comp that folks are currently viewing
-
-  bool _savingDAUComp = false;
-  bool get savingDAUComp => _savingDAUComp;
 
   final Completer<void> _initialDAUCompLoadCompleter = Completer<void>();
   Future<void> get initialDAUCompLoadComplete =>
@@ -77,9 +57,6 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get lastFixtureDownloadRanViaCloudFunction =>
       _lastFixtureDownloadRanViaCloudFunction;
 
-  final bool _isLegacySyncing = false;
-  bool get isLegacySyncing => _isLegacySyncing;
-
   GamesViewModel? gamesViewModel;
   StatsViewModel? statsViewModel;
   TipsViewModel? selectedTipperTipsViewModel;
@@ -89,6 +66,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   bool get adminMode => _adminMode;
 
   List<Game> unassignedGames = []; // List to store unassigned games
+  List<SplitRoundGame> splitRoundGames = [];
   final Map<League, LeagueLadder> _cachedLadders = {}; // Added cache storage
   final Map<League, Future<LeagueLadder?>> _inFlightLadderCalculations = {};
   final Map<League, LeagueLadderAvailability> _cachedLadderAvailability = {};
@@ -98,14 +76,10 @@ class DAUCompsViewModel extends ChangeNotifier {
   List<Game>? _cachedGroupedGamesSource;
   int? _cachedGroupedGamesCount;
   Map<League, List<Game>>? _cachedGroupedGames;
-  final CombinedRoundsPersistence _roundsPersistence = const CombinedRoundsPersistence();
-  final DauCompsSnapshotApplier _snapshotApplier = const DauCompsSnapshotApplier();
-  final LockManager _lockManager = const LockManager();
+  final DauCompsSnapshotApplier _snapshotApplier =
+      const DauCompsSnapshotApplier();
   late final UrlHealthChecker _urlHealthChecker;
-  final AnalyticsService _analytics;
-  final FixtureUpdateService _fixtureUpdater;
   final RoundsLinkingService _roundsLinking = const RoundsLinkingService();
-  final FixtureImportApplier _importApplier = const FixtureImportApplier();
   final KickoffRefreshScheduler _kickoffRefreshScheduler;
   final SelectionInitCoordinator _selectionInit;
   final String? _cloudFunctionsBaseURLOverride;
@@ -114,6 +88,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   final Future<String?> Function()? _adminScoringRescoreURLLoader;
   final String? Function()? _adminCheckFixtureUrlURLProvider;
   final Future<String?> Function()? _adminCheckFixtureUrlURLLoader;
+  final Future<String> Function(DAUComp comp)? _networkFixtureDownloader;
 
   final DauCompsRepository _repo;
   final TippersViewModel Function() _tippers;
@@ -125,8 +100,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     this._adminMode, {
     bool skipInit = false,
     DauCompsRepository? repo,
-    FixtureDownloadService? fixtureDownloader,
-    AnalyticsService? analytics,
     TippersViewModel Function()? tippers,
     SelectionInitCoordinator? selectionInit,
     UrlHealthChecker? urlHealthChecker,
@@ -136,22 +109,22 @@ class DAUCompsViewModel extends ChangeNotifier {
     Future<String?> Function()? adminScoringRescoreURLLoader,
     String? Function()? adminCheckFixtureUrlURLProvider,
     Future<String?> Function()? adminCheckFixtureUrlURLLoader,
+    Future<String> Function(DAUComp comp)? networkFixtureDownloader,
     KickoffRefreshScheduler? kickoffRefreshScheduler,
-  })  : _repo = repo ?? FirebaseDauCompsRepository(),
-        _fixtureUpdater = FixtureUpdateService(fixtureDownloader ?? FixtureDownloadService()),
-        _analytics = analytics ?? FirebaseAnalyticsService(),
-        _tippers = tippers ?? (() => di<TippersViewModel>()),
-        _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
-        _kickoffRefreshScheduler =
-            kickoffRefreshScheduler ?? KickoffRefreshScheduler(),
-        _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
-        _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
-        _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
-        _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
-        _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
-        _cloudFunctionsBaseURLOverride =
-            cloudFunctionsBaseURLOverride ??
-            resolveDefaultCloudFunctionsBaseURLOverride() {
+  }) : _repo = repo ?? FirebaseDauCompsRepository(),
+       _tippers = tippers ?? (() => di<TippersViewModel>()),
+       _selectionInit = selectionInit ?? const SelectionInitCoordinator(),
+       _kickoffRefreshScheduler =
+           kickoffRefreshScheduler ?? KickoffRefreshScheduler(),
+       _cloudFunctionsBaseURLProvider = cloudFunctionsBaseURLProvider,
+       _adminScoringRescoreURLProvider = adminScoringRescoreURLProvider,
+       _adminScoringRescoreURLLoader = adminScoringRescoreURLLoader,
+       _adminCheckFixtureUrlURLProvider = adminCheckFixtureUrlURLProvider,
+       _adminCheckFixtureUrlURLLoader = adminCheckFixtureUrlURLLoader,
+       _networkFixtureDownloader = networkFixtureDownloader,
+       _cloudFunctionsBaseURLOverride =
+           cloudFunctionsBaseURLOverride ??
+           resolveDefaultCloudFunctionsBaseURLOverride() {
     _urlHealthChecker =
         urlHealthChecker ??
         UrlHealthChecker(
@@ -165,12 +138,11 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       'DAUCompsViewModel() created with comp: $_initDAUCompDbKey, adminMode: $_adminMode',
     );
-    if (!skipInit) {
-      _init();
-    }
+    _initDone = skipInit ? Future<void>.value() : _init();
   }
 
-  // --- Testability additions ---
+  late final Future<void> _initDone;
+
   @visibleForTesting
   void setSelectedCompForTest(DAUComp comp) {
     _selectedDAUComp = comp;
@@ -191,34 +163,25 @@ class DAUCompsViewModel extends ChangeNotifier {
       _initialDAUCompLoadCompleter.complete();
     }
   }
-  // --- End Testability additions ---
 
   Future<void> _init() async {
     _listenToDAUComps();
     await initialDAUCompLoadComplete;
-
-    if (_initDAUCompDbKey != null) {
-      DAUComp? foundComp = await findComp(_initDAUCompDbKey);
-      if (foundComp != null) {
-        _activeDAUComp = foundComp;
-        await changeDisplayedDAUComp(foundComp, false);
-      }
-    } else {
-      if (!adminMode) {
-        // if no comp is set as the active comp then we will default to the first comp in the list
-        _activeDAUComp = _daucomps.first;
-        if (_activeDAUComp != null) {
-          await changeDisplayedDAUComp(_daucomps.first, false);
-        } else {
-          log(
-            'No DAUComps found. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.',
-          );
-        }
-      } else {
-        log('In admin mode');
-      }
+    final String? compKey = _initDAUCompDbKey;
+    if (compKey == null && adminMode) {
+      return;
     }
-
+    // With no comp key, show the first comp in the list.
+    final DAUComp? comp = compKey == null
+        ? _daucomps.firstOrNull
+        : await findComp(compKey);
+    if (comp == null) {
+      log(
+        'DAUComp ${compKey ?? '(first)'} not found. Check AppCheck and the database.',
+      );
+      return;
+    }
+    await changeDisplayedDAUComp(comp, true);
   }
 
   Future<void> changeDisplayedDAUComp(
@@ -238,6 +201,17 @@ class DAUCompsViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Makes [compDbKey] the active comp and shows it, after the comp this view
+  /// model started with, so screens holding this view model follow the change.
+  Future<void> changeActiveComp(String compDbKey) async {
+    await _initDone;
+    final DAUComp? comp = await findComp(compDbKey);
+    log(
+      'DAUCompsViewModel.changeActiveComp: $compDbKey found: ${comp != null}',
+    );
+    if (comp != null) await changeDisplayedDAUComp(comp, true);
+  }
+
   Future<void> selectedTipperChanged() async {
     await _initializeAndResetViewModels(false);
     _scheduleNextKickoffRefresh();
@@ -245,12 +219,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> refreshFixtureDataFromServer() async {
-    final currentGamesViewModel = gamesViewModel;
-    if (currentGamesViewModel == null) {
-      return;
-    }
-
-    await currentGamesViewModel.refreshFromServer();
+    await gamesViewModel?.refreshFromServer();
   }
 
   bool isSelectedCompActiveComp() {
@@ -258,7 +227,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   }
 
   Future<void> _initializeAndResetViewModels(bool adminDAUCompMode) async {
-    if (di<DAUCompsViewModel>()._selectedDAUComp == null) {
+    if (_selectedDAUComp == null) {
       log(
         'Cannot determine current DAUComp. Check 1) AppCheck, 2) database is empty or 3) database is corrupt. No fixture update will be triggered.',
       );
@@ -300,10 +269,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             },
             createStatsViewModel: (comp, gamesVm) => StartupProfiling.trackSync(
               'startup.create_stats_view_model',
-              () => StatsViewModel(
-                comp,
-                gamesVm,
-              ),
+              () => StatsViewModel(comp, gamesVm),
             ),
             createTipsViewModel: (gamesVm) => StartupProfiling.trackSync(
               'startup.create_tips_view_model',
@@ -351,10 +317,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     final res = await _selectionInit.initializeAdmin(
       selectedComp: _selectedDAUComp!,
       createGamesViewModel: () => GamesViewModel(_selectedDAUComp!, this),
-      createStatsViewModel: (comp, gamesVm) => StatsViewModel(
-        comp,
-        gamesVm,
-      ),
+      createStatsViewModel: (comp, gamesVm) => StatsViewModel(comp, gamesVm),
     );
 
     gamesViewModel = res.gamesViewModel;
@@ -399,10 +362,14 @@ class DAUCompsViewModel extends ChangeNotifier {
 
         // Refresh pointers to active/selected comps
         if (_activeDAUComp != null) {
-          _activeDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _activeDAUComp!.dbkey);
+          _activeDAUComp = _daucomps.firstWhereOrNull(
+            (c) => c.dbkey == _activeDAUComp!.dbkey,
+          );
         }
         if (_selectedDAUComp != null) {
-          _selectedDAUComp = _daucomps.firstWhereOrNull((c) => c.dbkey == _selectedDAUComp!.dbkey);
+          _selectedDAUComp = _daucomps.firstWhereOrNull(
+            (c) => c.dbkey == _selectedDAUComp!.dbkey,
+          );
         }
         _clearGroupedGamesCache();
 
@@ -436,39 +403,7 @@ class DAUCompsViewModel extends ChangeNotifier {
     }
   }
 
-
   // parsing and cutoff logic is now handled by DaucompsRoundsParser service
-
-  
-
-  Future<bool> _acquireLock(DAUComp daucompToUpdate) async {
-    DatabaseReference lockRef = _db.child(
-      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
-    );
-    DataSnapshot snapshot = await lockRef.get();
-
-    if (snapshot.exists) {
-      DateTime? lockTimestamp;
-      if (snapshot.value is String) {
-        lockTimestamp = DateTime.tryParse(snapshot.value as String);
-      } else {
-        lockTimestamp = null;
-      }
-      if (_lockManager.isLockFresh(lockTimestamp, DateTime.now(), const Duration(hours: 24))) {
-        return false; // Lock is already held by another instance
-      }
-    }
-
-    await lockRef.set(DateTime.now().toIso8601String());
-    return true; // Lock acquired successfully
-  }
-
-  Future<void> _releaseLock(DAUComp daucompToUpdate) async {
-    DatabaseReference lockRef = _db.child(
-      _lockManager.lockPathForComp(daucompsPath, daucompToUpdate.dbkey!),
-    );
-    await lockRef.set(null);
-  }
 
   HttpsCallable _adminCallable(
     String functionName,
@@ -476,7 +411,8 @@ class DAUCompsViewModel extends ChangeNotifier {
     required Duration timeout,
   }) {
     final uri = Uri.parse(configuredURL);
-    final isLocalEmulatorUrl = uri.scheme == 'http' &&
+    final isLocalEmulatorUrl =
+        uri.scheme == 'http' &&
         (uri.host == '127.0.0.1' ||
             uri.host == 'localhost' ||
             uri.host == '10.0.2.2');
@@ -536,94 +472,69 @@ class DAUCompsViewModel extends ChangeNotifier {
     return cloudFunctionFixtureDownloadMessage(result.data);
   }
 
-  Future<String> getNetworkFixtureData(
-    DAUComp daucompToUpdate, {
-    bool useCloudFunction = true,
-  }) async {
+  Future<String> getNetworkFixtureData(DAUComp daucompToUpdate) async {
     _lastFixtureDownloadRanViaCloudFunction = false;
     if (_isDownloading) {
       log('getNetworkFixtureData() is already downloading');
       return 'Fixture data is already downloading';
     }
     await initialDAUCompLoadComplete;
-    await otherViewModelsLoadComplete;
-    if (gamesViewModel == null) {
-      return 'Fixture download is not ready yet. Please try again.';
-    }
-    if (gamesViewModel!.selectedDAUComp.dbkey != daucompToUpdate.dbkey) {
-      final loadedComp = gamesViewModel!.selectedDAUComp;
-      final message =
-          'Fixture download aborted: loaded games belong to ${loadedComp.name}, not ${daucompToUpdate.name}.';
-      log('DAUCompsViewModel_getNetworkFixtureData: $message');
-      return message;
+    // The backend downloads by comp key, so no games need to be loaded here.
+    if (_networkFixtureDownloader != null) {
+      return await _networkFixtureDownloader(daucompToUpdate);
     }
 
-    String? cloudFunctionsBaseURL;
-    if (useCloudFunction) {
-      cloudFunctionsBaseURL = resolveConfiguredCloudFunctionsBaseURL();
-      final String configDescription =
-          parseCloudFunctionsBaseURLValue(
-            _cloudFunctionsBaseURLProvider?.call(),
-          ) ??
-          '<not set>';
-      final String overrideDescription =
-          parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
-          '<not set>';
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
-      );
-    } else {
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function disabled for this call. Falling back to local execution.',
-      );
-    }
-
-    if (useCloudFunction && cloudFunctionsBaseURL != null && cloudFunctionsBaseURL.isNotEmpty) {
-      log('DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...');
-      _isDownloading = true;
-      notifyListeners();
-      try {
-        const functionName = adminFixtureDownloadEndpoint;
-        final callable = _adminCallable(
-          functionName,
-          cloudFunctionsBaseURL,
-          timeout: const Duration(minutes: 2),
-        );
-        final result = await callable.call(<String, dynamic>{
-          'compKey': daucompToUpdate.dbkey,
-        });
-        final String message = cloudFunctionFixtureDownloadMessage(
-          result.data,
-        );
-        _lastFixtureDownloadRanViaCloudFunction = true;
-        log('DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message');
-        return message;
-      } catch (e, stackTrace) {
-        log('DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.', error: e, stackTrace: stackTrace);
-        rethrow;
-      } finally {
-        _isDownloading = false;
-        notifyListeners();
-      }
-    }
-
-    if (useCloudFunction) {
-      log(
-        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function not configured. Executing local fixture download...',
-      );
-    } else {
-      log('DAUCompsViewModel_getNetworkFixtureData: Executing local fixture download...');
-    }
-    return _fixtureUpdater.runUpdate(
-      comp: daucompToUpdate,
-      acquireLock: () => _acquireLock(daucompToUpdate),
-      releaseLock: () => _releaseLock(daucompToUpdate),
-      setDownloading: (v) {
-        _isDownloading = v;
-        notifyListeners();
-      },
-      processFetched: (comp, nrl, afl) => _processFetchedFixtures(comp, nrl, afl),
+    final String? cloudFunctionsBaseURL =
+        resolveConfiguredCloudFunctionsBaseURL();
+    final String configDescription =
+        parseCloudFunctionsBaseURLValue(
+          _cloudFunctionsBaseURLProvider?.call(),
+        ) ??
+        '<not set>';
+    final String overrideDescription =
+        parseCloudFunctionsBaseURLValue(_cloudFunctionsBaseURLOverride) ??
+        '<not set>';
+    log(
+      'DAUCompsViewModel_getNetworkFixtureData: cloudFunctionsBaseURL resolved to ${cloudFunctionsBaseURL ?? '<not set>'} from ConfigViewModel (config=$configDescription, override=$overrideDescription)',
     );
+    if (cloudFunctionsBaseURL == null || cloudFunctionsBaseURL.isEmpty) {
+      throw StateError(
+        'Fixture download backend is not configured. Set /AppConfig/$cloudFunctionsBaseURLKey.',
+      );
+    }
+
+    log(
+      'DAUCompsViewModel_getNetworkFixtureData: Triggering backend fixture download via Cloud Function...',
+    );
+    _isDownloading = true;
+    notifyListeners();
+    try {
+      const functionName = adminFixtureDownloadEndpoint;
+      final callable = _adminCallable(
+        functionName,
+        cloudFunctionsBaseURL,
+        timeout: const Duration(minutes: 2),
+      );
+      final result = await callable.call(<String, dynamic>{
+        'compKey': daucompToUpdate.dbkey,
+      });
+      final String message = cloudFunctionFixtureDownloadMessage(result.data);
+      _lastFixtureDownloadRanViaCloudFunction = true;
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud function success: $message',
+      );
+      return message;
+    } catch (e, stackTrace) {
+      log(
+        'DAUCompsViewModel_getNetworkFixtureData: Cloud Function execution failed: $e.',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    } finally {
+      _isDownloading = false;
+      notifyListeners();
+    }
   }
 
   static String? parseCloudFunctionsBaseURLValue(Object? value) {
@@ -704,14 +615,14 @@ class DAUCompsViewModel extends ChangeNotifier {
     log(
       'DAUCompsViewModel_checkFixtureUrlActiveViaCloudFunction: checking $uri via $functionName.',
     );
-    final result = await callable.call(<String, dynamic>{'url': uri.toString()});
+    final result = await callable.call(<String, dynamic>{
+      'url': uri.toString(),
+    });
     final data = result.data;
     if (data is Map && data['active'] is bool) {
       return data['active'] as bool;
     }
-    throw StateError(
-      'Unexpected $functionName response for $uri: $data',
-    );
+    throw StateError('Unexpected $functionName response for $uri: $data');
   }
 
   static String? resolveDefaultCloudFunctionsBaseURLOverride({
@@ -769,94 +680,12 @@ class DAUCompsViewModel extends ChangeNotifier {
     return 'Successfully updated fixtures via Cloud Function';
   }
 
-  Future<String> _processFetchedFixtures(
-    DAUComp daucompToUpdate,
-    List<dynamic> nrlGames,
-    List<dynamic> aflGames,
-  ) async {
-    // Build and apply per-game updates
-    final ops = _importApplier.buildGameUpdates(nrlGames, aflGames);
-    final futures = <Future>[];
-    for (final op in ops) {
-      for (final entry in op.attributes.entries) {
-        futures.add(
-          gamesViewModel!.updateGameAttribute(
-            op.dbkey,
-            entry.key,
-            entry.value,
-            op.league,
-          ),
-        );
-      }
-    }
-    await Future.wait(futures);
-    await gamesViewModel!.saveBatchOfGameAttributes();
-
-    // Tag games with league in-place (keeps previous behavior for raw arrays)
-    _importApplier.tagGamesWithLeagueInPlace(nrlGames, 'nrl');
-    _importApplier.tagGamesWithLeagueInPlace(aflGames, 'afl');
-
-    List<dynamic> allGames = nrlGames + aflGames;
-    final combined = _importApplier.computeCombinedRoundsIfMissing(daucompToUpdate, allGames);
-    if (combined != null) {
-      log('DAUCompsViewModel()_fetchAndProcessFixtureData No existing rounds found. Creating $combinedRoundsPath with round start stop times.');
-      await _updateRoundStartEndTimesBasedOnFixture(daucompToUpdate, allGames);
-    } else {
-      log('DAUCompsViewModel()_fetchAndProcessFixtureData Existing rounds found. Skipping updating $combinedRoundsPath round start stop time update.');
-    }
-
-    String res =
-        'Fixture data loaded. Found ${nrlGames.length} NRL games and ${aflGames.length} AFL games';
-    await _analytics.logEvent('fixture_download',
-        parameters: {'comp': daucompToUpdate.name, 'result': res});
-
-    daucompToUpdate.lastFixtureUpdateTimestampUTC = DateTime.now().toUtc();
-    updateCompAttribute(
-      daucompToUpdate.dbkey!,
-      lastFixtureUTCKey,
-      daucompToUpdate.lastFixtureUpdateTimestampUTC!.toIso8601String(),
-    );
-    await saveBatchOfCompAttributes();
-
-    return res;
-  }
-
-  // tagging handled via FixtureImportApplier
-
-  Future<void> _updateRoundStartEndTimesBasedOnFixture(
-    DAUComp daucomp,
-    List<dynamic> rawGames,
-  ) async {
-    await initialDAUCompLoadComplete;
-
-    // Build rounds using a pure service to improve testability
-    final roundsBuilder = CombinedRoundsService();
-    final combined = roundsBuilder.buildCombinedRounds(rawGames);
-
-    // Update the database with calculated rounds
-    await _updateCombinedRoundsInDatabase(combined, daucomp);
-  }
-
-
-  Future<void> _updateCombinedRoundsInDatabase(
-    List<DAURound> combinedRounds,
-    DAUComp daucomp,
-  ) async {
-    log('In daucompsviewmodel._updateCombinedRoundsInDatabase()');
-    await initialDAUCompLoadComplete;
-
-    final batch = _roundsPersistence.buildCombinedRoundsUpdates(
-      daucomp,
-      combinedRounds,
-      daucompsPath: daucompsPath,
-      combinedRoundsPath: combinedRoundsPath,
-    );
-    updates.addAll(batch);
-    await saveBatchOfCompAttributes();
-  }
-
   bool _isLinkingGames = false;
   bool get isLinkingGames => _isLinkingGames;
+  bool _gamesLinked = false;
+
+  /// Whether the selected comp's rounds hold their games; before, all are empty.
+  bool get gamesLinked => _gamesLinked;
 
   Future<void> linkGamesWithRounds(List<DAURound> allRounds) async {
     log('In daucompsviewmodel.linkGamesWithRounds()');
@@ -885,7 +714,15 @@ class DAUCompsViewModel extends ChangeNotifier {
         nrlCutoff: _selectedDAUComp!.nrlRegularCompEndDateUTC,
         aflCutoff: _selectedDAUComp!.aflRegularCompEndDateUTC,
       );
-      log('Unassigned games count: ${unassignedGames.length}');
+      splitRoundGames = _roundsLinking.computeSplitRoundGames(
+        rounds: allRounds,
+        nrlCutoff: _selectedDAUComp!.nrlRegularCompEndDateUTC,
+        aflCutoff: _selectedDAUComp!.aflRegularCompEndDateUTC,
+      );
+      log(
+        'Unassigned games count: ${unassignedGames.length}, split round games count: ${splitRoundGames.length}',
+      );
+      _gamesLinked = true;
     } catch (e) {
       log('Error in linkGamesWithRounds(): $e');
     } finally {
@@ -906,7 +743,9 @@ class DAUCompsViewModel extends ChangeNotifier {
     for (var compDbKey in compDbKeys) {
       final DAUComp? daucomp = await findComp(compDbKey);
       if (daucomp == null) {
-        log('DAUCompsViewModel.resolveCompsList: compDbKey not found: $compDbKey');
+        log(
+          'DAUCompsViewModel.resolveCompsList: compDbKey not found: $compDbKey',
+        );
       } else if (daucomp.dbkey == compDbKey) {
         daucompList.add(daucomp);
       }
@@ -943,10 +782,12 @@ class DAUCompsViewModel extends ChangeNotifier {
       log('Adding new DAUComp record');
       final key = await _repo.newCompKey(daucompsPath);
       updates['$daucompsPath/$key/$compNameKey'] = newDAUComp.name;
-      updates['$daucompsPath/$key/$aflFixtureJsonURLKey'] =
-          newDAUComp.aflFixtureJsonURL.toString();
-      updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] =
-          newDAUComp.nrlFixtureJsonURL.toString();
+      updates['$daucompsPath/$key/$aflFixtureJsonURLKey'] = newDAUComp
+          .aflFixtureJsonURL
+          .toString();
+      updates['$daucompsPath/$key/$nrlFixtureJsonURLKey'] = newDAUComp
+          .nrlFixtureJsonURL
+          .toString();
       newDAUComp.dbkey = key;
     } else {
       throw 'newDAUComp() called with existing DAUComp dbkey';
@@ -962,7 +803,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     await initialDAUCompLoadComplete;
     log('Saving batch of ${updates.length} DAUComp database updates');
     await _repo.update(updates);
-    _savingDAUComp = false;
   }
 
   Future<List<DAUComp>> getDAUcomps() async {
@@ -1054,23 +894,26 @@ class DAUCompsViewModel extends ChangeNotifier {
       return 0;
     }
 
-    final badgeRound = OutstandingTipsCalculator.appBadgeRoundForTime(
+    final badgeRounds = OutstandingTipsCalculator.appBadgeRoundsForTime(
       rounds: comp.daurounds,
       now: now ?? DateTime.now().toUtc(),
     );
-    if (badgeRound == null) {
+    if (badgeRounds.isEmpty) {
       return 0;
     }
 
-    final outstanding =
-        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          badgeRound,
-          League.nrl,
-        ) +
-        tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          badgeRound,
-          League.afl,
-        );
+    var outstanding = 0;
+    for (final badgeRound in badgeRounds) {
+      outstanding +=
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            badgeRound,
+            League.nrl,
+          ) +
+          tipsViewModel.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+            badgeRound,
+            League.afl,
+          );
+    }
     return outstanding > 0 ? outstanding : 0;
   }
 
@@ -1089,7 +932,7 @@ class DAUCompsViewModel extends ChangeNotifier {
         }
         return <DateTime>[
           for (final round in rounds) ...<DateTime>[
-            round.firstGameKickOffUTC.subtract(
+            round.getRoundStartDate().subtract(
               OutstandingTipsCalculator.appBadgeActivationLeadTime,
             ),
             ...round.games.map((game) => game.startTimeUTC),
@@ -1115,6 +958,7 @@ class DAUCompsViewModel extends ChangeNotifier {
   /// Disposes child ViewModels (games, stats, tips) before re-initialization
   /// to prevent leaked Firebase stream subscriptions and listeners.
   void _disposeChildViewModels() {
+    _gamesLinked = false;
     gamesViewModel?.removeListener(_gamesViewModelUpdated);
     gamesViewModel?.dispose();
     gamesViewModel = null;
@@ -1127,8 +971,6 @@ class DAUCompsViewModel extends ChangeNotifier {
     selectedTipperTipsViewModel?.dispose();
     selectedTipperTipsViewModel = null;
   }
-
-  // per-game processing handled via FixtureImportApplier
 
   @override
   void dispose() {
@@ -1152,11 +994,11 @@ class DAUCompsViewModel extends ChangeNotifier {
       _cachedLadderAvailability.clear();
       log('DAUCompsViewModel: Cleared all ladder caches');
     }
-    // notifyListeners(); // Consider if UI needs to react to cache clearing directly
   }
 
   LeagueLadderAvailability getLeagueLadderAvailability(League league) {
-    return _cachedLadderAvailability[league] ?? LeagueLadderAvailability.unknown;
+    return _cachedLadderAvailability[league] ??
+        LeagueLadderAvailability.unknown;
   }
 
   Future<LeagueLadder?> getOrCalculateLeagueLadder(
@@ -1197,9 +1039,6 @@ class DAUCompsViewModel extends ChangeNotifier {
       );
       return null;
     }
-
-    // gamesViewModel.getGames() already awaits initialLoadComplete within itself.
-    // gamesViewModel.teamsViewModel.initialLoadComplete is also handled within gamesViewModel init.
 
     final currentComp = selectedDAUComp!;
     final currentGamesViewModel = gamesViewModel!;
@@ -1253,8 +1092,10 @@ class DAUCompsViewModel extends ChangeNotifier {
         final bool sameCompStillSelected =
             identical(_selectedDAUComp, selectedComp) ||
             _selectedDAUComp?.dbkey == selectedComp.dbkey;
-        final bool sameGamesViewModelStillActive =
-            identical(gamesViewModel, currentGamesViewModel);
+        final bool sameGamesViewModelStillActive = identical(
+          gamesViewModel,
+          currentGamesViewModel,
+        );
 
         if (sameCompStillSelected && sameGamesViewModelStillActive) {
           _cachedLadders[league] = calculatedLadder;
@@ -1271,8 +1112,10 @@ class DAUCompsViewModel extends ChangeNotifier {
         final bool sameCompStillSelected =
             identical(_selectedDAUComp, selectedComp) ||
             _selectedDAUComp?.dbkey == selectedComp.dbkey;
-        final bool sameGamesViewModelStillActive =
-            identical(gamesViewModel, currentGamesViewModel);
+        final bool sameGamesViewModelStillActive = identical(
+          gamesViewModel,
+          currentGamesViewModel,
+        );
 
         if (sameCompStillSelected && sameGamesViewModelStillActive) {
           _cachedLadderAvailability[league] =
@@ -1300,6 +1143,12 @@ class DAUCompsViewModel extends ChangeNotifier {
         previousUri: previousUri,
       );
 
+  bool _sameInstant(DateTime? a, DateTime? b) {
+    if (a == null && b == null) return true;
+    if (a == null || b == null) return false;
+    return a.isAtSameMomentAs(b);
+  }
+
   Future<Map<String, dynamic>> processAndSaveDauComp({
     required String name,
     required String aflFixtureJsonURL,
@@ -1308,8 +1157,15 @@ class DAUCompsViewModel extends ChangeNotifier {
     required String? aflRegularCompEndDateString,
     required DAUComp? existingComp,
     required List<DAURound> currentRounds, // New parameter
+    Map<int, DateTime?>? initialRoundStartOverrides,
   }) async {
     try {
+      // The form's dates are calendar days, saved as 0:00 UTC like the backend's.
+      DateTime? cutoffFrom(String? day) => day == null || day.isEmpty
+          ? null
+          : DateTime.parse('${day}T00:00:00Z');
+      final DateTime? newNrlCutoff = cutoffFrom(nrlRegularCompEndDateString);
+      final DateTime? newAflCutoff = cutoffFrom(aflRegularCompEndDateString);
       bool aflURLActive = await _isUriActiveIfChanged(
         aflFixtureJsonURL,
         previousUri: existingComp?.aflFixtureJsonURL,
@@ -1328,16 +1184,7 @@ class DAUCompsViewModel extends ChangeNotifier {
             name: name,
             aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
             nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
-            nrlRegularCompEndDateUTC:
-                nrlRegularCompEndDateString != null &&
-                    nrlRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(nrlRegularCompEndDateString)
-                : null,
-            aflRegularCompEndDateUTC:
-                aflRegularCompEndDateString != null &&
-                    aflRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(aflRegularCompEndDateString)
-                : null,
+            // Its first download sets the cutoffs from the fixture.
             daurounds: [], // Initial empty rounds
           );
 
@@ -1345,11 +1192,6 @@ class DAUCompsViewModel extends ChangeNotifier {
             newDAUComp,
           ); // 'this.' to clarify it's the VM method
           await saveBatchOfCompAttributes();
-
-          // Initialize GamesViewModel for the new comp
-          // Ensure 'this' is passed if DAUCompsViewModel instance is needed by GamesViewModel constructor
-          gamesViewModel = GamesViewModel(newDAUComp, this);
-          await gamesViewModel?.initialLoadComplete;
 
           String fixtureMessage = await getNetworkFixtureData(newDAUComp);
           return {
@@ -1359,6 +1201,130 @@ class DAUCompsViewModel extends ChangeNotifier {
           };
         } else {
           // Existing comp
+          final Map<int, DateTime?> baselineOverrides =
+              initialRoundStartOverrides ??
+              <int, DateTime?>{
+                for (final r in existingComp.daurounds)
+                  r.dAUroundNumber: r.adminOverrideRoundStartDate,
+              };
+          final bool nrlCutoffChanged = !_sameInstant(
+            newNrlCutoff,
+            existingComp.nrlRegularCompEndDateUTC,
+          );
+          final bool aflCutoffChanged = !_sameInstant(
+            newAflCutoff,
+            existingComp.aflRegularCompEndDateUTC,
+          );
+          final bool cutoffsChanged = nrlCutoffChanged || aflCutoffChanged;
+          // Compare effective start dates: a timed override and 0:00 UTC on
+          // the same date are the same start.
+          bool startChanged(DAURound r) =>
+              !r.getRoundStartDate().isAtSameMomentAs(
+                r.roundStartDateWithOverride(
+                  baselineOverrides[r.dAUroundNumber],
+                ),
+              );
+          final bool roundStartsChanged = currentRounds.any(startChanged);
+
+          // Re-run start and cutoff validation right before writing so an
+          // official result that landed after the edit cannot be bypassed.
+          final seenKeys = <String>{};
+          final allGames = <Game>[];
+          if (gamesViewModel != null &&
+              gamesViewModel!.selectedDAUComp.dbkey == existingComp.dbkey) {
+            for (final g in await gamesViewModel!.getGames()) {
+              if (seenKeys.add(g.dbkey)) allGames.add(g);
+            }
+          }
+          for (final r in currentRounds) {
+            for (final g in r.games) {
+              if (seenKeys.add(g.dbkey)) allGames.add(g);
+            }
+          }
+          for (final g in unassignedGames) {
+            if (seenKeys.add(g.dbkey)) allGames.add(g);
+          }
+
+          if (nrlCutoffChanged && newNrlCutoff != null) {
+            final nrlError = _roundsLinking.validateLeagueCutoffEdit(
+              league: League.nrl,
+              oldCutoffUTC: existingComp.nrlRegularCompEndDateUTC?.toUtc(),
+              newCutoffUTC: newNrlCutoff.toUtc(),
+              allGames: allGames,
+            );
+            if (nrlError != null) {
+              return {
+                'success': false,
+                'message': nrlError,
+                'newCompData': null,
+              };
+            }
+          }
+          if (aflCutoffChanged && newAflCutoff != null) {
+            final aflError = _roundsLinking.validateLeagueCutoffEdit(
+              league: League.afl,
+              oldCutoffUTC: existingComp.aflRegularCompEndDateUTC?.toUtc(),
+              newCutoffUTC: newAflCutoff.toUtc(),
+              allGames: allGames,
+            );
+            if (aflError != null) {
+              return {
+                'success': false,
+                'message': aflError,
+                'newCompData': null,
+              };
+            }
+          }
+          if (roundStartsChanged) {
+            final workingRounds = [
+              for (final r in currentRounds)
+                DAURound(
+                  dAUroundNumber: r.dAUroundNumber,
+                  firstGameKickOffUTC: r.firstGameKickOffUTC,
+                  lastGameKickOffUTC: r.lastGameKickOffUTC,
+                  adminOverrideRoundStartDate:
+                      baselineOverrides[r.dAUroundNumber],
+                ),
+            ]..sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
+            final validationComp = DAUComp(
+              dbkey: existingComp.dbkey,
+              name: name,
+              aflFixtureJsonURL: Uri.parse(aflFixtureJsonURL),
+              nrlFixtureJsonURL: Uri.parse(nrlFixtureJsonURL),
+              daurounds: workingRounds,
+              aflRegularCompEndDateUTC: newAflCutoff?.toUtc(),
+              nrlRegularCompEndDateUTC: newNrlCutoff?.toUtc(),
+            );
+            final sortedEditedRounds = [...currentRounds]
+              ..sort((a, b) => a.dAUroundNumber.compareTo(b.dAUroundNumber));
+            for (final round in sortedEditedRounds) {
+              if (!startChanged(round)) {
+                continue;
+              }
+              final startError = _roundsLinking.validateRoundStartDateEdit(
+                comp: validationComp,
+                rounds: workingRounds,
+                editedRoundNumber: round.dAUroundNumber,
+                newStartDateUTC: round.getRoundStartDate().toUtc(),
+                allGames: allGames,
+              );
+              if (startError != null) {
+                return {
+                  'success': false,
+                  'message': startError,
+                  'newCompData': null,
+                };
+              }
+              final idx = workingRounds.indexWhere(
+                (r) => r.dAUroundNumber == round.dAUroundNumber,
+              );
+              if (idx != -1) {
+                workingRounds[idx].adminOverrideRoundStartDate =
+                    round.adminOverrideRoundStartDate;
+              }
+            }
+          }
+
           updateCompAttribute(existingComp.dbkey!, compNameKey, name);
           updateCompAttribute(
             existingComp.dbkey!,
@@ -1373,26 +1339,14 @@ class DAUCompsViewModel extends ChangeNotifier {
           updateCompAttribute(
             existingComp.dbkey!,
             nrlRegularCompEndDateUTCKey,
-            nrlRegularCompEndDateString != null &&
-                    nrlRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(nrlRegularCompEndDateString).toIso8601String()
-                : null,
+            newNrlCutoff?.toIso8601String(),
           );
           updateCompAttribute(
             existingComp.dbkey!,
             aflRegularCompEndDateUTCKey,
-            aflRegularCompEndDateString != null &&
-                    aflRegularCompEndDateString.isNotEmpty
-                ? DateTime.parse(aflRegularCompEndDateString).toIso8601String()
-                : null,
+            newAflCutoff?.toIso8601String(),
           );
 
-          // If activeDAUComp is not null and its dbkey matches existingComp's dbkey,
-          // then iterate over activeDAUComp.daurounds. Otherwise, use existingComp.daurounds.
-          // This is to ensure that we are saving the latest version of the rounds data if it was modified in memory.
-          // However, the existingComp passed from the UI _should_ be the one from the ViewModel's perspective (activeDAUComp or selectedDAUComp).
-          // For safety, let's use the rounds from the `existingComp` parameter as it's what the UI is working with.
-          // Changed to iterate over currentRounds as per the subtask instruction
           for (DAURound round in currentRounds) {
             if (round.adminOverrideRoundStartDate != null) {
               updateRoundAttribute(
@@ -1402,21 +1356,34 @@ class DAUCompsViewModel extends ChangeNotifier {
                 round.adminOverrideRoundStartDate!.toUtc().toIso8601String(),
               );
             }
-            if (round.adminOverrideRoundEndDate != null) {
-              updateRoundAttribute(
-                existingComp.dbkey!,
-                round.dAUroundNumber,
-                adminOverrideRoundEndDateKey,
-                round.adminOverrideRoundEndDate!.toUtc().toIso8601String(),
-              );
-            }
           }
           await saveBatchOfCompAttributes();
-          return {
-            'success': true,
-            'message': 'DAUComp record saved',
-            'newCompData': null,
-          };
+
+          if (!(roundStartsChanged || cutoffsChanged)) {
+            return {
+              'success': true,
+              'message': 'DAUComp record saved',
+              'newCompData': null,
+            };
+          }
+
+          try {
+            final fixtureMessage = await getNetworkFixtureData(existingComp);
+            return {
+              'success': true,
+              'message': 'DAUComp record saved. $fixtureMessage',
+              'newCompData': null,
+            };
+          } catch (e) {
+            log('Error downloading fixtures after saving DAUComp: $e');
+            return {
+              'success': false,
+              'message':
+                  'DAUComp record saved, but fixture download failed: '
+                  '${e is FirebaseFunctionsException ? e.message ?? e.code : e}',
+              'newCompData': null,
+            };
+          }
         }
       } else {
         return {

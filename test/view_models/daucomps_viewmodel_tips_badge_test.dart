@@ -7,11 +7,12 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/services/kickoff_refresh_scheduler.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
-import 'package:dau_shared/services/outstanding_tips_calculator.dart';
 
 class MockTipsViewModel extends Mock implements TipsViewModel {}
+
 class MockKickoffRefreshScheduler extends Mock
     implements KickoffRefreshScheduler {}
+
 class FakeDAURound extends Fake implements DAURound {}
 
 void main() {
@@ -104,14 +105,39 @@ void main() {
         ),
       ).captured;
       final refreshTimes = (captured.single as Iterable<DateTime> Function())();
-      expect(
-        refreshTimes,
-        contains(
-          firstKickoff.subtract(
-            OutstandingTipsCalculator.appBadgeActivationLeadTime,
-          ),
+      expect(refreshTimes, contains(DateTime.utc(2030, 1, 3)));
+    });
+
+    test('schedules badge activation from an overridden round start', () {
+      final firstKickoff = DateTime.parse('2030-01-05T12:00:00Z');
+      final overrideStart = firstKickoff.subtract(const Duration(days: 1));
+      final badgeRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: firstKickoff,
+        lastGameKickOffUTC: firstKickoff.add(const Duration(days: 2)),
+        adminOverrideRoundStartDate: overrideStart,
+      );
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[badgeRound],
         ),
       );
+
+      vm.gamesViewModelUpdatedForTest();
+
+      final captured = verify(
+        () => kickoffRefreshScheduler.schedule(
+          kickoffTimes: captureAny(named: 'kickoffTimes'),
+          onRefresh: any(named: 'onRefresh'),
+        ),
+      ).captured;
+      final refreshTimes = (captured.single as Iterable<DateTime> Function())();
+      expect(refreshTimes, contains(DateTime.utc(2030, 1, 2)));
+      expect(refreshTimes, isNot(contains(DateTime.utc(2030, 1, 3))));
     });
 
     test('returns 0 when selected comp is null', () {
@@ -152,46 +178,46 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       ).thenReturn(2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       ).thenReturn(3);
 
       expect(vm.currentRoundOutstandingTipsCount(), 5);
       verify(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round2,
-          League.nrl,
-        ),
+              round2,
+              League.nrl,
+            ),
       ).called(1);
       verify(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round2,
-          League.afl,
-        ),
+              round2,
+              League.afl,
+            ),
       ).called(1);
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round3,
-          League.nrl,
-        ),
+              round3,
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          round3,
-          League.afl,
-        ),
+              round3,
+              League.afl,
+            ),
       );
     });
 
@@ -213,16 +239,16 @@ void main() {
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       );
     });
 
@@ -242,27 +268,27 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       ).thenReturn(-2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       ).thenReturn(-1);
 
       expect(vm.currentRoundOutstandingTipsCount(), 0);
     });
 
     test('app badge stays off until 48 hours before the next round', () {
-      final now = DateTime.parse('2030-01-01T12:00:00Z');
+      final now = DateTime.parse('2030-01-01T23:59:59Z');
       final nextRound = DAURound(
         dAUroundNumber: 1,
-        firstGameKickOffUTC: now.add(const Duration(hours: 49)),
-        lastGameKickOffUTC: now.add(const Duration(days: 3)),
+        firstGameKickOffUTC: DateTime.parse('2030-01-04T12:00:00Z'),
+        lastGameKickOffUTC: DateTime.parse('2030-01-06T12:00:00Z'),
       );
       vm.setSelectedCompForTest(
         DAUComp(
@@ -279,16 +305,16 @@ void main() {
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.nrl,
-        ),
+              any(),
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          any(),
-          League.afl,
-        ),
+              any(),
+              League.afl,
+            ),
       );
     });
 
@@ -317,33 +343,108 @@ void main() {
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          nextRound,
-          League.nrl,
-        ),
+              nextRound,
+              League.nrl,
+            ),
       ).thenReturn(2);
       when(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          nextRound,
-          League.afl,
-        ),
+              nextRound,
+              League.afl,
+            ),
       ).thenReturn(3);
 
       expect(vm.appBadgeOutstandingTipsCount(now), 5);
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          previousRound,
-          League.nrl,
-        ),
+              previousRound,
+              League.nrl,
+            ),
       );
       verifyNever(
         () => mockTipsViewModel
             .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
-          previousRound,
-          League.afl,
+              previousRound,
+              League.afl,
+            ),
+      );
+    });
+
+    test('app badge sums outstanding tips across overlapping badge rounds before and after postponed kickoff', () {
+      // Round 1 is extended by a postponed Monday night game (kickoff +10h
+      // -> roundEndDate +13h), overlapping Round 2's 48h activation window.
+      final nowBeforePostponed = DateTime.parse('2030-01-01T12:00:00Z');
+      final nowAfterPostponed = DateTime.parse('2030-01-01T23:00:00Z');
+
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: nowBeforePostponed.subtract(
+          const Duration(days: 3),
+        ),
+        lastGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 13)),
+      );
+      final round2 = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: nowBeforePostponed.add(const Duration(hours: 40)),
+        lastGameKickOffUTC: nowBeforePostponed.add(const Duration(days: 5)),
+      );
+
+      vm.setSelectedCompForTest(
+        DAUComp(
+          dbkey: 'comp',
+          name: 'Comp',
+          aflFixtureJsonURL: Uri.parse('https://afl'),
+          nrlFixtureJsonURL: Uri.parse('https://nrl'),
+          daurounds: <DAURound>[round1, round2],
         ),
       );
+      vm.selectedTipperTipsViewModel = mockTipsViewModel;
+
+      // Before postponed kickoff: Round 1 has 1 upcoming untipped NRL game,
+      // Round 2 has 2 upcoming untipped AFL games -> total 3.
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.nrl,
+            ),
+      ).thenReturn(1);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.afl,
+            ),
+      ).thenReturn(0);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round2,
+              League.nrl,
+            ),
+      ).thenReturn(0);
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round2,
+              League.afl,
+            ),
+      ).thenReturn(2);
+
+      expect(vm.appBadgeOutstandingTipsCount(nowBeforePostponed), 3);
+
+      // After postponed kickoff (inside 3h end buffer): Round 1 now has 0
+      // upcoming untipped games, Round 2 still has 2 -> total 2.
+      when(
+        () => mockTipsViewModel
+            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+              round1,
+              League.nrl,
+            ),
+      ).thenReturn(0);
+      expect(vm.appBadgeOutstandingTipsCount(nowAfterPostponed), 2);
     });
   });
 }

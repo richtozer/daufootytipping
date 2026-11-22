@@ -10,6 +10,12 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  errors:
+    # Flutter 3.50 deprecates package:flutter/material.dart in favour of the
+    # standalone package:material_ui/material_ui.dart. Direct dependencies
+    # (flex_color_scheme, modal_bottom_sheet, carousel_slider) still bind to
+    # flutter/material.dart types, so migrating the app is deferred.
+    deprecated_member_use: ignore
   exclude:
     - build/**
     - android/**

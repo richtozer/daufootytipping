@@ -1,0 +1,44 @@
+[
+  {
+    "id": "albo",
+    "file": "albo.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Create a single square avatar portrait, polished friendly editorial caricature of Anthony Albanese (Albo), recognizable silver hair and glasses, smiling, wearing a red and green rugby scarf. Head and upper shoulders centered, face fills most of frame, comfortable circular-crop safe margin. Flat warm pale mint background, clean bold shapes, warm hand-painted illustration finish, legible at 40px. No letters, no text, no logos, no watermark. One person only. This is a fictional celebrity tipping league demo avatar."
+  },
+  {
+    "id": "rusty",
+    "file": "rusty.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Russell Crowe, broad face, grey beard, friendly wry smile, red and green rugby scarf. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat warm cream background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  },
+  {
+    "id": "hughesy",
+    "file": "hughesy.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Dave Hughes the Australian comedian, long face, tousled grey hair, broad toothy grin, navy blue scarf. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat pale blue background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  },
+  {
+    "id": "dusty",
+    "file": "dusty.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Dustin Martin the Australian footballer, closely cropped hair, distinctive neck tattoos, black and yellow sports top. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat pale golden yellow background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  },
+  {
+    "id": "jt",
+    "file": "jt.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Johnathan Thurston, Indigenous Australian rugby league great, unmistakable broad smiling face, dark protective rugby headgear, navy and gold jersey. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat pale blue background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  },
+  {
+    "id": "barty",
+    "file": "barty.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Ash Barty, Australian tennis champion, brown hair pulled back, cheerful smile, black and yellow football scarf. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat warm peach background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  },
+  {
+    "id": "daisy",
+    "file": "daisy.jpg",
+    "tool": "Built-in image_gen",
+    "prompt": "Use case: stylized-concept. Asset: single square profile avatar for a fictional celebrity tipping league demo. Polished friendly editorial caricature of Daisy Pearce, Australian football great, light brown hair in ponytail, warm smile, navy and red football scarf. Recognizable likeness with slightly exaggerated facial features. Head and upper shoulders centered, face fills most of frame, circular-crop safe margins. Flat pale pink background. Clean bold shapes and warm hand-painted illustration finish matching a modern sports app, legible at 40px. One person only, no text, letters, logos or watermark."
+  }
+]

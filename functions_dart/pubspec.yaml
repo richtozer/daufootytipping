@@ -7,9 +7,10 @@ environment:
   sdk: '>=3.9.0 <4.0.0'
 
 dependencies:
-  firebase_functions: ^0.7.0
+  firebase_functions: ^0.8.0
   firebase_admin: ^0.3.1+5
   firebase_dart: ^1.6.2
+  crypto: ^3.0.6
   http: ^1.2.0
   intl: ^0.20.3
   dau_shared:
@@ -17,11 +18,16 @@ dependencies:
 
 dependency_overrides:
   # firebase_admin still constrains googleapis to ^15 while
-  # firebase_functions 0.7 requires ^16.
+  # firebase_functions 0.8 requires ^16.
   googleapis: ^16.0.0
 
 dev_dependencies:
   test: ^1.32.0
+  # Used only by test/support/mock_firebase_auth.dart, to sign test ID tokens and
+  # App Check tokens for the real callable pipeline. Already in the lockfile as
+  # dependencies of firebase_functions; named here because tests import them.
+  dart_jsonwebtoken: ^3.4.1
+  firebase_admin_sdk: ^0.5.6
   mocktail: ^1.0.3
   # Required by scripts/build_dart_functions.sh, which generates functions.yaml
   # (the deployment manifest) via firebase_functions:spec_builder. Not imported

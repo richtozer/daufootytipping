@@ -111,12 +111,20 @@ void main() {
   });
 
   test('switches the game stats listener when the viewer cohort changes', () async {
+    final auth = StreamController<bool>.broadcast();
+    var signedIn = false;
     final viewModel = StatsViewModel(
       comp,
       null,
       database: root,
+      signedIn: () async* { yield signedIn; yield* auth.stream; },
       refreshProtectedResourceAccess: () async {},
     );
+    await _settleAsyncWork();
+
+    expect(freeStatsEvents.hasListener, isFalse);
+    signedIn = true;
+    auth.add(true);
     await _settleAsyncWork();
 
     expect(freeStatsEvents.hasListener, isTrue);
@@ -139,7 +147,17 @@ void main() {
     expect(paidStatsEvents.hasListener, isTrue);
     expect(viewModel.gamesStatsEntry, isEmpty);
 
+    signedIn = false;
+    auth.add(false);
+    await _settleAsyncWork();
+    expect(paidStatsEvents.hasListener, isFalse);
+    signedIn = true;
+    auth.add(true);
+    await _settleAsyncWork();
+    expect(paidStatsEvents.hasListener, isTrue);
+
     viewModel.dispose();
+    await auth.close();
   });
 
   test('does not replace complete stats with a partial listener entry', () async {
@@ -147,6 +165,7 @@ void main() {
       comp,
       null,
       database: root,
+      signedIn: () => Stream.value(true),
       autoInitialize: false,
       refreshProtectedResourceAccess: () async {},
     );

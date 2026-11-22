@@ -18,7 +18,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Scope: Changes are surgical; avoid unrelated edits or drive-by refactors.
 - Commits/branches: The agent does not commit or create branches unless explicitly asked.
 - Pre‑flight checks: Always run `flutter analyze` and the relevant `flutter test` scope before and after refactors.
-- Formatting: Do not run `dart format` or other bulk formatting tools unless the maintainer explicitly requests formatting for the task.
+- Formatting: Run `dart format` on the files you changed, naming each one (`dart format lib/a.dart test/b_test.dart`). Never format a directory such as `lib/` or `test/`: the repo is not uniformly formatted, and a directory run buries the change in unrelated churn. If formatting a changed file also rewrites code you did not touch, say so in your summary.
 - Repo exploration: When `jcodemunch` MCP is available, prefer it for symbol-level exploration (`search_symbols`, `get_symbol`, `get_file_outline`, `get_repo_outline`). Keep using `rg` and direct file reads for exact text matches, literals, config values, and when the MCP index is missing or stale.
 
 ## Secrets & Local Config
@@ -37,11 +37,24 @@ This document defines how the human maintainer and the coding agent collaborate 
 - Location: Service tests live under `test/services/`; ViewModel tests under `test/view_models/`.
 - Gate: Treat a clean analyzer run and a green test suite as gates before merging further refactors.
 
+## Driving the Running App
+- Entry point: `test_driver/main.dart` starts the app with the Flutter Driver extension enabled (`flutter run -t test_driver/main.dart`, debug only). Use it rather than creating another; `lib/main.dart` does not enable the extension.
+- Connect through the `dart` MCP server: `dtd` with `listDtdUris`, then `connect`. Running with `--print-dtd` prints the URI.
+- Read the screen as text from the widget or semantics tree (`widget_inspector`, `vm_service`) before acting. Do not guess at labels.
+- Find and tap widgets with `flutter_driver_command` by `Key`, text or semantics label, never by coordinates. Do not navigate by screenshots.
+- After each flow, check `get_runtime_errors`. After a code change, hot reload.
+- When a widget cannot be found because it has no label, give it a `Semantics` label or a `Key`.
+- Use screenshots only for visual questions such as layout, alignment, theming and clipping.
+
+## Drift Guards
+- The "Drift Guards" section of `CLAUDE.md` applies to every agent working in this repository. Read it before changing code.
+- Run `node scripts/ratchet.mjs` before declaring a change done; it must pass. Never raise a number in `config/ratchet-baseline.json`: only the maintainer does that.
+
 ## Flutter/Dart Specifics
-- Formatting: Prefer `dart format` or IDE formatting. The agent won’t run formatters without approval.
+- Formatting: See the Formatting rule under Workflow Conventions.
 - Analysis: Honor `analysis_options.yaml`. Avoid introducing new warnings.
 - UI tests: Avoid unless asked. Focus on unit and ViewModel logic tests.
-- State: Current DI via `watch_it/get_it`, Provider + ChangeNotifier; migrating to RiverPod.
+- State: ChangeNotifier view models located with `watch_it/get_it`. Older screens rebuild through Provider; new code follows Drift Guards.
 - Architecture: Database-first with reactive listeners (Firebase streams as source of truth).
 
 ## Refactors
@@ -52,9 +65,7 @@ This document defines how the human maintainer and the coding agent collaborate 
 
 ### DAUCompsViewModel Decomposition (in progress)
 - Current extractions in `lib/services/` with dedicated unit tests:
-  - `FixtureUpdateCoordinator`: decides timer start and whether to trigger fixture updates; unit tested.
   - `DauCompsSnapshotApplier`: pure merge of Firebase snapshot into in‑memory comps; returns keys needing relink; unit tested.
-  - `FixtureImportApplier`: builds per‑game update ops, tags raw fixture entries with league, and computes combined rounds when missing; unit tested.
 - DI pattern: New services are constructor‑injected with safe defaults. Tests can inject fakes/mocks without touching global DI.
 - Behavior gates: Public APIs on `DAUCompsViewModel` must remain stable. `notifyListeners` semantics and single‑flight guards are preserved.
 - Next extractions: Selection/init coordinator for `_initializeAndResetViewModels`; consider isolating stats aggregation if needed.
@@ -84,9 +95,8 @@ The agent will request approval before commands that:
 Current Repo Notes (subject to change)
 - Flutter project with tests in `test/` and app code in `lib/`.
 - Coverage file: `coverage/lcov.info`.
-- As of last scan, ViewModels had 0% coverage; add tests before refactoring them.
-- DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels and FixtureDownloadService; mock these in tests.
-- Snapshot processing and fixture update logic are now delegated to services (see Refactors section); prefer adding tests at the service layer first.
+- DAUCompsViewModel composes Games/Stats/Tips/Tippers ViewModels; mock these in tests. Fixture downloads run only in the admin-fixture-download Cloud Function; the client has no local import.
+- Snapshot processing is delegated to services (see Refactors section); prefer adding tests at the service layer first.
 
 If you want any of these defaults changed, edit this file and the agent will follow it going forward.
 

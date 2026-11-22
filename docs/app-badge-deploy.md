@@ -61,20 +61,28 @@ The code also accepts `DART_APP_BADGE_COUNT_URL` and
    remains off; confirm no server badge message is sent.
 9. Set `/AppConfig/outstandingTipsPushEnabled` to `true` in the intended Firebase
    environment.
-10. Verify a tip submission, a kickoff transition, a new token registration,
-    and a zero-count badge clear on both platforms.
+10. During an active round badge window, verify a tip submission, a kickoff
+    transition, a new token registration, and a zero-count badge clear on both
+    platforms. Between rounds, those events intentionally send nothing.
 
 ## Runtime Behaviour
 
-- Tip writes recalculate and send the affected tipper immediately.
+- Tip writes recalculate and send the affected tipper immediately while a round
+  badge window is active.
 - Payment/anonymous eligibility changes recalculate that tipper and can send
-  zero to clear an existing badge.
-- New token registrations receive the current count on that token only.
-- A one-minute boundary sweep starts a round's badges 48 hours before its first
-  kickoff and updates all eligible tippers after each kickoff.
+  zero to clear an existing badge while a round badge window is active.
+- New token registrations receive the current count on that token only while a
+  round badge window is active.
+- A one-minute boundary sweep starts a round's badges 48 hours before its
+  effective stored start and updates all eligible tippers after each
+  regular-comp kickoff. Generated round starts already include a three-hour
+  buffer, so activation is normally about 51 hours before the first kickoff.
 - Badge counts return to zero at the last kickoff and remain off until the next
   round enters its 48-hour activation window.
-- An hourly reconciliation repairs missed or delayed events.
+- An hourly reconciliation repairs missed or delayed events until the stored
+  or admin-overridden round end. Generated round ends include a three-hour
+  post-kickoff buffer, providing repeated zero-count clear attempts before
+  reconciliation stops until the next round enters its activation window.
 - FCM collapse identifiers keep only the newest pending badge update.
 - Permanently invalid FCM tokens are removed from `/AllTippersTokens`.
 

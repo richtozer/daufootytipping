@@ -1,0 +1,405 @@
+import 'package:daufootytipping/models/crowdsourcedscore.dart';
+import 'package:daufootytipping/models/dauround.dart';
+import 'package:daufootytipping/models/game.dart';
+import 'package:daufootytipping/models/league.dart';
+import 'package:daufootytipping/models/scoring.dart';
+import 'package:daufootytipping/models/scoring_gamestats.dart';
+import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/models/tip.dart';
+import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/view_models/gametip_viewmodel.dart';
+import 'package:daufootytipping/widgets/tips/adaptive_tips_card.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+class _GameModel extends Mock implements GameTipViewModel {}
+
+Game _game({
+  required DateTime startTimeUTC,
+  Scoring? scoring,
+  String dbkey = 'game-1',
+}) => Game(
+  dbkey: dbkey,
+  league: League.nrl,
+  homeTeam: Team(dbkey: 'home-1', name: 'Dragons', league: League.nrl),
+  awayTeam: Team(dbkey: 'away-1', name: 'Eels', league: League.nrl),
+  location: 'Test Oval',
+  startTimeUTC: startTimeUTC,
+  fixtureRoundNumber: 27,
+  fixtureMatchNumber: 1,
+  scoring: scoring,
+);
+
+TipsCardDisplay _display(
+  Game game, {
+  String homeRank = '',
+  String awayRank = '',
+  GameStatsEntry? gameStatsEntry,
+  Tip? tip,
+}) {
+  final model = _GameModel();
+  when(() => model.game).thenReturn(game);
+  when(() => model.tip).thenReturn(tip);
+  when(() => model.savingTip).thenReturn(false);
+  return tipsCardDisplayFor(
+    gameTipViewModel: model,
+    homeRank: homeRank,
+    awayRank: awayRank,
+    gameStatsEntry: gameStatsEntry,
+  );
+}
+
+Tip _tip(Game game) => Tip(
+  game: game,
+  tipper: Tipper(
+    dbkey: 'tipper-1',
+    authuid: 'auth-1',
+    email: 'tipper@example.com',
+    name: 'Tipper',
+    tipperRole: TipperRole.tipper,
+    compsPaidFor: const [],
+  ),
+  tip: GameResult.b,
+  submittedTimeUTC: game.startTimeUTC.subtract(const Duration(days: 1)),
+);
+
+void main() {
+  final future = DateTime.now().toUtc().add(const Duration(days: 7));
+  final past = DateTime.now().toUtc().subtract(const Duration(days: 7));
+
+  test('a tip given automatically for a missed game reaches the card', () {
+    final game = _game(startTimeUTC: past);
+    final chosen = _tip(game);
+    final given = Tip(
+      game: game,
+      tipper: chosen.tipper,
+      tip: GameResult.d,
+      // The epoch is how a default tip is marked.
+      submittedTimeUTC: DateTime.fromMicrosecondsSinceEpoch(0, isUtc: true),
+    );
+
+    expect(_display(game, tip: given).defaultTip, isTrue);
+    expect(_display(game, tip: chosen).defaultTip, isFalse);
+    expect(_display(game).defaultTip, isFalse);
+  });
+
+  test('an interim score takes precedence over the live game state', () {
+    final scoring = Scoring(
+      crowdSourcedScores: [
+        CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.home,
+          'tipper-1',
+          12,
+          false,
+        ),
+        CrowdSourcedScore(
+          DateTime.now().toUtc(),
+          ScoringTeam.away,
+          'tipper-1',
+          6,
+          false,
+        ),
+      ],
+    );
+    final display = _display(_game(startTimeUTC: past, scoring: scoring));
+
+    expect(display.status, TipsStatus.interim);
+    expect(display.home.score, 12);
+    expect(display.away.score, 6);
+  });
+
+  test('a final fixture score reports finalScore and marks the winner', () {
+    final display = _display(
+      _game(
+        startTimeUTC: past,
+        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+      ),
+    );
+
+    expect(display.status, TipsStatus.finalScore);
+    expect(display.home.winner, isTrue);
+    expect(display.away.winner, isFalse);
+  });
+
+  test('scores and ranks swap over at kickoff', () {
+    final upcoming = _display(
+      _game(startTimeUTC: future, scoring: Scoring(homeTeamScore: 24)),
+      homeRank: '17th',
+      awayRank: '13th',
+    );
+    expect(upcoming.status, TipsStatus.upcoming);
+    expect(upcoming.home.score, isNull, reason: 'no score before kickoff');
+    expect(upcoming.home.rank, '17th');
+    expect(upcoming.away.rank, '13th');
+
+    final played = _display(
+      _game(
+        startTimeUTC: past,
+        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+      ),
+      homeRank: '17th',
+      awayRank: '13th',
+    );
+    expect(played.home.score, 24);
+    expect(played.home.rank, isNull, reason: 'ranks are a pre-game hint only');
+  });
+
+  test('percentages stay null until every value has arrived', () {
+    final partial = GameStatsEntry(
+      percentageTippedHomeMargin: 1.8,
+      percentageTippedHome: 42.1,
+      percentageTippedDraw: 0.0,
+    );
+    expect(
+      _display(_game(startTimeUTC: past), gameStatsEntry: partial).percentages,
+      isNull,
+    );
+
+    // Stored as fractions; the card renders whole numbers.
+    final complete = GameStatsEntry(
+      percentageTippedHomeMargin: 0.018,
+      percentageTippedHome: 0.421,
+      percentageTippedDraw: 0.0,
+      percentageTippedAway: 0.544,
+      percentageTippedAwayMargin: 0.017,
+    );
+    expect(
+      _display(_game(startTimeUTC: past), gameStatsEntry: complete).percentages,
+      [
+        closeTo(1.8, 0.001),
+        closeTo(42.1, 0.001),
+        0.0,
+        closeTo(54.4, 0.001),
+        closeTo(1.7, 0.001),
+      ],
+    );
+  });
+
+  test('each logo carries a hero tag scoped to its own game', () {
+    final display = _display(_game(startTimeUTC: future));
+
+    expect(display.home.heroTag, 'team_icon_game-1_home-1');
+    expect(display.away.heroTag, 'team_icon_game-1_away-1');
+    expect(display.home.heroTag, isNot(display.away.heroTag));
+
+    // The same team next round is a second card in the same list, so it
+    // cannot reuse the tag: two of them mounted at once made every push
+    // throw on duplicate hero tags.
+    final nextRound = _display(_game(startTimeUTC: future, dbkey: 'game-2'));
+    expect(nextRound.home.heroTag, isNot(display.home.heroTag));
+  });
+
+  test('the info panel keeps the kickoff, venue and fixture parts', () {
+    final kickoff = DateTime.utc(2026, 9, 25, 9, 50);
+    final upcoming = _display(
+      _game(startTimeUTC: kickoff.add(const Duration(days: 365))),
+    );
+
+    expect(upcoming.info, contains('Kickoff: '));
+    expect(upcoming.info, contains('Test Oval'));
+    expect(upcoming.info, contains('Fixture: round 27, match 1'));
+    expect(upcoming.info, isNot(contains('Played: ')));
+    expect(
+      upcoming.info,
+      isNot(contains('Tipped: ')),
+      reason: 'no tip submitted, so no tipped-at part',
+    );
+
+    final played = _display(
+      _game(
+        startTimeUTC: past,
+        scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+      ),
+    );
+    expect(played.info, contains('Played: '));
+    expect(played.info, isNot(contains('Kickoff: ')));
+  });
+
+  test('points read as unknown until the game has a result', () {
+    final display = _display(_game(startTimeUTC: future));
+
+    expect(display.points, '? / ?');
+    expect(display.average, '? / ?');
+  });
+
+  group('average points', () {
+    Game finished() => _game(
+      startTimeUTC: past,
+      scoring: Scoring(homeTeamScore: 24, awayTeamScore: 12),
+    );
+
+    test('reads the game stats average against the max points', () {
+      final game = finished();
+      final tip = _tip(game);
+      final display = _display(
+        game,
+        tip: tip,
+        gameStatsEntry: GameStatsEntry(
+          averagePoints: 1.5,
+          averagePointsTipCount: 40,
+        ),
+      );
+
+      expect(display.average, '1.5 / ${tip.getMaxPointsCalculated()}');
+    });
+
+    test('shows an unknown average until the stats arrive', () {
+      final game = finished();
+      final tip = _tip(game);
+      final display = _display(game, tip: tip);
+
+      expect(display.average, '? / ${tip.getMaxPointsCalculated()}');
+    });
+
+    test('stays unknown without a tip, even with stats', () {
+      final display = _display(
+        finished(),
+        gameStatsEntry: GameStatsEntry(
+          averagePoints: 1.5,
+          averagePointsTipCount: 40,
+        ),
+      );
+
+      expect(display.average, '? / ?');
+    });
+  });
+
+  group('while tipping is still open after kickoff (the grace period)', () {
+    final complete = GameStatsEntry(
+      percentageTippedHomeMargin: 0.018,
+      percentageTippedHome: 0.421,
+      percentageTippedDraw: 0.0,
+      percentageTippedAway: 0.544,
+      percentageTippedAwayMargin: 0.017,
+    );
+    DateTime startedSecondsAgo(int seconds) =>
+        DateTime.now().toUtc().subtract(Duration(seconds: seconds));
+
+    test('how the field tipped is not shown, then is once tipping closes', () {
+      expect(
+        _display(
+          _game(startTimeUTC: startedSecondsAgo(30)),
+          gameStatsEntry: complete,
+        ).percentages,
+        isNull,
+      );
+      expect(
+        _display(
+          _game(startTimeUTC: startedSecondsAgo(130)),
+          gameStatsEntry: complete,
+        ).percentages,
+        isNotNull,
+      );
+    });
+
+    test(
+      'the choices come first, and the result first again once it closes',
+      () {
+        final open = _display(_game(startTimeUTC: startedSecondsAgo(30)));
+        final closed = _display(_game(startTimeUTC: startedSecondsAgo(130)));
+        final upcoming = _display(_game(startTimeUTC: future));
+
+        expect(tipsPanelsFor(open, tippingOpen: true), [
+          TipsPanel.tips,
+          TipsPanel.result,
+          TipsPanel.info,
+        ]);
+        expect(tipsPanelsFor(closed, tippingOpen: false), [
+          TipsPanel.result,
+          TipsPanel.tips,
+          TipsPanel.info,
+        ]);
+        expect(tipsPanelsFor(upcoming, tippingOpen: true), [
+          TipsPanel.tips,
+          TipsPanel.info,
+        ]);
+      },
+    );
+  });
+
+  group('measurement cards', () {
+    DAURound roundOf(
+      int number,
+      List<(String, String)> matchups, {
+      League league = League.afl,
+      List<(String, String)> nrlMatchups = const [],
+    }) {
+      final kickoff = DateTime.utc(2027, 3, number);
+      return DAURound(
+          dAUroundNumber: number,
+          firstGameKickOffUTC: kickoff,
+          lastGameKickOffUTC: kickoff,
+        )
+        ..games = [
+          for (final (league, pairs) in [
+            (league, matchups),
+            (League.nrl, nrlMatchups),
+          ])
+            for (final (home, away) in pairs)
+              Game(
+                dbkey: '${league.name}-$number-$home',
+                league: league,
+                homeTeam: Team(
+                  dbkey: '${league.name}-$home',
+                  name: home,
+                  league: league,
+                ),
+                awayTeam: Team(
+                  dbkey: '${league.name}-$away',
+                  name: away,
+                  league: league,
+                ),
+                location: 'Oval',
+                startTimeUTC: kickoff,
+                fixtureRoundNumber: number,
+                fixtureMatchNumber: 1,
+              ),
+        ];
+    }
+
+    Set<String> measuredNames(List<DAURound> rounds) => {
+      for (final card in tipsMeasurementCards(rounds))
+        if (card.league == League.afl) card.home.name,
+    };
+
+    test('are sized from the teams that play the season, not finals '
+        'placeholders', () {
+      // A fixture lists its finals before anyone has qualified, each team a
+      // placeholder that plays in that one week.
+      final rounds = [
+        roundOf(1, [('Swans', 'Bulldogs')]),
+        roundOf(2, [('Bulldogs', 'Swans')]),
+        roundOf(3, [('Highest-ranked WF Winner', 'Lowest-ranked WF Winner')]),
+      ];
+      expect(measuredNames(rounds), {'Bulldogs'});
+    });
+
+    test('use every team of a league none of whose teams plays twice yet', () {
+      // NRL has two rounds loaded, AFL so far only one: the AFL teams are
+      // still the ones to measure, not left out for not having played twice.
+      expect(
+        measuredNames([
+          roundOf(
+            1,
+            [('Swans', 'Western Bulldogs')],
+            nrlMatchups: [('Storm', 'Eels')],
+          ),
+          roundOf(2, [], nrlMatchups: [('Eels', 'Storm')]),
+        ]),
+        {'Western Bulldogs'},
+      );
+    });
+
+    test('use every team when none plays more than one round', () {
+      expect(
+        measuredNames([
+          roundOf(1, [('Swans', 'Western Bulldogs')]),
+        ]),
+        {'Western Bulldogs'},
+      );
+    });
+  });
+}

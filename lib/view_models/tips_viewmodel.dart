@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
@@ -7,6 +8,7 @@ import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/tip.dart';
 import 'package:daufootytipping/models/tipper.dart';
@@ -28,6 +30,7 @@ class TipsViewModel extends ChangeNotifier {
   List<Tip?> _listOfTips = [];
   Map<String, Map<String, Tip>>? _tipsByGameAndTipper;
   final DatabaseReference _db;
+  final Stream<bool> Function() _signedIn;
   StreamSubscription<DatabaseEvent>? _tipsStream;
 
   final DAUComp selectedDAUComp;
@@ -54,22 +57,27 @@ class TipsViewModel extends ChangeNotifier {
     return -1;
   }
 
-  Tipper?
-  _tipper; // if this is supplied in the constructor, then we are only interested in the tips for this tipper
+  /// The tipper whose tips this holds.
+  final Tipper _tipper;
 
   late final GamesViewModel _gamesViewModel;
   GamesViewModel get gamesViewModel => _gamesViewModel;
 
   late final TippersViewModel tipperViewModel;
 
-  //constructor - this will get all tips from db
-  TipsViewModel(
+  //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
+  TipsViewModel.forTipper(
     this.tipperViewModel,
     this.selectedDAUComp,
     this._gamesViewModel,
-    {DatabaseReference? database, bool listenToTips = true,}
-  ) : _db = database ?? configuredDatabaseRef() {
-    log('TipsViewModel (all tips) constructor');
+    this._tipper, {
+    DatabaseReference? database,
+    bool listenToTips = true,
+    Stream<bool> Function()? signedIn,
+  }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
+       _gameReadRetryDelay = defaultGameReadRetryDelay {
+    log('TipsViewModel.forTipper constructor for tipper ${_tipper.dbkey}');
     _gamesViewModel.addListener(_update);
     if (listenToTips) {
       _listenToTips();
@@ -78,21 +86,158 @@ class TipsViewModel extends ChangeNotifier {
     }
   }
 
-  //constructor - this will get all tips from db for a specific tipper - less expensive and quicker db read
-  TipsViewModel.forTipper(
+  /// For looking at a tipper's tips the way the R2 rules allow: one started game
+  /// at a time and nothing wider (the tipper's own node and the competition's
+  /// are for the tipper and administrators only). Nothing is listened to until
+  /// [watchGames] says which games.
+  TipsViewModel.forTipperGames(
     this.tipperViewModel,
     this.selectedDAUComp,
     this._gamesViewModel,
-    this._tipper,
-    {DatabaseReference? database, bool listenToTips = true,}
-  ) : _db = database ?? configuredDatabaseRef() {
-    log('TipsViewModel.forTipper constructor for tipper ${_tipper!.dbkey}');
+    this._tipper, {
+    DatabaseReference? database,
+    Duration gameReadRetryDelay = defaultGameReadRetryDelay,
+    Stream<bool> Function()? signedIn,
+  }) : _db = database ?? configuredDatabaseRef(),
+       _signedIn = signedIn ?? firebaseSignedInStream,
+       _gameReadRetryDelay = gameReadRetryDelay {
+    _perGame = true;
+    log('TipsViewModel.forTipperGames constructor for tipper ${_tipper.dbkey}');
     _gamesViewModel.addListener(_update);
-    if (listenToTips) {
-      _listenToTips();
-    } else {
-      _completeInitialLoadIfNeeded();
+  }
+
+  /// How long to wait before trying again to read a game the server would not
+  /// show: the device's clock may be a little ahead of the server's, so the game
+  /// has started here but its tips are not yet readable there.
+  static const Duration defaultGameReadRetryDelay = Duration(seconds: 5);
+
+  /// How many times in a row a game is tried again without being asked to.
+  static const int maxAutomaticGameReadRetries = 3;
+
+  bool _perGame = false;
+  bool _disposed = false;
+  final Duration _gameReadRetryDelay;
+  final Map<String, StreamSubscription<DatabaseEvent>> _gameStreams = {};
+  final Map<String, Tip> _perGameTips = {};
+  Map<String, Game> _wantedGames = {};
+  final Map<String, int> _failedGameReads = {};
+  Timer? _gameReadRetryTimer;
+
+  /// Per-game mode only (anything else ignores the call): listens to the tips of
+  /// exactly [games], opens a listener for each game not yet watched and closes
+  /// the ones no longer wanted. Asking again for the same games changes nothing
+  /// and notifies nobody, so a screen may call it on every refresh. Completes
+  /// once every newly watched game has answered once; a game the server refuses
+  /// to show (its kickoff has not passed there yet) counts as answered, with no
+  /// tip. Such a game is not watched any more, so asking again tries it afresh,
+  /// and it is tried again on its own a few times, a few seconds apart.
+  Future<void> watchGames(Iterable<Game> games) async {
+    if (!_perGame || _disposed) {
+      return;
     }
+    final Map<String, Game> wanted = {
+      for (final game in games) game.dbkey: game,
+    };
+    _wantedGames = wanted;
+    _failedGameReads.removeWhere(
+      (String key, int _) => !wanted.containsKey(key),
+    );
+
+    bool changed = false;
+    for (final String key
+        in _gameStreams.keys
+            .where((key) => !wanted.containsKey(key))
+            .toList()) {
+      await _gameStreams.remove(key)?.cancel();
+      _perGameTips.remove(key);
+      changed = true;
+    }
+
+    final List<Future<void>> firstAnswers = [];
+    for (final MapEntry<String, Game> entry in wanted.entries) {
+      if (_gameStreams.containsKey(entry.key)) {
+        continue;
+      }
+      final Completer<void> firstAnswer = Completer<void>();
+      firstAnswers.add(firstAnswer.future);
+      late final StreamSubscription<DatabaseEvent> subscription;
+      subscription =
+          authAwareStream<DatabaseEvent>(
+            signedIn: _signedIn,
+            open: () => _db
+                .child(
+                  '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}/${entry.key}',
+                )
+                .onValue,
+            onSourceError: (Object error, StackTrace stackTrace) {
+              log('TipsViewModel: cannot read game ${entry.key}: $error');
+              _gameReadFailed(entry.key, subscription);
+              if (!firstAnswer.isCompleted) firstAnswer.complete();
+            },
+          ).listen((DatabaseEvent event) {
+            _failedGameReads.remove(entry.key);
+            _applyGameSnapshot(entry.value, event.snapshot);
+            if (!firstAnswer.isCompleted) {
+              firstAnswer.complete();
+            }
+          });
+      _gameStreams[entry.key] = subscription;
+    }
+
+    if (changed) {
+      _publishPerGameTips();
+    }
+    await Future.wait(firstAnswers);
+    _completeInitialLoadIfNeeded();
+  }
+
+  /// The server would not show the tip for [gameKey], and a listener it has
+  /// refused does not recover. Drops it, so that the next [watchGames] opens a
+  /// fresh one, and tries once more on its own after a short wait, a few times.
+  void _gameReadFailed(
+    String gameKey,
+    StreamSubscription<DatabaseEvent> failed,
+  ) {
+    unawaited(failed.cancel());
+    if (identical(_gameStreams[gameKey], failed)) {
+      _gameStreams.remove(gameKey);
+    }
+    if (_perGameTips.remove(gameKey) != null) {
+      _publishPerGameTips();
+    }
+    final int failures = (_failedGameReads[gameKey] ?? 0) + 1;
+    _failedGameReads[gameKey] = failures;
+    if (failures > maxAutomaticGameReadRetries || _disposed) {
+      return;
+    }
+    if (_gameReadRetryTimer?.isActive ?? false) {
+      return;
+    }
+    _gameReadRetryTimer = Timer(_gameReadRetryDelay, () {
+      unawaited(watchGames(_wantedGames.values));
+    });
+  }
+
+  void _applyGameSnapshot(Game game, DataSnapshot snapshot) {
+    final Object? value = snapshot.exists ? snapshot.value : null;
+    if (value is Map) {
+      _perGameTips[game.dbkey] = Tip.fromJson(
+        Map<String, dynamic>.from(value),
+        game.dbkey,
+        _tipper,
+        game,
+      );
+    } else {
+      _perGameTips.remove(game.dbkey);
+    }
+    _publishPerGameTips();
+  }
+
+  void _publishPerGameTips() {
+    _listOfTips = _perGameTips.values.toList();
+    _tipsByGameAndTipper = null;
+    _crossCompTipCache.clear();
+    notifyListeners();
   }
 
   void _update() {
@@ -102,21 +247,17 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   void _listenToTips() {
-    if (_tipper != null) {
-      _tipsStream = _db
-          .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper!.dbkey}')
-          .onValue
-          .listen((event) {
-            _handleEvent(event);
-          });
-    } else {
-      _tipsStream = _db
-          .child('${p.tipsPathRoot}/${selectedDAUComp.dbkey}')
-          .onValue
-          .listen((event) {
-            _handleEvent(event);
-          });
-    }
+    _tipsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => _db
+              .child(
+                '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper.dbkey}',
+              )
+              .onValue,
+        ).listen((event) {
+          _handleEvent(event);
+        });
   }
 
   void _completeInitialLoadIfNeeded() {
@@ -132,56 +273,46 @@ class TipsViewModel extends ChangeNotifier {
   Future<void> _applyTipsSnapshot(DataSnapshot snapshot) async {
     try {
       if (snapshot.exists) {
-        if (_tipper == null) {
-          final allTips = Map<String, dynamic>.from(
-            snapshot.value as Map,
-          );
-          log(
-            'TipsViewModel._handleEvent() All tippers - Deserialize tip for ${allTips.length} tippers.',
-          );
-          _listOfTips = await _deserializeTips(allTips);
-        } else {
-          log('_handleEvent deserializing tips for tipper ${_tipper!.dbkey}');
-          final stopwatch = Stopwatch()..start();
-          Map<String, dynamic> dbData = Map<String, dynamic>.from(
-            snapshot.value as Map,
-          );
-          log(
-            '_handleEvent (Tipper ${_tipper!.dbkey}) - number of tips to deserialize: ${dbData.length}',
-          );
-          // Pre-load game map for instant O(1) lookups
-          final games = await _gamesViewModel.getGames();
-          final Map<String, Game> gameMap = {
-            for (final game in games) game.dbkey: game,
-          };
+        log('_handleEvent deserializing tips for tipper ${_tipper.dbkey}');
+        final stopwatch = Stopwatch()..start();
+        Map<String, dynamic> dbData = Map<String, dynamic>.from(
+          snapshot.value as Map,
+        );
+        log(
+          '_handleEvent (Tipper ${_tipper.dbkey}) - number of tips to deserialize: ${dbData.length}',
+        );
+        // Pre-load game map for instant O(1) lookups
+        final games = await _gamesViewModel.getGames();
+        final Map<String, Game> gameMap = {
+          for (final game in games) game.dbkey: game,
+        };
 
-          _listOfTips = dbData.entries.map((tipEntry) {
-            Game? game = gameMap[tipEntry.key];
-            if (game == null) {
-              assert(game != null);
-              log(
-                'TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}',
-              );
-              return null;
-            } else {
-              Map<String, dynamic> entryValue = Map<String, dynamic>.from(
-                tipEntry.value as Map,
-              );
-              return Tip.fromJson(entryValue, tipEntry.key, _tipper!, game);
-            }
-          }).toList();
-          stopwatch.stop();
-          log(
-            'Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips',
-          );
-          StartupProfiling.instant(
-            'startup.single_tipper_tips_loaded',
-            arguments: <String, Object?>{
-              'elapsedMs': stopwatch.elapsedMilliseconds,
-              'tipCount': _listOfTips.length,
-            },
-          );
-        }
+        _listOfTips = dbData.entries.map((tipEntry) {
+          Game? game = gameMap[tipEntry.key];
+          if (game == null) {
+            assert(game != null);
+            log(
+              'TipsViewModel._handleEvent() Game not found for tip ${tipEntry.key}',
+            );
+            return null;
+          } else {
+            Map<String, dynamic> entryValue = Map<String, dynamic>.from(
+              tipEntry.value as Map,
+            );
+            return Tip.fromJson(entryValue, tipEntry.key, _tipper, game);
+          }
+        }).toList();
+        stopwatch.stop();
+        log(
+          'Single tipper tip loading completed in ${stopwatch.elapsedMilliseconds}ms for ${_listOfTips.length} tips',
+        );
+        StartupProfiling.instant(
+          'startup.single_tipper_tips_loaded',
+          arguments: <String, Object?>{
+            'elapsedMs': stopwatch.elapsedMilliseconds,
+            'tipCount': _listOfTips.length,
+          },
+        );
       } else {
         log('TipsViewModel._handleEvent() No tips found in realtime database');
         _listOfTips = <Tip?>[];
@@ -194,64 +325,13 @@ class TipsViewModel extends ChangeNotifier {
         StartupProfiling.instant(
           'startup.tips_initial_load_complete',
           arguments: <String, Object?>{
-            'tipperScoped': _tipper != null,
+            'tipperScoped': true,
             'tipCount': _listOfTips.length,
           },
         );
       }
       notifyListeners();
     }
-  }
-
-  Future<void> refreshFromServer() async {
-    final path = _tipper == null
-        ? '${p.tipsPathRoot}/${selectedDAUComp.dbkey}'
-        : '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${_tipper!.dbkey}';
-    await _applyTipsSnapshot(await _db.child(path).get());
-  }
-
-  Future<List<Tip>> _deserializeTips(Map<String, dynamic> json) async {
-    final stopwatch = Stopwatch()..start();
-    List<Tip> allCompTips = [];
-
-    int processedTippers = 0;
-    for (var tipperEntry in json.entries) {
-      // Yield control every 5 tippers to prevent UI blocking
-      if (processedTippers % 5 == 0) {
-        await Future.microtask(() {});
-      }
-
-      Tipper? tipper = await tipperViewModel.findTipper(tipperEntry.key);
-      if (tipper != null) {
-        Map<String, dynamic> tipperTips = Map<String, dynamic>.from(
-          tipperEntry.value as Map,
-        );
-        for (var tipEntry in tipperTips.entries) {
-          Game? game = await _gamesViewModel.findGame(tipEntry.key);
-          if (game == null) {
-            assert(game != null);
-            log(
-              'TipsViewModel._deserializeTips() Game not found for tip ${tipEntry.key}',
-            );
-          } else {
-            //log('game found for tip ${tipEntry.key}'
-            Tip tip = Tip.fromJson(tipEntry.value, tipEntry.key, tipper, game);
-            allCompTips.add(tip);
-          }
-        }
-      } else {
-        // tipper does not exist - skip this record
-        log('Tipper ${tipperEntry.key} does not exist in deserializeTips');
-      }
-      processedTippers++;
-    }
-
-    stopwatch.stop();
-    log(
-      '_deserializeTips completed in ${stopwatch.elapsedMilliseconds}ms for ${allCompTips.length} tips',
-    );
-
-    return await Future.wait(allCompTips.map((tip) => Future.value(tip)));
   }
 
   bool _matchesGame(Game cachedGame, Game lookupGame) {
@@ -330,7 +410,8 @@ class TipsViewModel extends ChangeNotifier {
         continue;
       }
       final gameKey = _gameTipCacheKey(tip.game);
-      index.putIfAbsent(gameKey, () => <String, Tip>{})[tip.tipper.dbkey!] = tip;
+      index.putIfAbsent(gameKey, () => <String, Tip>{})[tip.tipper.dbkey!] =
+          tip;
     }
     return index;
   }
@@ -340,21 +421,15 @@ class TipsViewModel extends ChangeNotifier {
   }
 
   bool _gameBelongsToComp(Game game, DAUComp dauComp) {
-    for (final round in dauComp.daurounds) {
-      final start = round.getRoundStartDate();
-      final end = round.getRoundEndDate();
-      final isOnOrAfterStart =
-          game.startTimeUTC.isAfter(start) ||
-          game.startTimeUTC.isAtSameMomentAs(start);
-      final isOnOrBeforeEnd =
-          game.startTimeUTC.isBefore(end) ||
-          game.startTimeUTC.isAtSameMomentAs(end);
-      if (isOnOrAfterStart && isOnOrBeforeEnd) {
-        return true;
-      }
-    }
-
-    return false;
+    return Game.roundForKickoff(
+          kickoffUTC: game.startTimeUTC,
+          league: game.league,
+          rounds: dauComp.daurounds,
+          aflCutoffUTC: dauComp.aflRegularCompEndDateUTC,
+          nrlCutoffUTC: dauComp.nrlRegularCompEndDateUTC,
+          boundFinalRoundByEndDate: true,
+        ) !=
+        null;
   }
 
   static const Duration _crossCompTipCacheTtl = Duration(minutes: 5);
@@ -371,10 +446,9 @@ class TipsViewModel extends ChangeNotifier {
   ) async {
     await initialLoadCompleted;
 
-    final candidateComps =
-        dauComps
-            .where((comp) => comp.dbkey != null && _gameBelongsToComp(game, comp))
-            .toList();
+    final candidateComps = dauComps
+        .where((comp) => comp.dbkey != null && _gameBelongsToComp(game, comp))
+        .toList();
 
     if (candidateComps.any((comp) => comp.dbkey == selectedDAUComp.dbkey)) {
       final currentCompTip = await findTip(game, tipper);
@@ -392,7 +466,9 @@ class TipsViewModel extends ChangeNotifier {
       final cacheKey = _crossCompCacheKey(compDbKey, game, tipper);
       if (_crossCompTipCache.containsKey(cacheKey)) {
         final cachedEntry = _crossCompTipCache[cacheKey]!;
-        final cacheAge = DateTime.now().toUtc().difference(cachedEntry.cachedAtUtc);
+        final cacheAge = DateTime.now().toUtc().difference(
+          cachedEntry.cachedAtUtc,
+        );
         if (cacheAge <= _crossCompTipCacheTtl) {
           if (cachedEntry.tip != null) {
             return cachedEntry.tip;
@@ -451,7 +527,8 @@ class TipsViewModel extends ChangeNotifier {
       }
 
       // Check if the tip data matches (comparing key fields)
-      bool tipMatches = foundTip.tip == expectedTip.tip &&
+      bool tipMatches =
+          foundTip.tip == expectedTip.tip &&
           // Compare at second precision to accommodate compact epoch seconds storage
           (foundTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000) ==
               (expectedTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000);
@@ -460,21 +537,7 @@ class TipsViewModel extends ChangeNotifier {
     });
   }
 
-  //delete a tip
-  Future<void> deleteTip(Tip tip) async {
-    await _db
-        .child(
-          '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
-        )
-        .remove();
-  }
-
   // returns true if the supplied tipper has submitted at least one tip for the comp
-  Future<bool> hasSubmittedTips(Tipper tipper) async {
-    await initialLoadCompleted;
-    return _listOfTips.any((tip) => tip?.tipper.dbkey == tipper.dbkey);
-  }
-
   // Outstanding tips for games that have not started yet (includes startingSoon).
   int numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
     DAURound round,
@@ -505,23 +568,37 @@ class TipsViewModel extends ChangeNotifier {
         .length;
   }
 
+  /// The tip [tipper] has made for the game, as this device shows it, or null if
+  /// they have not tipped it. Unlike [findTip], a game never tipped is not given a
+  /// default tip. A tip the device has queued but the server has not yet accepted
+  /// is shown too.
+  Tip? submittedTipForGame(String gameKey, Tipper tipper) {
+    for (final tip in _listOfTips) {
+      if (tip != null &&
+          tip.game.dbkey == gameKey &&
+          tip.tipper.dbkey == tipper.dbkey) {
+        return tip;
+      }
+    }
+    return null;
+  }
+
   List<Tip?> getTipsForTipper(Tipper tipper) {
     return _listOfTips
         .where((tip) => tip!.tipper.dbkey == tipper.dbkey)
         .toList();
   }
 
-  Future<void> updateTip(Tip tip) async {
-    await _db
-        .child(
-          '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${tip.tipper.dbkey}/${tip.game.dbkey}',
-        )
-        .update(tip.toJson());
-  }
-
   @override
   void dispose() {
+    _disposed = true;
+    _gameReadRetryTimer?.cancel();
     _tipsStream?.cancel(); // stop listening to stream
+    for (final StreamSubscription<DatabaseEvent> stream
+        in _gameStreams.values) {
+      stream.cancel();
+    }
+    _gameStreams.clear();
     _gamesViewModel.removeListener(_update);
     super.dispose();
   }
@@ -531,17 +608,5 @@ class TipsViewModel extends ChangeNotifier {
     _listOfTips = List<Tip?>.from(tips);
     _tipsByGameAndTipper = null;
     _completeInitialLoadIfNeeded();
-  }
-
-  Future<void> deleteAllTipsForTipper(Tipper originalTipper) async {
-    try {
-      await _db
-          .child(
-            '${p.tipsPathRoot}/${selectedDAUComp.dbkey}/${originalTipper.dbkey}',
-          )
-          .remove();
-    } catch (e) {
-      log('Error deleting all tips for tipper ${originalTipper.dbkey}');
-    }
   }
 }

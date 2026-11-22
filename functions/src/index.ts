@@ -2,6 +2,7 @@
 import {sendHourlyReminders} from
   "./services/messaging_service_send_not_tipped_reminders";
 import {
+  liveScoreHistoryWrittenBackendScoring,
   liveScoreWrittenBackendScoring,
   officialScoreWrittenBackendScoring,
   tipWrittenBackendScoring,
@@ -24,6 +25,8 @@ exports.sendReminders = sendHourlyReminders;
 exports.tipWrittenBackendScoring = tipWrittenBackendScoring;
 exports.officialScoreWrittenBackendScoring = officialScoreWrittenBackendScoring;
 exports.liveScoreWrittenBackendScoring = liveScoreWrittenBackendScoring;
+exports.liveScoreHistoryWrittenBackendScoring =
+  liveScoreHistoryWrittenBackendScoring;
 exports.scheduledFixtureDownload = scheduledFixtureDownloadForwarder;
 exports.tipWrittenAppBadge = tipWrittenAppBadge;
 exports.tipperWrittenAppBadge = tipperWrittenAppBadge;

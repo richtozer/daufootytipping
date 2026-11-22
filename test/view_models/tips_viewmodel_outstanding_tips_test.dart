@@ -1,3 +1,5 @@
+import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/models/game.dart';
@@ -45,10 +47,18 @@ void main() {
         daurounds: <DAURound>[round],
       );
 
-      tipsViewModel = TipsViewModel(
+      tipsViewModel = TipsViewModel.forTipper(
         MockTippersViewModel(),
         comp,
         gamesViewModel,
+        Tipper(
+          dbkey: 'tipper',
+          compsPaidFor: const [],
+          authuid: '',
+          email: null,
+          name: 'Tipper',
+          tipperRole: TipperRole.tipper,
+        ),
         database: MockDatabaseReference(),
         listenToTips: false,
       );
@@ -61,8 +71,7 @@ void main() {
     test('stops counting an untipped game once it has started', () {
       expect(round.getGamesForLeague(League.nrl), hasLength(2));
       expect(
-        tipsViewModel!
-            .numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
+        tipsViewModel!.numberOfOutstandingTipsForUpcomingGamesInRoundAndLeague(
           round,
           League.nrl,
         ),
@@ -82,5 +91,5 @@ Game _game(String dbkey, DateTime startTimeUTC) {
     startTimeUTC: startTimeUTC,
     fixtureRoundNumber: 1,
     fixtureMatchNumber: 1,
-    );
+  );
 }

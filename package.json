@@ -1,7 +1,8 @@
 {
   "scripts": {
     "compare:backend-scoring": "node scripts/compare_backend_round_stats.mjs",
-    "migrate:tiplogs": "node tools/firestore/migrate_tip_logs_to_tip_logs2.js"
+    "migrate:tiplogs": "node tools/firestore/migrate_tip_logs_to_tip_logs2.js",
+    "optimise:logos": "svgo -q --multipass -p 2 -f team_logos"
   },
   "engines": {
     "node": "22"
@@ -11,5 +12,8 @@
   },
   "overrides": {
     "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "svgo": "3.3.2"
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:daufootytipping/constants/paths.dart' as p;
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
 import 'package:daufootytipping/view_models/config_viewmodel.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,25 +11,6 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 class MockDatabaseEvent extends Mock implements DatabaseEvent {}
 
 class MockDataSnapshot extends Mock implements DataSnapshot {}
-
-class MemoryConfigDiagnosticsStorage implements ResumeDiagnosticsStorage {
-  final List<String> values = <String>[];
-
-  @override
-  Future<void> appendLine(String encodedEvent) async {
-    values.add(encodedEvent);
-  }
-
-  @override
-  Future<List<String>> readLines() async => List<String>.from(values);
-
-  @override
-  Future<void> replaceLines(List<String> encodedEvents) async {
-    values
-      ..clear()
-      ..addAll(encodedEvents);
-  }
-}
 
 void main() {
   late MockDatabaseReference mockDb;
@@ -58,9 +38,7 @@ void main() {
         _databaseEvent(
           _rootSnapshot(
             exists: true,
-            value: <String, Object?>{
-              p.currentDAUCompKey: 'comp-2026',
-            },
+            value: <String, Object?>{p.currentDAUCompKey: 'comp-2026'},
             children: <String, Object?>{
               p.currentDAUCompKey: _valueSnapshot('comp-2026'),
               p.createLinkedTipperKey: _valueSnapshot(null),
@@ -85,88 +63,32 @@ void main() {
     },
   );
 
-  test('initial load completes once required bootstrap config arrives', () async {
-    final viewModel = ConfigViewModel(
-      db: mockDb,
-      initialLoadTimeout: const Duration(seconds: 1),
-    );
-
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{
-            p.currentDAUCompKey: 'comp-2026',
-          },
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-            p.createLinkedTipperKey: _valueSnapshot(null),
-            p.minAppVersionKey: _valueSnapshot(null),
-            p.googleClientIdKey: _valueSnapshot(null),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-          },
-        ),
-      ),
-    );
-
-    await Future<void>.delayed(Duration.zero);
-
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{
-            p.currentDAUCompKey: 'comp-2026',
-            p.createLinkedTipperKey: true,
-          },
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-            p.createLinkedTipperKey: _valueSnapshot(true),
-            p.minAppVersionKey: _valueSnapshot('1.2.3'),
-            p.googleClientIdKey: _valueSnapshot('client-id'),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
-            p.adminScoringRescoreURLKey:
-                _valueSnapshot('https://rescore.example.com'),
-            p.adminCheckFixtureUrlURLKey:
-                _valueSnapshot('https://check-fixture-url.example.com'),
-          },
-        ),
-      ),
-    );
-
-    await viewModel.initialLoadComplete;
-
-    expect(viewModel.activeDAUComp, 'comp-2026');
-    expect(viewModel.createLinkedTipper, isTrue);
-    expect(viewModel.minAppVersion, '1.2.3');
-    expect(viewModel.googleClientId, 'client-id');
-    expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
-    expect(viewModel.adminScoringRescoreURL, 'https://rescore.example.com');
-    expect(
-      viewModel.adminCheckFixtureUrlURL,
-      'https://check-fixture-url.example.com',
-    );
-
-    viewModel.dispose();
-  });
-
   test(
-    'records the resume probe value from the existing config listener',
+    'initial load completes once required bootstrap config arrives',
     () async {
-      final MemoryConfigDiagnosticsStorage storage =
-          MemoryConfigDiagnosticsStorage();
-      final ResumeDiagnosticsRecorder recorder = ResumeDiagnosticsRecorder(
-        storage: storage,
-        processId: 'config-diagnostics-test',
-      );
-      await recorder.initialize();
-      AppResumeDiagnostics.installRecorderForTest(recorder);
-      addTearDown(AppResumeDiagnostics.resetForTest);
-
-      final ConfigViewModel viewModel = ConfigViewModel(
+      final viewModel = ConfigViewModel(
         db: mockDb,
         initialLoadTimeout: const Duration(seconds: 1),
       );
+
+      controller.add(
+        _databaseEvent(
+          _rootSnapshot(
+            exists: true,
+            value: <String, Object?>{p.currentDAUCompKey: 'comp-2026'},
+            children: <String, Object?>{
+              p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+              p.createLinkedTipperKey: _valueSnapshot(null),
+              p.minAppVersionKey: _valueSnapshot(null),
+              p.googleClientIdKey: _valueSnapshot(null),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+            },
+          ),
+        ),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+
       controller.add(
         _databaseEvent(
           _rootSnapshot(
@@ -174,61 +96,74 @@ void main() {
             value: <String, Object?>{
               p.currentDAUCompKey: 'comp-2026',
               p.createLinkedTipperKey: true,
-              AppResumeDiagnostics.configProbeKey: 'config-nonce-1',
             },
             children: <String, Object?>{
               p.currentDAUCompKey: _valueSnapshot('comp-2026'),
               p.createLinkedTipperKey: _valueSnapshot(true),
-              p.minAppVersionKey: _valueSnapshot('1.4.0'),
+              p.minAppVersionKey: _valueSnapshot('1.2.3'),
               p.googleClientIdKey: _valueSnapshot('client-id'),
-              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot('https://example.com'),
+              p.adminScoringRescoreURLKey: _valueSnapshot(
+                'https://rescore.example.com',
+              ),
+              p.adminCheckFixtureUrlURLKey: _valueSnapshot(
+                'https://check-fixture-url.example.com',
+              ),
             },
           ),
         ),
       );
 
       await viewModel.initialLoadComplete;
-      await recorder.flush();
 
-      final ResumeDiagnosticEvent event = (await recorder.readEvents())
-          .singleWhere(
-            (event) => event.stage == 'config_listener_snapshot_received',
-          );
-      expect(event.details['resumeProbePresent'], isTrue);
-      expect(event.details['resumeProbe'], 'config-nonce-1');
+      expect(viewModel.activeDAUComp, 'comp-2026');
+      expect(viewModel.createLinkedTipper, isTrue);
+      expect(viewModel.minAppVersion, '1.2.3');
+      expect(viewModel.googleClientId, 'client-id');
+      expect(viewModel.cloudFunctionsBaseURL, 'https://example.com');
+      expect(viewModel.adminScoringRescoreURL, 'https://rescore.example.com');
+      expect(
+        viewModel.adminCheckFixtureUrlURL,
+        'https://check-fixture-url.example.com',
+      );
 
       viewModel.dispose();
     },
   );
 
-  test('loads the rescore URL directly when the cached snapshot lacks it', () async {
-    final childReference = MockDatabaseReference();
-    final snapshot = MockDataSnapshot();
-    when(() => mockDb.child(p.adminScoringRescoreURLKey))
-        .thenReturn(childReference);
-    when(() => childReference.get()).thenAnswer((_) async => snapshot);
-    when(() => snapshot.value)
-        .thenReturn('https://admin-scoring-rescore.example.com');
-    final viewModel = ConfigViewModel(
-      db: mockDb,
-      initialLoadTimeout: const Duration(seconds: 1),
-    );
+  test(
+    'loads the rescore URL directly when the cached snapshot lacks it',
+    () async {
+      final childReference = MockDatabaseReference();
+      final snapshot = MockDataSnapshot();
+      when(() => mockDb.child(p.adminScoringRescoreURLKey))
+          .thenReturn(childReference);
+      when(() => childReference.once())
+          .thenAnswer((_) async => _databaseEvent(snapshot));
+      when(() => snapshot.value)
+          .thenReturn('https://admin-scoring-rescore.example.com');
+      final viewModel = ConfigViewModel(
+        db: mockDb,
+        initialLoadTimeout: const Duration(seconds: 1),
+      );
 
-    final value = await viewModel.loadAdminScoringRescoreURL();
+      final value = await viewModel.loadAdminScoringRescoreURL();
 
-    expect(value, 'https://admin-scoring-rescore.example.com');
-    expect(viewModel.adminScoringRescoreURL, value);
-    verify(() => childReference.get()).called(1);
+      expect(value, 'https://admin-scoring-rescore.example.com');
+      expect(viewModel.adminScoringRescoreURL, value);
+      verify(() => childReference.once()).called(1);
 
-    viewModel.dispose();
-  });
+      viewModel.dispose();
+    },
+  );
 
   test('loads the check-fixture-url URL directly when the cached snapshot lacks it', () async {
     final childReference = MockDatabaseReference();
     final snapshot = MockDataSnapshot();
     when(() => mockDb.child(p.adminCheckFixtureUrlURLKey))
         .thenReturn(childReference);
-    when(() => childReference.get()).thenAnswer((_) async => snapshot);
+    when(() => childReference.once())
+        .thenAnswer((_) async => _databaseEvent(snapshot));
     when(() => snapshot.value)
         .thenReturn('https://admin-check-fixture-url.example.com');
     final viewModel = ConfigViewModel(
@@ -240,7 +175,35 @@ void main() {
 
     expect(value, 'https://admin-check-fixture-url.example.com');
     expect(viewModel.adminCheckFixtureUrlURL, value);
-    verify(() => childReference.get()).called(1);
+    verify(() => childReference.once()).called(1);
+
+    viewModel.dispose();
+  });
+
+  test('loads the rescore URL itself while AppConfig is listened to', () async {
+    // On iOS, get() on a child of a listened path answered with the whole
+    // parent; a listener on the child itself saw the right value.
+    const rescoreURL = 'https://admin-scoring-rescore.example.com';
+    final childReference = MockDatabaseReference();
+    when(() => mockDb.child(p.adminScoringRescoreURLKey))
+        .thenReturn(childReference);
+    when(() => childReference.key).thenReturn(p.adminScoringRescoreURLKey);
+    final wholeConfig = MockDataSnapshot();
+    when(() => wholeConfig.key).thenReturn('AppConfig');
+    when(() => wholeConfig.value)
+        .thenReturn(<String, Object?>{p.adminScoringRescoreURLKey: rescoreURL});
+    when(() => childReference.get()).thenAnswer((_) async => wholeConfig);
+    final ownValue = MockDataSnapshot();
+    when(() => ownValue.key).thenReturn(p.adminScoringRescoreURLKey);
+    when(() => ownValue.value).thenReturn(rescoreURL);
+    when(() => childReference.once())
+        .thenAnswer((_) async => _databaseEvent(ownValue));
+    final viewModel = ConfigViewModel(
+      db: mockDb,
+      initialLoadTimeout: const Duration(seconds: 1),
+    );
+
+    expect(await viewModel.loadAdminScoringRescoreURL(), rescoreURL);
 
     viewModel.dispose();
   });
@@ -259,6 +222,7 @@ void main() {
             p.currentDAUCompKey: 'comp-2026',
             p.createLinkedTipperKey: true,
             p.cloudFunctionsBaseURLKey: 'https://functions.example.com',
+            'tipGracePeriodSeconds': 300,
           },
           children: <String, Object?>{
             p.currentDAUCompKey: _valueSnapshot('comp-2026'),
@@ -273,15 +237,13 @@ void main() {
 
     await viewModel.initialLoadComplete;
 
-    expect(
-      viewModel.cloudFunctionsBaseURL,
-      'https://functions.example.com',
-    );
+    expect(viewModel.cloudFunctionsBaseURL, 'https://functions.example.com');
+    expect(viewModel.tipGracePeriodSeconds, 300);
 
     viewModel.dispose();
   });
 
-  test('initial load reports timeout when bootstrap config never arrives', () async {
+  test('initial load reports a connection failure when bootstrap config never arrives', () async {
     final viewModel = ConfigViewModel(
       db: mockDb,
       initialLoadTimeout: const Duration(milliseconds: 20),
@@ -305,116 +267,164 @@ void main() {
 
     await expectLater(
       viewModel.initialLoadComplete,
-      throwsA(
-        predicate<Object?>(
-          (error) => error.toString().contains('Config load timed out'),
-        ),
-      ),
+      throwsA(isA<ConfigConnectionFailure>()),
     );
 
     viewModel.dispose();
   });
 
-  test('retryable startup read errors reconnect and recover on a later snapshot', () async {
-    final viewModel = ConfigViewModel(
-      db: mockDb,
-      initialLoadTimeout: const Duration(seconds: 1),
-      retryableStartupReconnectDelay: const Duration(milliseconds: 5),
-      maxRetryableStartupReconnectAttempts: 2,
-    );
+  test(
+    'retryable startup read errors reconnect and recover on a later snapshot',
+    () async {
+      final viewModel = ConfigViewModel(
+        db: mockDb,
+        initialLoadTimeout: const Duration(seconds: 1),
+        retryableStartupReconnectDelay: const Duration(milliseconds: 5),
+        maxRetryableStartupReconnectAttempts: 2,
+      );
 
-    controller.addError(
-      '[firebase_database/permission-denied] App Check token rejected by Play Integrity.',
-    );
+      controller.addError(
+        '[firebase_database/permission-denied] App Check token rejected by Play Integrity.',
+      );
 
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{
-            p.currentDAUCompKey: 'comp-2026',
-            p.createLinkedTipperKey: true,
-          },
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-            p.createLinkedTipperKey: _valueSnapshot(true),
-            p.minAppVersionKey: _valueSnapshot('1.2.3'),
-            p.googleClientIdKey: _valueSnapshot('client-id'),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-          },
+      controller.add(
+        _databaseEvent(
+          _rootSnapshot(
+            exists: true,
+            value: <String, Object?>{
+              p.currentDAUCompKey: 'comp-2026',
+              p.createLinkedTipperKey: true,
+            },
+            children: <String, Object?>{
+              p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+              p.createLinkedTipperKey: _valueSnapshot(true),
+              p.minAppVersionKey: _valueSnapshot('1.2.3'),
+              p.googleClientIdKey: _valueSnapshot('client-id'),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    await viewModel.initialLoadComplete;
+      await viewModel.initialLoadComplete;
 
-    expect(viewModel.activeDAUComp, 'comp-2026');
-    expect(viewModel.createLinkedTipper, isTrue);
+      expect(viewModel.activeDAUComp, 'comp-2026');
+      expect(viewModel.createLinkedTipper, isTrue);
 
-    viewModel.dispose();
-  });
+      viewModel.dispose();
+    },
+  );
 
-  test('retryInitialLoad re-arms startup after a failed initial load', () async {
-    final viewModel = ConfigViewModel(
-      db: mockDb,
-      initialLoadTimeout: const Duration(milliseconds: 20),
-    );
+  test(
+    'App Check refusals that outlast the retries are a connection failure',
+    () async {
+      final viewModel = ConfigViewModel(
+        db: mockDb,
+        initialLoadTimeout: const Duration(seconds: 1),
+        retryableStartupReconnectDelay: const Duration(milliseconds: 5),
+        maxRetryableStartupReconnectAttempts: 1,
+      );
+      const String refusal =
+          '[firebase_database/permission-denied] App Check token rejected.';
 
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{},
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot(null),
-            p.createLinkedTipperKey: _valueSnapshot(null),
-            p.minAppVersionKey: _valueSnapshot(null),
-            p.googleClientIdKey: _valueSnapshot(null),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-          },
+      controller.addError(refusal);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      controller.addError(refusal);
+
+      await expectLater(
+        viewModel.initialLoadComplete,
+        throwsA(
+          isA<ConfigConnectionFailure>().having(
+            (failure) => failure.lastError,
+            'lastError',
+            refusal,
+          ),
         ),
-      ),
-    );
+      );
 
-    await expectLater(
-      viewModel.initialLoadComplete,
-      throwsA(
-        predicate<Object?>(
-          (error) => error.toString().contains('Config load timed out'),
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'other startup errors are not reported as a connection failure',
+    () async {
+      final viewModel = ConfigViewModel(
+        db: mockDb,
+        initialLoadTimeout: const Duration(seconds: 1),
+      );
+
+      controller.addError(StateError('corrupt config'));
+
+      await expectLater(
+        viewModel.initialLoadComplete,
+        throwsA(isA<StateError>()),
+      );
+
+      viewModel.dispose();
+    },
+  );
+
+  test(
+    'retryInitialLoad re-arms startup after a failed initial load',
+    () async {
+      final viewModel = ConfigViewModel(
+        db: mockDb,
+        initialLoadTimeout: const Duration(milliseconds: 20),
+      );
+
+      controller.add(
+        _databaseEvent(
+          _rootSnapshot(
+            exists: true,
+            value: <String, Object?>{},
+            children: <String, Object?>{
+              p.currentDAUCompKey: _valueSnapshot(null),
+              p.createLinkedTipperKey: _valueSnapshot(null),
+              p.minAppVersionKey: _valueSnapshot(null),
+              p.googleClientIdKey: _valueSnapshot(null),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    await viewModel.retryInitialLoad();
+      await expectLater(
+        viewModel.initialLoadComplete,
+        throwsA(isA<ConfigConnectionFailure>()),
+      );
 
-    controller.add(
-      _databaseEvent(
-        _rootSnapshot(
-          exists: true,
-          value: <String, Object?>{
-            p.currentDAUCompKey: 'comp-2026',
-            p.createLinkedTipperKey: true,
-          },
-          children: <String, Object?>{
-            p.currentDAUCompKey: _valueSnapshot('comp-2026'),
-            p.createLinkedTipperKey: _valueSnapshot(true),
-            p.minAppVersionKey: _valueSnapshot('1.2.3'),
-            p.googleClientIdKey: _valueSnapshot('client-id'),
-            p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
-          },
+      await viewModel.retryInitialLoad();
+
+      controller.add(
+        _databaseEvent(
+          _rootSnapshot(
+            exists: true,
+            value: <String, Object?>{
+              p.currentDAUCompKey: 'comp-2026',
+              p.createLinkedTipperKey: true,
+            },
+            children: <String, Object?>{
+              p.currentDAUCompKey: _valueSnapshot('comp-2026'),
+              p.createLinkedTipperKey: _valueSnapshot(true),
+              p.minAppVersionKey: _valueSnapshot('1.2.3'),
+              p.googleClientIdKey: _valueSnapshot('client-id'),
+              p.cloudFunctionsBaseURLKey: _valueSnapshot(null),
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    await viewModel.initialLoadComplete;
+      await viewModel.initialLoadComplete;
 
-    expect(viewModel.activeDAUComp, 'comp-2026');
-    expect(viewModel.createLinkedTipper, isTrue);
+      expect(viewModel.activeDAUComp, 'comp-2026');
+      expect(viewModel.createLinkedTipper, isTrue);
 
-    viewModel.dispose();
-  });
+      viewModel.dispose();
+    },
+  );
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {

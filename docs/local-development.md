@@ -44,6 +44,7 @@ The backend task starts:
 - native Dart Functions executable
 - Firebase Functions emulator
 - Realtime Database emulator
+- Authentication emulator, with `--demo` only (local accounts, separate from production)
 - Firestore emulator
 - optional RTDB snapshot seed
 
@@ -53,6 +54,7 @@ Expected local URLs:
 
 - Emulator UI: `http://127.0.0.1:4000`
 - Realtime Database: `http://127.0.0.1:8000`
+- Authentication (`--demo` only): `http://127.0.0.1:8099`
 - Functions: `http://127.0.0.1:9229`
 
 ## Run the app locally
@@ -67,6 +69,15 @@ For web testing, run:
 
 The app sets `USE_FIREBASE_EMULATORS=true`. On iOS and web it uses `localhost`;
 on Android emulator it defaults to `10.0.2.2`.
+
+Sign-in still uses real Firebase Auth in this mode. Only the demo backend runs
+the Auth emulator, and only the **App: Demo emulators** launches connect to it
+(`--dart-define=USE_AUTH_EMULATOR=true`). Restart the app when switching modes.
+
+For the fictional screenshot competition and matching Auth accounts, run
+`bash scripts/start_local_backend.sh --demo` (`--demo --android` for Android).
+See [the demo guide](../demo/README.md) for generated JSON files, login details,
+avatars and date re-anchoring.
 
 ## Run against live Firebase
 

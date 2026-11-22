@@ -1,0 +1,23 @@
+{
+  "largeFiles": {
+    "functions/src/backend_scoring.ts": 646,
+    "functions_dart/bin/server.dart": 3320,
+    "functions_dart/lib/identity/link_or_create.dart": 693,
+    "lib/main.dart": 673,
+    "lib/pages/admin_daucomps/admin_daucomps_edit.dart": 685,
+    "lib/pages/admin_tippers/admin_tippers_edit_add.dart": 743,
+    "lib/pages/user_auth/user_auth_sign_in_form.dart": 878,
+    "lib/view_models/daucomps_viewmodel.dart": 1437,
+    "lib/view_models/games_viewmodel.dart": 650,
+    "lib/view_models/stats_viewmodel.dart": 1410,
+    "lib/view_models/tippers_viewmodel.dart": 601,
+    "lib/view_models/tips_viewmodel.dart": 612,
+    "lib/widgets/app_table/app_table.dart": 652,
+    "lib/widgets/tips/adaptive_tips_card.dart": 761
+  },
+  "counts": {
+    "Provider widgets in lib": 25,
+    "dynamic in lib": 88,
+    "service locator in view models": 40
+  }
+}

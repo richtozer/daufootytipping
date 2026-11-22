@@ -7,11 +7,13 @@ usage() {
 Usage:
   start_local_backend.sh
   start_local_backend.sh --seed <path-to-rtdb-json>
+  start_local_backend.sh --demo [--android]
 
 Starts the complete local backend stack:
 - TypeScript Functions build watcher
 - Native Dart Functions executable
 - Firebase emulators for functions, database, and firestore
+  (plus auth with --demo; other sessions use real Firebase Auth)
 - Optional Realtime Database seed from a JSON snapshot
 
 Keep this terminal open while using the local app.
@@ -33,8 +35,18 @@ if [[ ! -x "${firebase_cli}" ]]; then
 fi
 
 seed_file=""
+demo=false
+demo_avatar_host="localhost"
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --demo)
+      demo=true
+      shift
+      ;;
+    --android)
+      demo_avatar_host="10.0.2.2"
+      shift
+      ;;
     --seed)
       if [[ $# -lt 2 ]]; then
         usage >&2
@@ -53,6 +65,15 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${demo}" == true && -n "${seed_file}" ]]; then
+  echo "Use either --demo or --seed, not both." >&2
+  exit 1
+fi
+if [[ "${demo}" == false && "${demo_avatar_host}" != localhost ]]; then
+  echo "--android is only used with --demo." >&2
+  exit 1
+fi
 
 if [[ -n "${seed_file}" && ! -f "${seed_file}" ]]; then
   echo "RTDB seed file not found: ${seed_file}" >&2
@@ -107,7 +128,11 @@ check_busy_port() {
 
 declare -a busy_ports=()
 
-for port in 4000 4400 4500 6001 8000 8081 8099 9150 9229; do
+ports=(4000 4400 4500 6001 8000 8081 8099 9150 9229)
+if [[ "${demo}" == true ]]; then
+  ports+=(8765)
+fi
+for port in "${ports[@]}"; do
   if check_busy_port "${port}"; then
     busy_ports+=("${port}")
   fi
@@ -121,9 +146,15 @@ fi
 
 build_watch_pid=""
 emulator_pid=""
+demo_assets_pid=""
 
 cleanup() {
   trap - EXIT INT TERM
+
+  if [[ -n "${demo_assets_pid}" ]] && kill -0 "${demo_assets_pid}" 2>/dev/null; then
+    kill "${demo_assets_pid}" 2>/dev/null || true
+    wait "${demo_assets_pid}" 2>/dev/null || true
+  fi
 
   if [[ -n "${emulator_pid}" ]] && kill -0 "${emulator_pid}" 2>/dev/null; then
     kill "${emulator_pid}" 2>/dev/null || true
@@ -148,6 +179,13 @@ trap cleanup EXIT INT TERM
 
 cd "${repo_root}"
 
+if [[ "${demo}" == true ]]; then
+  echo "Generating the fictional competition relative to now..."
+  node scripts/demo/generate.mjs --avatar-host "${demo_avatar_host}"
+  node scripts/demo/serve.mjs &
+  demo_assets_pid=$!
+fi
+
 echo "Building native Dart Functions executable..."
 bash "${build_dart_script}" native
 
@@ -155,8 +193,33 @@ echo "Starting TypeScript Functions build watcher..."
 npm --prefix ./functions run build -- -w &
 build_watch_pid=$!
 
+emulators="functions,database,firestore"
+declare -a config_args=()
+declare -a env_args=()
+if [[ "${demo}" == true ]]; then
+  emulators="auth,${emulators}"
+  # The demo runs on the R2 rules. The CLI applies the configured rules once
+  # every emulator is up, so the demo gets its own copy of firebase.json that
+  # names them. The copy sits beside firebase.json so its paths still resolve.
+  demo_config="${repo_root}/firebase.demo.json"
+  node -e '
+    const fs = require("fs");
+    const config = JSON.parse(fs.readFileSync("firebase.json", "utf8"));
+    config.database.rules = "config/generated/database.rules.r2.json";
+    fs.writeFileSync(process.argv[1], JSON.stringify(config, null, 2) + "\n");
+  ' "${demo_config}"
+  # The generated competition and its Auth accounts are imported at startup,
+  # before the Functions emulator registers triggers, so loading fires none.
+  config_args=(--config "${demo_config}" --import "${repo_root}/emulator/demo/export")
+  # Auth emulator tokens are unsigned, so the Dart callables must skip token
+  # verification to accept them. Set for this process only, never exported:
+  # auth_bypass_guard.dart refuses it outside the Functions emulator, and
+  # deploy-functions.sh refuses to deploy while it is set.
+  env_args=(env 'FIREBASE_DEBUG_FEATURES={"skipTokenVerification":true}')
+fi
+
 echo "Starting Firebase local backend..."
-"${firebase_cli}" emulators:start --only functions,database,firestore &
+${env_args[@]+"${env_args[@]}"} "${firebase_cli}" emulators:start ${config_args[@]+"${config_args[@]}"} --only "${emulators}" &
 emulator_pid=$!
 
 echo "Waiting for Realtime Database emulator on ${emulator_host}:${emulator_port}..."
@@ -177,11 +240,21 @@ if [[ "${ready}" != "true" ]]; then
   exit 1
 fi
 
-if [[ -n "${seed_file}" ]]; then
+if [[ "${demo}" == true ]]; then
+  echo "Demo competition and Auth accounts imported from emulator/demo/export."
+  echo "Sign in as daisy@demo.example.test; the password is in emulator/demo/credentials.json."
+elif [[ -n "${seed_file}" ]]; then
   echo "Seeding Realtime Database emulator from ${seed_file_abs}..."
   bash "${seed_script}" "${seed_file_abs}"
 else
   echo "Realtime Database emulator is running without a seed snapshot."
+fi
+
+launch_name="App: Local emulators (selected device)"
+auth_line=""
+if [[ "${demo}" == true ]]; then
+  launch_name="App: Demo emulators (selected device)"
+  auth_line="- Authentication: http://127.0.0.1:8099"
 fi
 
 cat <<EOF
@@ -190,8 +263,9 @@ Local backend is running.
 - Emulator UI: http://127.0.0.1:4000
 - Realtime Database: http://127.0.0.1:8000
 - Functions: http://127.0.0.1:9229
+${auth_line}
 
-Use the VS Code launch "App: Local emulators (selected device)" for the app.
+Use the VS Code launch "${launch_name}" for the app.
 Keep this terminal open. Press Ctrl+C here to stop the backend.
 EOF
 

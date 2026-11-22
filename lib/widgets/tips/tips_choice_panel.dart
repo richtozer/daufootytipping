@@ -1,0 +1,81 @@
+import 'package:daufootytipping/theme_data.dart';
+import 'package:flutter/material.dart';
+
+import 'tips_card_layout.dart';
+
+/// The existing 2 / 1 / 2 panel, with inline and vertical alternatives.
+/// Callers supply chips so selection, saving and percentage logic stay separate.
+class TipsChoicePanel extends StatelessWidget {
+  const TipsChoicePanel({
+    super.key,
+    required this.children,
+    this.arrangement = TipsChoiceArrangement.paired,
+  }) : assert(children.length == 5);
+
+  final List<Widget> children;
+  final TipsChoiceArrangement arrangement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: appInnerPanelColor(context),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kCardCornerRadius),
+      ),
+      child: switch (arrangement) {
+        TipsChoiceArrangement.paired => Column(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [children[0], const SizedBox(width: 8), children[1]],
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [children[2]],
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [children[3], const SizedBox(width: 8), children[4]],
+            ),
+          ],
+        ),
+        // Centred rather than left as a bare Row, which is only as tall as a
+        // chip: the surface would shrink to it and float in a card sized for
+        // the arrangements either side of this one.
+        TipsChoiceArrangement.inline => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var index = 0; index < children.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  children[index],
+                ],
+              ],
+            ),
+          ),
+        ),
+        TipsChoiceArrangement.vertical => Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final child in children)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: child,
+                ),
+            ],
+          ),
+        ),
+      },
+    );
+  }
+}

@@ -123,110 +123,116 @@ class AdminDaucompsEditForm extends StatelessWidget {
               ),
             ],
           ),
-          Row(
-            children: [
-              const Text(
-                'NRL Regular Comp Cutoff: ',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: nrlRegularCompEndDateController,
-                  decoration: const InputDecoration(
-                    hintText: 'not set',
-                    isDense: true,
-                  ),
-                  onTap: () async {
-                    FocusScope.of(context).requestFocus(FocusNode());
-                    DateTime? date = await showDatePicker(
-                      context: context,
-                      initialDate:
-                          daucomp?.nrlRegularCompEndDateUTC ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (date != null) {
-                      nrlRegularCompEndDateController.text = DateFormat(
-                        'yyyy-MM-dd',
-                      ).format(date);
-                      onFormInteracted();
-                    }
-                  },
-                  validator: (String? value) {
-                    if (value != null && value.isNotEmpty) {
-                      try {
-                        DateFormat('yyyy-MM-dd').parse(value);
-                      } catch (e) {
-                        return 'Invalid date format';
+          // A new comp's first download sets its cutoffs from the fixture.
+          if (daucomp != null) ...[
+            Row(
+              children: [
+                const Text(
+                  'NRL Regular Comp Cutoff: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: nrlRegularCompEndDateController,
+                    decoration: const InputDecoration(
+                      hintText: 'not set',
+                      isDense: true,
+                    ),
+                    onTap: () async {
+                      FocusScope.of(context).requestFocus(FocusNode());
+                      DateTime? date = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            daucomp?.nrlRegularCompEndDateUTC ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (date != null) {
+                        nrlRegularCompEndDateController.text = DateFormat(
+                          'yyyy-MM-dd',
+                        ).format(date);
+                        onFormInteracted();
                       }
-                    }
-                    return null;
+                    },
+                    validator: (String? value) {
+                      if (value != null && value.isNotEmpty) {
+                        try {
+                          DateFormat('yyyy-MM-dd').parse(value);
+                        } catch (e) {
+                          return 'Invalid date format';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    nrlRegularCompEndDateController.clear();
+                    onFormInteracted();
                   },
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  nrlRegularCompEndDateController.clear();
-                  onFormInteracted();
-                },
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              const Text(
-                'AFL Regular Comp Cutoff: ',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: aflRegularCompEndDateController,
-                  decoration: const InputDecoration(
-                    hintText: 'not set',
-                    isDense: true,
-                  ),
-                  onTap: () async {
-                    FocusScope.of(context).requestFocus(FocusNode());
-                    DateTime? date = await showDatePicker(
-                      context: context,
-                      initialDate:
-                          daucomp?.aflRegularCompEndDateUTC ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (date != null) {
-                      aflRegularCompEndDateController.text = DateFormat(
-                        'yyyy-MM-dd',
-                      ).format(date);
-                      onFormInteracted();
-                    }
-                  },
-                  validator: (String? value) {
-                    if (value != null && value.isNotEmpty) {
-                      try {
-                        DateFormat('yyyy-MM-dd').parse(value);
-                      } catch (e) {
-                        return 'Invalid date format';
+              ],
+            ),
+            Row(
+              children: [
+                const Text(
+                  'AFL Regular Comp Cutoff: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Expanded(
+                  child: TextFormField(
+                    controller: aflRegularCompEndDateController,
+                    decoration: const InputDecoration(
+                      hintText: 'not set',
+                      isDense: true,
+                    ),
+                    onTap: () async {
+                      FocusScope.of(context).requestFocus(FocusNode());
+                      DateTime? date = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            daucomp?.aflRegularCompEndDateUTC ?? DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (date != null) {
+                        aflRegularCompEndDateController.text = DateFormat(
+                          'yyyy-MM-dd',
+                        ).format(date);
+                        onFormInteracted();
                       }
-                    }
-                    return null;
+                    },
+                    validator: (String? value) {
+                      if (value != null && value.isNotEmpty) {
+                        try {
+                          DateFormat('yyyy-MM-dd').parse(value);
+                        } catch (e) {
+                          return 'Invalid date format';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    aflRegularCompEndDateController.clear();
+                    onFormInteracted();
                   },
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  aflRegularCompEndDateController.clear();
-                  onFormInteracted();
-                },
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 20.0),
           if (daucomp == null) ...[
             const Text(
-              'After adding a new comp name and URLs, tap the save button and then reopen this record to see the round details.',
+              'Save downloads the fixture and sets each league\'s regular '
+              'comp cutoff from it. Open the comp again from the list to check '
+              'its rounds and cutoffs, and change a cutoff there if the '
+              'regular comp fixture changes.',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],

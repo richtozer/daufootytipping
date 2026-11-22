@@ -1,20 +1,25 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/dauround.dart';
-import 'package:daufootytipping/models/crowdsourcedscore.dart';
 import 'package:daufootytipping/models/game.dart';
 import 'package:daufootytipping/models/scoring.dart';
 import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
+import 'package:daufootytipping/services/crashlytics_error_classifier.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
+import 'package:dau_shared/services/season_teams.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/teams_viewmodel.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
@@ -23,10 +28,9 @@ class GamesViewModel extends ChangeNotifier {
   // Properties
   List<Game> _games = [];
   final DatabaseReference _db;
+  final Stream<bool> Function() _signedIn;
   late StreamSubscription<DatabaseEvent> _gamesStream;
-  int _gamesListenerGeneration = 0;
   Future<void> _gamesSnapshotProcessing = Future<void>.value();
-  Completer<void>? _pendingGamesRefreshCompleter;
 
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -38,21 +42,18 @@ class GamesViewModel extends ChangeNotifier {
 
   final DAUCompsViewModel _dauCompsViewModel;
 
-  final Duration _postWriteRefreshTimeout;
-  bool _isSavingBatch = false;
-
   // Constructor
   GamesViewModel(
     this.selectedDAUComp,
     this._dauCompsViewModel, {
     TeamsViewModel? teamsViewModel,
     DatabaseReference? database,
-    Duration postWriteRefreshTimeout = const Duration(seconds: 5),
     bool autoInitialize = true,
+    Stream<bool> Function()? signedIn,
   }) : _ownsTeamsViewModel =
            teamsViewModel == null && !di.isRegistered<TeamsViewModel>(),
        _db = database ?? configuredDatabaseRef(),
-       _postWriteRefreshTimeout = postWriteRefreshTimeout {
+       _signedIn = signedIn ?? firebaseSignedInStream {
     _teamsViewModel =
         teamsViewModel ??
         (di.isRegistered<TeamsViewModel>()
@@ -73,92 +74,60 @@ class GamesViewModel extends ChangeNotifier {
     _listenToGames();
   }
 
+  /// A refusal of the games listener while a user is signed in is a real fault (the
+  /// rules or the data), so a release build reports it to Crashlytics, without
+  /// ending the session. Signing out closes the listener before the server can
+  /// refuse it (see [authAwareStream]), and a dropped connection is not a fault,
+  /// so neither is reported.
+  void _reportSignedInListenerFailure(Object error, StackTrace stackTrace) {
+    if (kDebugMode ||
+        FirebaseAuth.instance.currentUser == null ||
+        CrashlyticsErrorClassifier.isTransientRealtimeDatabaseDisconnect(
+          error,
+        )) {
+      return;
+    }
+    unawaited(
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stackTrace,
+        fatal: false,
+        reason: 'Games listener failed while signed in',
+      ),
+    );
+  }
+
   // Database listeners
   void _listenToGames() {
-    final int listenerGeneration = ++_gamesListenerGeneration;
     final DatabaseReference gamesReference = _db.child(_gamesPath);
-    final Zone listenerErrorZone = Zone.current;
-    _gamesStream = gamesReference.onValue.listen(
-      (event) {
-        _queueGamesSnapshotProcessing(
-          event.snapshot,
-          listenerGeneration: listenerGeneration,
-        );
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (AppResumeDiagnostics.enabled) {
-          AppResumeDiagnostics.record(
-            'games_listener_error',
-            details: <String, Object?>{
-              'compDbKey': selectedDAUComp.dbkey,
-              'gamesPath': _gamesPath,
-              'listenerGeneration': listenerGeneration,
-              'error': error.toString(),
-            },
-            anomalous: true,
-          );
-        }
-        listenerErrorZone.handleUncaughtError(error, stackTrace);
-      },
-      onDone: () {
-        if (AppResumeDiagnostics.enabled) {
-          AppResumeDiagnostics.record(
-            'games_listener_done',
-            details: <String, Object?>{
-              'compDbKey': selectedDAUComp.dbkey,
-              'gamesPath': _gamesPath,
-              'listenerGeneration': listenerGeneration,
-            },
-            anomalous: true,
-          );
-        }
-      },
-    );
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_attached',
-        details: <String, Object?>{
-          'compDbKey': selectedDAUComp.dbkey,
-          'gamesPath': _gamesPath,
-          'listenerGeneration': listenerGeneration,
-        },
-      );
-    }
+    _gamesStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: _signedIn,
+          open: () => gamesReference.onValue,
+          onSourceError: (Object error, StackTrace stackTrace) {
+            log(
+              'GamesViewModel: games listener failed',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            _reportSignedInListenerFailure(error, stackTrace);
+          },
+        ).listen((event) {
+          _queueGamesSnapshotProcessing(event.snapshot);
+        });
   }
 
   String get _gamesPath => '${p.gamesPathRoot}/${selectedDAUComp.dbkey}';
 
-  void _queueGamesSnapshotProcessing(
-    DataSnapshot snapshot, {
-    required int listenerGeneration,
-  }) {
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_snapshot_received',
-        details: <String, Object?>{
-          ..._snapshotDiagnosticDetails(snapshot),
-          'listenerGeneration': listenerGeneration,
-        },
-      );
-    }
+  void _queueGamesSnapshotProcessing(DataSnapshot snapshot) {
     _gamesSnapshotProcessing = _gamesSnapshotProcessing
         .catchError((Object error, StackTrace stackTrace) {
           log('GamesViewModel_handleEvent: recovering after error: $error');
         })
-        .then(
-          (_) => _applyGamesSnapshot(
-            snapshot,
-            source: 'listener',
-            listenerGeneration: listenerGeneration,
-          ),
-        );
+        .then((_) => _applyGamesSnapshot(snapshot));
   }
 
-  Future<void> _applyGamesSnapshot(
-    DataSnapshot snapshot, {
-    required String source,
-    int? listenerGeneration,
-  }) async {
+  Future<void> _applyGamesSnapshot(DataSnapshot snapshot) async {
     try {
       final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
       final dynamic rawValue = snapshot.value;
@@ -175,9 +144,7 @@ class GamesViewModel extends ChangeNotifier {
         },
       );
       if (snapshot.exists) {
-        final allGames = Map<String, dynamic>.from(
-          snapshot.value as dynamic,
-        );
+        final allGames = Map<String, dynamic>.from(snapshot.value as dynamic);
 
         // Deserialize the games
         List<Game> gamesList = allGames.entries.map((entry) {
@@ -251,152 +218,13 @@ class GamesViewModel extends ChangeNotifier {
 
       // Link games with rounds
       await _dauCompsViewModel.linkGamesWithRounds(selectedDAUComp.daurounds);
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_model_applied',
-          details: _currentGamesDiagnosticDetails(
-            source: source,
-            listenerGeneration: listenerGeneration,
-          ),
-        );
-      }
-      _completePendingGamesRefresh();
-    } catch (e, stackTrace) {
+    } catch (e) {
       log('Error in GamesViewModel_handleEvent: $e');
       if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
-      _completePendingGamesRefresh(error: e, stackTrace: stackTrace);
       rethrow;
     } finally {
       notifyListeners();
       log('GamesViewModel_handleEvent: notifyListeners()');
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_notify_listeners',
-          details: <String, Object?>{'source': source},
-        );
-      }
-    }
-  }
-
-  void _completePendingGamesRefresh({Object? error, StackTrace? stackTrace}) {
-    final completer = _pendingGamesRefreshCompleter;
-    if (completer == null || completer.isCompleted) {
-      return;
-    }
-    if (error != null) {
-      completer.completeError(error, stackTrace);
-    } else {
-      completer.complete();
-    }
-  }
-
-  final Map<String, dynamic> updates = {};
-  static const Set<String> _ignoredFixtureAttributes = <String>{
-    'Winner',
-  };
-
-  Future<void> updateGameAttribute(
-    String gameDbKey,
-    String attributeName,
-    dynamic attributeValue,
-    String league,
-  ) async {
-    await initialLoadComplete;
-
-    if (_ignoredFixtureAttributes.contains(attributeName)) {
-      return;
-    }
-
-    //make sure the related team records exist
-    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
-      Team team = Team(
-        dbkey: '$league-$attributeValue',
-        name: attributeValue,
-        league: League.values.firstWhere((e) => e.name == league),
-      );
-      //make sure the related team records exist
-      _teamsViewModel.addTeam(team);
-    }
-
-    //find the game in the local list. it it's there, compare the attribute value and update if different
-    Game? gameToUpdate = await findGame(gameDbKey);
-    if (gameToUpdate != null) {
-      dynamic oldValue = gameToUpdate.toJson()[attributeName];
-      if (_fixtureAttributeDiffers(
-        attributeName,
-        oldValue,
-        attributeValue,
-      )) {
-        log(
-          'Game: $gameDbKey needs update for attribute $attributeName: $oldValue -> $attributeValue',
-        );
-        updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
-            attributeValue;
-      }
-    } else {
-      log('Game: $gameDbKey not found in local list. adding full game record');
-      // add new record to updates Map
-      updates['${p.gamesPathRoot}/${selectedDAUComp.dbkey}/$gameDbKey/$attributeName'] =
-          attributeValue;
-    }
-  }
-
-  bool _fixtureAttributeDiffers(
-    String attributeName,
-    dynamic oldValue,
-    dynamic newValue,
-  ) {
-    if (attributeName == 'HomeTeam' || attributeName == 'AwayTeam') {
-      return _normalizedFixtureText(oldValue) != _normalizedFixtureText(newValue);
-    }
-    return oldValue != newValue;
-  }
-
-  String _normalizedFixtureText(dynamic value) {
-    return value
-        ?.toString()
-        .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .toLowerCase() ??
-        '';
-  }
-
-  Future<void> saveBatchOfGameAttributes() async {
-    if (_isSavingBatch) return; // Prevent re-entrant updates
-    _isSavingBatch = true;
-    try {
-      // check if there are any updates to save
-      if (updates.isEmpty) {
-        log('GamesViewModel_saveBatchOfGameAttributes: no updates to save');
-        return;
-      }
-      await initialLoadComplete;
-      // turn off listeners
-      await _cancelGamesListener(reason: 'batch_write');
-      await _db.update(updates);
-      updates.clear();
-      // turn listeners back on
-      final refreshCompleter = Completer<void>();
-      _pendingGamesRefreshCompleter = refreshCompleter;
-      _listenToGames();
-      try {
-        await refreshCompleter.future.timeout(_postWriteRefreshTimeout);
-      } on TimeoutException {
-        log(
-          'GamesViewModel_saveBatchOfGameAttributes: timed out waiting for refreshed games snapshot after DB update. Loading current snapshot directly.',
-        );
-        await _applyGamesSnapshot(
-          await _db.child(_gamesPath).get(),
-          source: 'post_write_direct_get',
-        );
-      } finally {
-        if (identical(_pendingGamesRefreshCompleter, refreshCompleter)) {
-          _pendingGamesRefreshCompleter = null;
-        }
-      }
-    } finally {
-      log('GamesViewModel_saveBatchOfGameAttributes: notifyListeners()');
-      _isSavingBatch = false;
     }
   }
 
@@ -409,116 +237,7 @@ class GamesViewModel extends ChangeNotifier {
     await _teamsViewModel.initialLoadComplete;
     await _dauCompsViewModel.initialDAUCompLoadComplete;
     final DataSnapshot snapshot = await _db.child(_gamesPath).get();
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'fixture_get_returned',
-        details: _snapshotDiagnosticDetails(snapshot),
-        requireActiveAttempt: true,
-      );
-    }
-    await _applyGamesSnapshot(snapshot, source: 'resume_get');
-  }
-
-  Map<String, Object?> _snapshotDiagnosticDetails(DataSnapshot snapshot) {
-    final dynamic rawValue = snapshot.value;
-    final Map<dynamic, dynamic>? rawGames = rawValue is Map ? rawValue : null;
-    final List<Map<String, Object?>> recentGames = <Map<String, Object?>>[];
-    for (final Game game in _recentGamesForDiagnostics()) {
-      final dynamic rawGame = rawGames?[game.dbkey];
-      final Map<dynamic, dynamic>? rawGameMap = rawGame is Map ? rawGame : null;
-      recentGames.add(<String, Object?>{
-        'gameKey': game.dbkey,
-        'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
-        'homeScore': rawGameMap?['HomeTeamScore'],
-        'awayScore': rawGameMap?['AwayTeamScore'],
-      });
-    }
-    return <String, Object?>{
-      'compDbKey': selectedDAUComp.dbkey,
-      'exists': snapshot.exists,
-      'entryCount': rawGames?.length ?? 0,
-      'recentGames': recentGames,
-    };
-  }
-
-  Map<String, Object?> _currentGamesDiagnosticDetails({
-    required String source,
-    int? listenerGeneration,
-  }) {
-    return <String, Object?>{
-      'source': source,
-      'listenerGeneration': listenerGeneration,
-      'compDbKey': selectedDAUComp.dbkey,
-      'gameCount': _games.length,
-      'recentGames': _recentGamesForDiagnostics()
-          .map(
-            (game) => <String, Object?>{
-              'gameKey': game.dbkey,
-              'startUtc': game.startTimeUTC.toUtc().toIso8601String(),
-              'gameState': game.gameState.name,
-              'officialHomeScore': game.scoring?.homeTeamScore,
-              'officialAwayScore': game.scoring?.awayTeamScore,
-              'displayedHomeScore': game.scoring?.currentScore(
-                ScoringTeam.home,
-              ),
-              'displayedAwayScore': game.scoring?.currentScore(
-                ScoringTeam.away,
-              ),
-              'liveScoreCount': game.scoring?.crowdSourcedScores?.length ?? 0,
-            },
-          )
-          .toList(),
-    };
-  }
-
-  Iterable<Game> _recentGamesForDiagnostics() {
-    final DateTime nowUtc = DateTime.now().toUtc();
-    final DateTime earliestUtc = nowUtc.subtract(const Duration(days: 8));
-    final DateTime latestUtc = nowUtc.add(const Duration(days: 2));
-    return _games
-        .where(
-          (game) =>
-              !game.startTimeUTC.toUtc().isBefore(earliestUtc) &&
-              !game.startTimeUTC.toUtc().isAfter(latestUtc),
-        )
-        .take(40);
-  }
-
-  Future<void> _cancelGamesListener({required String reason}) async {
-    final int listenerGeneration = _gamesListenerGeneration;
-    final Map<String, Object?> details = <String, Object?>{
-      'compDbKey': selectedDAUComp.dbkey,
-      'gamesPath': _gamesPath,
-      'listenerGeneration': listenerGeneration,
-      'reason': reason,
-    };
-    if (AppResumeDiagnostics.enabled) {
-      AppResumeDiagnostics.record(
-        'games_listener_cancel_requested',
-        details: details,
-      );
-    }
-    try {
-      await _gamesStream.cancel();
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_listener_cancelled',
-          details: details,
-        );
-      }
-    } catch (error) {
-      if (AppResumeDiagnostics.enabled) {
-        AppResumeDiagnostics.record(
-          'games_listener_cancel_failed',
-          details: <String, Object?>{
-            ...details,
-            'error': error.toString(),
-          },
-          anomalous: true,
-        );
-      }
-      rethrow;
-    }
+    await _applyGamesSnapshot(snapshot);
   }
 
   void liveScoresUpdated() {
@@ -534,40 +253,14 @@ class GamesViewModel extends ChangeNotifier {
     await initialLoadComplete;
 
     List<Game> gamesForRound = _games
-        .where((game) => (game.isGameInRound(dauRound)))
+        .where(
+          (game) =>
+              game.getDAURound(selectedDAUComp)?.dAUroundNumber ==
+              dauRound.dAUroundNumber,
+        )
         .toList();
 
-    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
-    removeGamesOutsideRegularComp(gamesForRound);
-
     return gamesForRound;
-  }
-
-  void removeGamesOutsideRegularComp(List<Game> gamesForRound) {
-    // loop through the games and remove any where the startTimeUTC is past aflRegularCompEndDateUTC or nrlRegularCompEndDateUTC
-    gamesForRound.removeWhere((game) {
-      bool shouldRemove = false;
-
-      if (game.league == League.afl &&
-          selectedDAUComp.aflRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC.isAfter(
-          selectedDAUComp.aflRegularCompEndDateUTC!,
-        );
-      } else if (game.league == League.nrl &&
-          selectedDAUComp.nrlRegularCompEndDateUTC != null) {
-        shouldRemove = game.startTimeUTC.isAfter(
-          selectedDAUComp.nrlRegularCompEndDateUTC!,
-        );
-      }
-
-      if (shouldRemove) {
-        log(
-          'removeGamesOutsideRegularComp() Removing game: ${game.dbkey}, Start Time: ${game.startTimeUTC}',
-        );
-      }
-
-      return shouldRemove;
-    });
   }
 
   // Helper method to calculate ladder points for a game
@@ -655,7 +348,7 @@ class GamesViewModel extends ChangeNotifier {
       historyItems.add(
         TeamGameHistoryItem(
           opponentName: opponentTeam.name,
-          opponentLogoUri: opponentTeam.logoURI,
+          opponentDbKey: opponentTeam.dbkey,
           teamScore: teamScore,
           opponentScore: opponentScore,
           result: result,
@@ -730,7 +423,7 @@ class GamesViewModel extends ChangeNotifier {
         historyItems.add(
           TeamGameHistoryItem(
             opponentName: opponentTeam.name,
-            opponentLogoUri: opponentTeam.logoURI,
+            opponentDbKey: opponentTeam.dbkey,
             teamScore: teamScore,
             opponentScore: opponentScore,
             result: result,
@@ -779,24 +472,15 @@ class GamesViewModel extends ChangeNotifier {
       'GamesViewModel_fetchGamesForDAUCompKey: Fetching games for DAUComp key $dauCompDbKey',
     );
 
-    if (_gamesByDAUCompKeyCache.containsKey(dauCompDbKey)) {
-      return _gamesByDAUCompKeyCache[dauCompDbKey]!;
-    }
-
-    // Testability hook: If testGamesByCompKey is set and contains data for this key, return it.
-    if (testGamesByCompKey != null &&
-        testGamesByCompKey!.containsKey(dauCompDbKey)) {
-      log(
-        'GamesViewModel_fetchGamesForDAUCompKey: Using test data for DAUComp key $dauCompDbKey',
-      );
-      final testGames = testGamesByCompKey![dauCompDbKey]!;
-      return Future.value(List<Game>.from(testGames)); // Return a copy
-    }
+    final cachedGames = _gamesByDAUCompKeyCache[dauCompDbKey];
+    if (cachedGames != null) return cachedGames;
+    // A copy of the games a test supplies for this comp, if any.
+    final testGames = testGamesByCompKey?[dauCompDbKey];
+    if (testGames != null) return List<Game>.from(testGames);
 
     List<Game> fetchedGames = [];
     try {
-      await _teamsViewModel
-          .initialLoadComplete; // Ensure teams are ready for deserialization
+      await _teamsViewModel.initialLoadComplete; // teams to build games with
 
       final event = await _db.child('${p.gamesPathRoot}/$dauCompDbKey').once();
       if (event.snapshot.exists) {
@@ -840,15 +524,10 @@ class GamesViewModel extends ChangeNotifier {
             })
             .whereType<Game>()
             .toList();
-
-        log(
-          'GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase',
-        );
-      } else {
-        log(
-          'GamesViewModel_fetchGamesForDAUCompKey: No games found for DAUComp $dauCompDbKey from Firebase',
-        );
       }
+      log(
+        'GamesViewModel_fetchGamesForDAUCompKey: Found ${fetchedGames.length} games for DAUComp $dauCompDbKey from Firebase',
+      );
     } catch (e) {
       log(
         'GamesViewModel_fetchGamesForDAUCompKey: Error fetching games for DAUComp $dauCompDbKey: $e',
@@ -856,6 +535,18 @@ class GamesViewModel extends ChangeNotifier {
     }
     _gamesByDAUCompKeyCache[dauCompDbKey] = fetchedGames;
     return fetchedGames;
+  }
+
+  /// Keys of the teams that play in more than one round of at least one
+  /// comp's stored games, each comp counted on its own. Finals placeholders
+  /// such as "1st" play in one round of a comp, or in none.
+  Future<Set<String>> teamKeysInSeveralRoundsOfAnyComp() async {
+    await initialLoadComplete;
+    return {
+      for (final compKey in _dauCompsViewModel.daucomps.map((c) => c.dbkey))
+        if (compKey != null)
+          ...teamKeysInSeveralRounds(await _fetchGamesForDAUCompKey(compKey)),
+    };
   }
 
   Future<List<Game>> getCompleteMatchupHistory(
@@ -932,7 +623,7 @@ class GamesViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(_cancelGamesListener(reason: 'view_model_disposed'));
+    unawaited(_gamesStream.cancel());
     if (_ownsTeamsViewModel) {
       _teamsViewModel.dispose();
     }

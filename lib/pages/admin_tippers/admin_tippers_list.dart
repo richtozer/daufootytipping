@@ -1,9 +1,12 @@
 import 'package:daufootytipping/models/tipper.dart';
+import 'package:daufootytipping/models/tipperrole.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/pages/admin_tippers/admin_tippers_edit_add.dart';
 import 'package:daufootytipping/view_models/search_query_provider.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_admin_page.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
@@ -17,8 +20,23 @@ class TippersAdminPage extends StatefulWidget with WatchItStatefulWidgetMixin {
 }
 
 class _TippersAdminPageState extends State<TippersAdminPage> {
+  static const _columns = [
+    // An admin is marked under their name rather than in a Role column, and
+    // Paid is a narrow column whose heading the table can turn on its side, so
+    // a narrow screen keeps its width for the names.
+    AppColumn.text('Name', sortable: true),
+    AppColumn.text('Last login', sortable: true, descendingFirst: true),
+    AppColumn.text('Logon', sortable: true),
+    AppColumn.numeric('Paid', sortable: true),
+    AppColumn.navigation(),
+  ];
+  static const double _avatarSize = 40;
+
   late final ScrollController _scrollController;
   late final TextEditingController _searchController;
+  // Most recent logon first, so the people using the app now are at the top.
+  int _sortColumn = 1;
+  bool _ascending = false;
 
   @override
   void dispose() {
@@ -88,212 +106,225 @@ class _TippersAdminPageState extends State<TippersAdminPage> {
     );
   }
 
+  /// The tippers the filter lets through. A leading `!` inverts it, `id=` looks
+  /// at the database key, and `godmode` shows only the tipper in God Mode.
+  List<Tipper> _matching(TippersViewModel tipperViewModel, String searchQuery) {
+    final tippers = tipperViewModel.tippers;
+    if (searchQuery.isEmpty) return tippers;
+
+    final bool isNegativeSearch = searchQuery.startsWith('!');
+    final String query = isNegativeSearch
+        ? searchQuery.substring(1)
+        : searchQuery;
+
+    if (query == 'godmode') {
+      return tippers.where((tipper) {
+        return tipperViewModel.inGodMode &&
+            tipper.dbkey == tipperViewModel.selectedTipper.dbkey;
+      }).toList();
+    }
+    return tippers.where((tipper) {
+      if (query.startsWith('id=')) {
+        final idQuery = query.substring(3).toLowerCase();
+        return tipper.dbkey?.toLowerCase().contains(idQuery) ?? false;
+      }
+      final bool matches =
+          tipper.name.toLowerCase().contains(query) ||
+          (tipper.email?.toLowerCase().contains(query) ?? false) ||
+          (tipper.logon?.toLowerCase().contains(query) ?? false) ||
+          tipper.tipperRole.name.toLowerCase().contains(query) ||
+          tipper.compsPaidFor.any(
+            (comp) => comp.name.toLowerCase().contains(query),
+          );
+      return isNegativeSearch ? !matches : matches;
+    }).toList();
+  }
+
+  /// One line for everything above the table: the filter, with how many tippers
+  /// it lets through and the help for it at its end.
+  Widget _filterRow(
+    BuildContext context, {
+    required SearchQueryProvider searchQueryProvider,
+    required int shown,
+    required int total,
+  }) {
+    if (_searchController.text != searchQueryProvider.searchQuery) {
+      _searchController.text = searchQueryProvider.searchQuery;
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          labelText: 'Filter tippers',
+          isDense: true,
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$shown of $total'),
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                tooltip: 'Filter help',
+                onPressed: () => _showSearchHelpDialog(context),
+              ),
+            ],
+          ),
+          border: const OutlineInputBorder(),
+        ),
+        onChanged: (value) {
+          searchQueryProvider.updateSearchQuery(value.toLowerCase());
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<TippersViewModel>.value(
       value: di<TippersViewModel>(),
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          title: const Text('Admin Tippers'),
-        ),
+      child: AppAdminPage(
+        title: 'Admin Tippers',
+        scrollsUnderControls: true,
         body: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Consumer<SearchQueryProvider>(
-                        builder: (context, searchQueryProvider, child) {
-                          _searchController.text =
-                              searchQueryProvider.searchQuery;
-                          return TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              labelText: 'Filter tippers',
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (value) {
-                              searchQueryProvider.updateSearchQuery(
-                                value.toLowerCase(),
-                              );
-                            },
-                          );
-                        },
-                      ),
+          padding: appAdminBodyPadding(context),
+          child: Consumer2<TippersViewModel, SearchQueryProvider>(
+            builder: (context, tipperViewModel, searchQueryProvider, child) {
+              final tippers = _matching(
+                tipperViewModel,
+                searchQueryProvider.searchQuery,
+              );
+              return Column(
+                children: [
+                  _filterRow(
+                    context,
+                    searchQueryProvider: searchQueryProvider,
+                    shown: tippers.length,
+                    total: tipperViewModel.tippers.length,
+                  ),
+                  Expanded(
+                    child: AppTable(
+                      columns: _columns,
+                      rows: _rows(tippers, tipperViewModel),
+                      sort: AppSort(column: _sortColumn, ascending: _ascending),
+                      onSort: _onSort,
+                      empty: const Center(child: Text('No tippers')),
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Consumer2<TippersViewModel, SearchQueryProvider>(
-                  builder: (context, tipperViewModel, searchQueryProvider, child) {
-                    var tippers = tipperViewModel.tippers;
-                    int totalTippers = tippers.length;
-                    String searchQuery = searchQueryProvider.searchQuery;
-                    if (searchQuery.isNotEmpty) {
-                      bool isNegativeSearch = searchQuery.startsWith('!');
-                      String query = isNegativeSearch
-                          ? searchQuery.substring(1)
-                          : searchQuery;
-
-                      // Add godmode filter
-                      if (query == 'godmode') {
-                        tippers = tippers.where((tipper) {
-                          return tipperViewModel.inGodMode &&
-                              tipper.dbkey ==
-                                  tipperViewModel.selectedTipper.dbkey;
-                        }).toList();
-                      } else {
-                        tippers = tippers.where((tipper) {
-                          // Check for id= prefix for dbkey search
-                          if (query.startsWith('id=')) {
-                            final idQuery = query.substring(3).toLowerCase();
-                            return (tipper.dbkey?.toLowerCase().contains(
-                                  idQuery,
-                                ) ??
-                                false);
-                          }
-
-                          bool matches =
-                              (tipper.name.toLowerCase().contains(query)) ||
-                              (tipper.email?.toLowerCase().contains(query) ??
-                                  false) ||
-                              (tipper.logon?.toLowerCase().contains(query) ??
-                                  false) ||
-                              (tipper.tipperRole.name.toLowerCase().contains(
-                                query,
-                              )) ||
-                              tipper.compsPaidFor.any(
-                                (comp) =>
-                                    comp.name.toLowerCase().contains(query),
-                              );
-                          return isNegativeSearch ? !matches : matches;
-                        }).toList();
-                      }
-                    }
-                    int filteredTippers = tippers.length;
-                    return Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Showing $filteredTippers of $totalTippers tippers',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.info_outline),
-                                onPressed: () {
-                                  _showSearchHelpDialog(context);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: tippers.length,
-                            itemBuilder: (context, index) {
-                              var tipper = tippers[index];
-
-                              bool tipperPaidForCurrentComp = tipper
-                                  .paidForComp(
-                                    di<DAUCompsViewModel>().activeDAUComp,
-                                  );
-
-                              // create the ListTile title by concatenating the tipper name and role. if the name is null, use 'new tipper'
-                              String title =
-                                  '${tipper.name} - ${tipper.tipperRole.name}';
-
-                              return Card(
-                                child: ListTile(
-                                  //if this tipper is in godmode then tint this ListTile in red
-                                  tileColor:
-                                      tipperViewModel.inGodMode &&
-                                          tipper.dbkey ==
-                                              tipperViewModel
-                                                  .selectedTipper
-                                                  .dbkey
-                                      ? Colors.red[100]
-                                      : null,
-                                  dense: true,
-                                  isThreeLine: true,
-                                  leading: tipper.photoURL != null
-                                      ? avatarPic(tipper)
-                                      : null,
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      if (tipperPaidForCurrentComp)
-                                        const Text(
-                                          '\$',
-                                          style: TextStyle(fontSize: 20),
-                                        ),
-                                    ],
-                                  ),
-                                  title: Text(title),
-                                  subtitle: Text(
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    '${formatDateTime(tipper.acctLoggedOnUTC)} - ${tipper.logon}',
-                                  ),
-                                  onTap: () async {
-                                    // Trigger edit functionality
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            TipperAdminEditPage(
-                                              tipperViewModel,
-                                              tipper,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
+  }
+
+  void _onSort(int column, bool ascending) {
+    setState(() {
+      _sortColumn = column;
+      _ascending = ascending;
+    });
+  }
+
+  bool _paidForCurrentComp(Tipper tipper) =>
+      tipper.paidForComp(di<DAUCompsViewModel>().activeDAUComp);
+
+  List<Tipper> _sorted(List<Tipper> tippers) {
+    int byName(Tipper a, Tipper b) =>
+        a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    final sorted = [...tippers]
+      ..sort((a, b) {
+        final primary = switch (_sortColumn) {
+          1 =>
+            (a.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(
+                  b.acctLoggedOnUTC ?? DateTime.fromMillisecondsSinceEpoch(0),
+                ),
+          2 => (a.logon ?? '').toLowerCase().compareTo(
+            (b.logon ?? '').toLowerCase(),
+          ),
+          3 => (_paidForCurrentComp(a) ? 1 : 0).compareTo(
+            _paidForCurrentComp(b) ? 1 : 0,
+          ),
+          _ => byName(a, b),
+        };
+        final ordered = primary != 0 ? primary : byName(a, b);
+        return _ascending ? ordered : -ordered;
+      });
+    return sorted;
+  }
+
+  List<AppRow> _rows(List<Tipper> tippers, TippersViewModel tipperViewModel) =>
+      [
+        for (final tipper in _sorted(tippers))
+          AppRow(
+            key: ValueKey(tipper.dbkey),
+            // A tipper in god mode takes the god mode banner's red, which is
+            // strong enough for the row's text in light and dark mode alike.
+            colour:
+                tipperViewModel.inGodMode &&
+                    tipper.dbkey == tipperViewModel.selectedTipper.dbkey
+                ? Colors.red
+                : null,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    TipperAdminEditPage(tipperViewModel, tipper),
+              ),
+            ),
+            cells: [
+              AppCell.text(
+                _status(tipper) == null
+                    ? tipper.name
+                    : '${tipper.name}\n${_status(tipper)}',
+                maxLines: 2,
+                laterLinesStyle: const TextStyle(fontWeight: FontWeight.bold),
+                leadingSize: const Size.square(_avatarSize),
+                leading: avatarPic(tipper),
+                semanticLabel: _status(tipper) == null
+                    ? tipper.name
+                    : '${tipper.name}, ${_status(tipper)}',
+              ),
+              AppCell.text(formatDateTime(tipper.acctLoggedOnUTC)),
+              AppCell.text(tipper.logon ?? ''),
+              AppCell.text(_paidForCurrentComp(tipper) ? '\$' : ''),
+              AppCell.navigation(),
+            ],
+          ),
+      ];
+
+  /// What is worth saying about a tipper under their name: that they are an
+  /// administrator, and that they deleted their account (when, and when they
+  /// joined, so that one deleted tipper can be told from another). Null when
+  /// there is nothing to say.
+  String? _status(Tipper tipper) {
+    final parts = <String>[
+      if (tipper.tipperRole == TipperRole.admin) 'admin',
+      if (tipper.accountDeletedUTC != null) ...[
+        'account deleted ${formatDateTime(tipper.accountDeletedUTC)}',
+        if (tipper.acctCreatedUTC != null)
+          'joined ${formatDateTime(tipper.acctCreatedUTC)}',
+      ],
+    ];
+    return parts.isEmpty ? null : parts.join(', ');
   }
 
   String formatDateTime(DateTime? dateTime) {
     if (dateTime == null) {
       return '?';
     }
-    return DateFormat('dd MMM yy HH:mm').format(dateTime.toLocal());
+    return DateFormat('dd MMM yy').format(dateTime.toLocal());
   }
 
   Widget avatarPic(Tipper tipper) {
-    return Hero(
-      tag: tipper.dbkey!,
-      child: circleAvatarWithFallback(
-        imageUrl: tipper.photoURL,
-        text: tipper.name,
-        radius: 20,
-      ),
+    final avatar = circleAvatarWithFallback(
+      imageUrl: tipper.photoURL,
+      text: tipper.name,
+      radius: _avatarSize / 2,
     );
+    final heroTag = tipper.dbkey;
+    return heroTag == null ? avatar : Hero(tag: heroTag, child: avatar);
   }
 }

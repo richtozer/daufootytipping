@@ -35,3 +35,28 @@ const String scheduledFixtureDownloadEndpoint = 'scheduled-fixture-download';
 
 /// Invoked by the TypeScript triggers to recalculate app badge counts.
 const String appBadgeCountEndpoint = 'app-badge-count';
+
+/// Callable: links the signed-in user to a tipper record, or creates one.
+const String linkOrCreateTipperEndpoint = 'link-or-create-tipper';
+
+/// Callable: changes the signed-in tipper's alias, enforcing uniqueness.
+const String updateTipperAliasEndpoint = 'update-tipper-alias';
+
+/// Callable: moves a push token to the signed-in tipper.
+const String registerDeviceTokenEndpoint = 'register-device-token';
+
+/// Callable: removes a push token from the signed-in tipper.
+const String unregisterDeviceTokenEndpoint = 'unregister-device-token';
+
+/// Callable: detaches the signed-in user's account from their tipper record
+/// (keeping the record and its history), so the account can then be deleted
+/// and the person can later sign up again and be linked to the same record.
+const String unlinkMyAccountEndpoint = 'unlink-my-account';
+
+/// Callable: an administrator changes another tipper's name, contact email or
+/// role.
+const String adminUpdateTipperEndpoint = 'admin-update-tipper';
+
+/// Callable: an administrator merges one tipper record into another (tips, login
+/// address and sign-in account), then removes the original.
+const String adminMergeTippersEndpoint = 'admin-merge-tippers';

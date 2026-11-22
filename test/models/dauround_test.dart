@@ -60,20 +60,73 @@ void main() {
         expect(dauRound.aflGameCount, equals(0));
       });
 
-      test('should create DAURound with optional admin override dates', () {
-        final adminStartDate = DateTime.utc(2024, 1, 14, 12, 0);
-        final adminEndDate = DateTime.utc(2024, 1, 18, 12, 0);
+      test(
+        'should create DAURound with optional admin override start date',
+        () {
+          final adminStartDate = DateTime.utc(2024, 1, 14, 12, 0);
 
-        final dauRound = DAURound(
-          dAUroundNumber: 2,
-          firstGameKickOffUTC: testStartTime,
-          lastGameKickOffUTC: testEndTime,
-          adminOverrideRoundStartDate: adminStartDate,
-          adminOverrideRoundEndDate: adminEndDate,
+          final dauRound = DAURound(
+            dAUroundNumber: 2,
+            firstGameKickOffUTC: testStartTime,
+            lastGameKickOffUTC: testEndTime,
+            adminOverrideRoundStartDate: adminStartDate,
+          );
+
+          expect(dauRound.adminOverrideRoundStartDate, equals(adminStartDate));
+          expect(
+            dauRound.getRoundStartDate(),
+            equals(DateTime.utc(2024, 1, 14)),
+          );
+        },
+      );
+
+      test('getRoundStartDate returns 0:00 UTC on the UTC date for stored, override, and local times', () {
+        final storedWithTime = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 5, 14, 30),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+        );
+        expect(storedWithTime.getRoundStartDate(), DateTime.utc(2026, 3, 5));
+        expect(storedWithTime.getRoundStartDate().isUtc, isTrue);
+
+        final overrideWithTime = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 5, 14, 30),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+          adminOverrideRoundStartDate: DateTime.utc(2026, 3, 6, 18, 45),
+        );
+        expect(overrideWithTime.getRoundStartDate(), DateTime.utc(2026, 3, 6));
+        expect(overrideWithTime.getRoundStartDate().isUtc, isTrue);
+
+        final localStart = DateTime.fromMillisecondsSinceEpoch(
+          DateTime.utc(2026, 3, 5, 22, 15).millisecondsSinceEpoch,
+          isUtc: false,
+        );
+        final localRound = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: localStart,
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+        );
+        expect(localRound.getRoundStartDate(), DateTime.utc(2026, 3, 5));
+        expect(localRound.getRoundStartDate().isUtc, isTrue);
+      });
+
+      test('roundStartDateWithOverride treats a timed override and 0:00 UTC on the same date as the same start', () {
+        final round = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 3, 5, 8, 0),
+          lastGameKickOffUTC: DateTime.utc(2026, 3, 8, 12, 0),
+          adminOverrideRoundStartDate: DateTime.utc(2026, 3, 4),
         );
 
-        expect(dauRound.adminOverrideRoundStartDate, equals(adminStartDate));
-        expect(dauRound.adminOverrideRoundEndDate, equals(adminEndDate));
+        expect(
+          round.roundStartDateWithOverride(DateTime.utc(2026, 3, 4, 5, 0)),
+          round.getRoundStartDate(),
+        );
+        expect(
+          round.roundStartDateWithOverride(null),
+          DateTime.utc(2026, 3, 5),
+        );
       });
 
       test('should create DAURound with initial games list', () {
@@ -124,6 +177,20 @@ void main() {
           dauRound.lastGameKickOffUTC,
           equals(DateTime.parse('2024-01-17T21:30:00.000Z')),
         );
+      });
+
+      test('should ignore leftover adminOverrideRoundEndDate in JSON data', () {
+        final jsonData = {
+          'roundStartDate': '2024-01-15T19:00:00.000Z',
+          'roundEndDate': '2024-01-17T21:30:00.000Z',
+          'adminOverrideRoundStartDate': '2024-01-15T12:00:00.000Z',
+          'adminOverrideRoundEndDate': '2024-01-18T12:00:00.000Z',
+        };
+
+        final dauRound = DAURound.fromJson(jsonData, 3);
+
+        expect(dauRound.getRoundStartDate(), DateTime.utc(2024, 1, 15));
+        expect(dauRound.lastGameKickOffUTC, DateTime.utc(2024, 1, 17, 21, 30));
       });
 
       test('should handle ISO8601 date formats correctly', () {

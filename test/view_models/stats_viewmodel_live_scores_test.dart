@@ -52,6 +52,7 @@ void main() {
     required int fixtureMatchNumber,
     required int? homeScore,
     required int? awayScore,
+    DateTime? kickoff,
   }) {
     return Game(
       dbkey: dbKey,
@@ -67,7 +68,7 @@ void main() {
         league: league,
       ),
       location: 'Test Stadium',
-      startTimeUTC: DateTime.utc(2026, 3, 26, 9),
+      startTimeUTC: kickoff ?? DateTime.utc(2026, 3, 26, 9),
       fixtureRoundNumber: fixtureRoundNumber,
       fixtureMatchNumber: fixtureMatchNumber,
       scoring: Scoring(homeTeamScore: homeScore, awayTeamScore: awayScore),
@@ -171,7 +172,8 @@ void main() {
 
     when(() => rootDb.child('/Stats')).thenReturn(statsRef);
     when(() => statsRef.child(comp.dbkey!)).thenReturn(compRef);
-    when(() => compRef.child(p.liveScoresBackendRoot)).thenReturn(liveScoresRef);
+    when(() => compRef.child(p.liveScoresBackendRoot))
+        .thenReturn(liveScoresRef);
     when(() => liveScoresRef.child('afl-03-022')).thenReturn(staleGameRef);
     when(() => liveScoresRef.child('nrl-04-025')).thenReturn(activeGameRef);
     when(() => staleGameRef.remove()).thenAnswer((_) async {});
@@ -202,14 +204,61 @@ void main() {
     await di.reset();
   });
 
+  test('filters stale live score entries when official fixture scores already exist', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
+
+    await viewModel.handleLiveScoresEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'afl-03-022': liveScoreJson(homeScore: 28, awayScore: 14),
+            'nrl-04-025': liveScoreJson(homeScore: 6, awayScore: 4),
+          },
+        ),
+      ),
+    );
+
+    expect(viewModel.hasLiveScoresInUse, isTrue);
+    expect(
+      viewModel.gamesWithLiveScores.map((game) => game.dbkey).toList(),
+      <String>['nrl-04-025'],
+    );
+    expect(
+      viewModel.gamesWithLiveScores.single.scoring?.crowdSourcedScores?.length,
+      2,
+    );
+    verify(() => gamesViewModel.liveScoresUpdated()).called(1);
+    verifyNever(() => staleGameRef.remove());
+    verifyNever(() => activeGameRef.remove());
+
+    viewModel.dispose();
+  });
+
   test(
-    'filters stale live score entries when official fixture scores already exist',
+    'hides the warning source entirely when every live score row is stale',
     () async {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
+      );
+
+      when(() => gamesViewModel.findGame('nrl-04-025')).thenAnswer(
+        (_) async => buildGame(
+          dbKey: 'nrl-04-025',
+          league: League.nrl,
+          fixtureRoundNumber: 4,
+          fixtureMatchNumber: 25,
+          homeScore: 16,
+          awayScore: 33,
+        ),
       );
 
       await viewModel.handleLiveScoresEventForTest(
@@ -224,16 +273,8 @@ void main() {
         ),
       );
 
-      expect(viewModel.hasLiveScoresInUse, isTrue);
-      expect(
-        viewModel.gamesWithLiveScores.map((game) => game.dbkey).toList(),
-        <String>['nrl-04-025'],
-      );
-      expect(
-        viewModel.gamesWithLiveScores.single.scoring?.crowdSourcedScores?.length,
-        2,
-      );
-      verify(() => gamesViewModel.liveScoresUpdated()).called(1);
+      expect(viewModel.hasLiveScoresInUse, isFalse);
+      expect(viewModel.gamesWithLiveScores, isEmpty);
       verifyNever(() => staleGameRef.remove());
       verifyNever(() => activeGameRef.remove());
 
@@ -241,52 +282,13 @@ void main() {
     },
   );
 
-  test('hides the warning source entirely when every live score row is stale', () async {
-    final viewModel = StatsViewModel(
-      comp,
-      gamesViewModel,
-      database: rootDb,
-      autoInitialize: false,
-    );
-
-    when(
-      () => gamesViewModel.findGame('nrl-04-025'),
-    ).thenAnswer((_) async => buildGame(
-      dbKey: 'nrl-04-025',
-      league: League.nrl,
-      fixtureRoundNumber: 4,
-      fixtureMatchNumber: 25,
-      homeScore: 16,
-      awayScore: 33,
-    ));
-
-    await viewModel.handleLiveScoresEventForTest(
-      _databaseEvent(
-        _snapshot(
-          exists: true,
-          value: <String, Object?>{
-            'afl-03-022': liveScoreJson(homeScore: 28, awayScore: 14),
-            'nrl-04-025': liveScoreJson(homeScore: 6, awayScore: 4),
-          },
-        ),
-      ),
-    );
-
-    expect(viewModel.hasLiveScoresInUse, isFalse);
-    expect(viewModel.gamesWithLiveScores, isEmpty);
-    verifyNever(() => staleGameRef.remove());
-    verifyNever(() => activeGameRef.remove());
-
-    viewModel.dispose();
-  });
-
   test(
     'does not calculate game stats when remote live scores arrive',
     () async {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
       );
 
@@ -307,63 +309,47 @@ void main() {
     },
   );
 
-  test(
-    'reapplies cached live scores to a replacement game instance',
-    () async {
-      Game canonicalGame = activeGame;
-      when(
-        () => gamesViewModel.findGame('nrl-04-025'),
-      ).thenAnswer((_) async => canonicalGame);
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: rootDb,
-        autoInitialize: false,
-      );
+  test('reapplies cached live scores to a replacement game instance', () async {
+    Game canonicalGame = activeGame;
+    when(() => gamesViewModel.findGame('nrl-04-025'))
+        .thenAnswer((_) async => canonicalGame);
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
 
-      await viewModel.handleLiveScoresEventForTest(
-        _databaseEvent(
-          _snapshot(
-            exists: true,
-            value: <String, Object?>{
-              'nrl-04-025': liveScoreJson(homeScore: 24, awayScore: 44),
-            },
-          ),
+    await viewModel.handleLiveScoresEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'nrl-04-025': liveScoreJson(homeScore: 24, awayScore: 44),
+          },
         ),
-      );
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.home),
-        24,
-      );
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.away),
-        44,
-      );
+      ),
+    );
+    expect(canonicalGame.scoring?.currentScore(ScoringTeam.home), 24);
+    expect(canonicalGame.scoring?.currentScore(ScoringTeam.away), 44);
 
-      canonicalGame = buildGame(
-        dbKey: 'nrl-04-025',
-        league: League.nrl,
-        fixtureRoundNumber: 4,
-        fixtureMatchNumber: 25,
-        homeScore: null,
-        awayScore: null,
-      );
-      await viewModel.reconcileLiveScoresWithCurrentGamesForTest();
+    canonicalGame = buildGame(
+      dbKey: 'nrl-04-025',
+      league: League.nrl,
+      fixtureRoundNumber: 4,
+      fixtureMatchNumber: 25,
+      homeScore: null,
+      awayScore: null,
+    );
+    await viewModel.reconcileLiveScoresWithCurrentGamesForTest();
 
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.home),
-        24,
-      );
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.away),
-        44,
-      );
-      expect(viewModel.gamesWithLiveScores.single, same(canonicalGame));
-      verify(() => gamesViewModel.liveScoresUpdated()).called(2);
+    expect(canonicalGame.scoring?.currentScore(ScoringTeam.home), 24);
+    expect(canonicalGame.scoring?.currentScore(ScoringTeam.away), 44);
+    expect(viewModel.gamesWithLiveScores.single, same(canonicalGame));
+    verify(() => gamesViewModel.liveScoresUpdated()).called(2);
 
-      viewModel.dispose();
-    },
-  );
+    viewModel.dispose();
+  });
 
   test(
     'automatically reapplies cached live scores when the games listener fires',
@@ -386,37 +372,26 @@ void main() {
           '$statsPathRootLocal/${comp.dbkey}/${p.liveScoresBackendRoot}',
         ),
       ).thenReturn(liveScoresRef);
-      when(
-        () => roundStatsListenerRef.onValue,
-      ).thenAnswer((_) => const Stream<DatabaseEvent>.empty());
-      when(
-        () => liveScoresRef.onValue,
-      ).thenAnswer((_) => liveScoreEvents.stream);
-      when(
-        () => compRef.child(p.gameStatsBackendRoot),
-      ).thenReturn(gameStatsRef);
+      when(() => roundStatsListenerRef.onValue)
+          .thenAnswer((_) => const Stream<DatabaseEvent>.empty());
+      when(() => liveScoresRef.onValue)
+          .thenAnswer((_) => liveScoreEvents.stream);
+      when(() => compRef.child(p.gameStatsBackendRoot))
+          .thenReturn(gameStatsRef);
       when(() => gameStatsRef.child('paid')).thenReturn(paidGameStatsRef);
-      when(
-        () => paidGameStatsRef.onValue,
-      ).thenAnswer((_) => const Stream<DatabaseEvent>.empty());
-      when(
-        () => tippersViewModel.initialLoadComplete,
-      ).thenAnswer((_) async {});
+      when(() => paidGameStatsRef.onValue)
+          .thenAnswer((_) => const Stream<DatabaseEvent>.empty());
+      when(() => tippersViewModel.initialLoadComplete).thenAnswer((_) async {});
       when(() => tippersViewModel.addListener(any())).thenReturn(null);
       when(() => tippersViewModel.removeListener(any())).thenReturn(null);
       when(() => gamesViewModel.addListener(any())).thenAnswer((invocation) {
         gamesListener = invocation.positionalArguments.single as VoidCallback;
       });
       when(() => gamesViewModel.removeListener(any())).thenReturn(null);
-      when(
-        () => gamesViewModel.findGame('nrl-04-025'),
-      ).thenAnswer((_) async => canonicalGame);
+      when(() => gamesViewModel.findGame('nrl-04-025'))
+          .thenAnswer((_) async => canonicalGame);
 
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: rootDb,
-      );
+      final viewModel = StatsViewModel(comp, gamesViewModel, signedIn: () => Stream.value(true), database: rootDb);
       addTearDown(viewModel.dispose);
       await _settleAsyncWork();
 
@@ -443,25 +418,19 @@ void main() {
       gamesListener();
       await _settleAsyncWork();
 
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.home),
-        24,
-      );
-      expect(
-        canonicalGame.scoring?.currentScore(ScoringTeam.away),
-        44,
-      );
+      expect(canonicalGame.scoring?.currentScore(ScoringTeam.home), 24);
+      expect(canonicalGame.scoring?.currentScore(ScoringTeam.away), 44);
       expect(viewModel.gamesWithLiveScores.single, same(canonicalGame));
     },
   );
 
   test(
-    'submitLiveScores writes a game-level current snapshot in one update',
+    'submitLiveScores writes history entries only, never the current snapshot',
     () async {
       final viewModel = StatsViewModel(
         comp,
         gamesViewModel,
-        database: rootDb,
+        signedIn: () => Stream.value(true), database: rootDb,
         autoInitialize: false,
       );
       di.registerSingleton<StatsViewModel>(viewModel);
@@ -493,20 +462,27 @@ void main() {
         selectedDAUComp: comp,
       );
 
-      final payload = verify(
-        () => liveScoresRef.update(captureAny()),
-      ).captured.single as Map;
-      expect(payload.keys, contains('nrl-04-025/current'));
-      expect(payload.keys, isNot(contains('nrl-04-026/current')));
-
-      final currentPayload = payload['nrl-04-025/current'] as Map;
-      expect(currentPayload, containsPair('homeInterimScore', 8));
-      expect(currentPayload, containsPair('awayInterimScore', 4));
+      final payload =
+          verify(() => liveScoresRef.update(captureAny())).captured.single
+              as Map;
+      expect(
+        payload.keys.where((key) => key.toString().endsWith('/current')),
+        isEmpty,
+        reason: 'the server builds current; a client may not write it',
+      );
+      expect(
+        payload.keys.every((key) => key.toString().contains('/history/')),
+        isTrue,
+      );
       expect(
         payload.keys.where(
           (key) => key.toString().startsWith('nrl-04-025/history/'),
         ),
         hasLength(1),
+      );
+      expect(
+        payload.keys.where((key) => key.toString().startsWith('nrl-04-026')),
+        isEmpty,
       );
       verifyNoMoreInteractions(liveScoresRef);
 
@@ -514,130 +490,178 @@ void main() {
     },
   );
 
-  test(
-    'submitLiveScores writes explicit zero for an unchanged unknown score',
-    () async {
+  for (final secondsSinceKickoff in [60, 121]) {
+    test('live-score entry at $secondsSinceKickoff seconds respects tipping grace', () async {
+      final game = buildGame(
+        dbKey: activeGame.dbkey, league: League.nrl,
+        fixtureRoundNumber: 4, fixtureMatchNumber: 25,
+        homeScore: null, awayScore: null,
+        kickoff: DateTime.now().toUtc().subtract(Duration(seconds: secondsSinceKickoff)),
+      );
       final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: rootDb,
-        autoInitialize: false,
+        comp, gamesViewModel, database: rootDb, autoInitialize: false,
       );
       di.registerSingleton<StatsViewModel>(viewModel);
-
-      await viewModel.submitLiveScores(
-        tip: Tip(
-          dbkey: 'tip-1',
-          game: activeGame,
-          tipper: alice,
-          tip: GameResult.a,
-          submittedTimeUTC: DateTime.utc(2026, 3, 26, 8),
-        ),
-        homeScore: '8',
-        awayScore: '0',
-        originalHomeScore: '0',
-        originalAwayScore: '0',
+      final write = viewModel.submitLiveScores(
+        tip: Tip(game: game, tipper: alice, tip: GameResult.a, submittedTimeUTC: DateTime.now().toUtc()),
+        homeScore: '8', awayScore: '0', originalHomeScore: '0', originalAwayScore: '0',
         selectedDAUComp: comp,
       );
-
-      final payload = verify(
-        () => liveScoresRef.update(captureAny()),
-      ).captured.single as Map;
-      final activeGamePayload = payload['nrl-04-025/current'] as Map;
-      expect(activeGamePayload, containsPair('homeInterimScore', 8));
-      expect(activeGamePayload, containsPair('awayInterimScore', 0));
-      final crowdSourcedScores =
-          activeGamePayload['crowdSourcedScores'] as List;
-      final scoresByTeam = <String, int>{
-        for (final score in crowdSourcedScores.cast<Map>())
-          score['scoreTeam'] as String: score['interimScore'] as int,
-      };
-
-      expect(scoresByTeam, containsPair('home', 8));
-      expect(scoresByTeam, containsPair('away', 0));
-      expect(
-        payload.keys.where(
-          (key) => key.toString().startsWith('nrl-04-025/history/'),
-        ),
-        hasLength(2),
-      );
-
+      if (secondsSinceKickoff < 120) {
+        await expectLater(write, throwsStateError);
+        verifyNever(() => liveScoresRef.update(any()));
+      } else {
+        await write;
+        verify(() => liveScoresRef.update(any())).called(1);
+      }
       viewModel.dispose();
-    },
-  );
+    });
+  }
 
-  test(
-    'loads game stats from the game stats tree',
-    () async {
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: rootDb,
-        autoInitialize: false,
-      );
+  test('submitLiveScores writes an entry for an unchanged unknown score too, as zero', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
+    di.registerSingleton<StatsViewModel>(viewModel);
 
-      await viewModel.handleGameStatsEventForTest(
-        _databaseEvent(
-          _snapshot(
-            exists: true,
-            value: <String, Object?>{
-              'nrl-04-025': <String, Object?>{
-                'pctTipA': 0.0,
-                'pctTipB': 1.0,
-                'pctTipC': 0.0,
-                'pctTipD': 0.0,
-                'pctTipE': 0.0,
-                'avgScore': 2.0,
-                'avgScoreTipCount': 1,
-              },
+    await viewModel.submitLiveScores(
+      tip: Tip(
+        dbkey: 'tip-1',
+        game: activeGame,
+        tipper: alice,
+        tip: GameResult.a,
+        submittedTimeUTC: DateTime.utc(2026, 3, 26, 8),
+      ),
+      homeScore: '8',
+      awayScore: '0',
+      originalHomeScore: '0',
+      originalAwayScore: '0',
+      selectedDAUComp: comp,
+    );
+
+    final payload =
+        verify(() => liveScoresRef.update(captureAny())).captured.single as Map;
+    final entries = payload.values.cast<Map>();
+    final scoresByTeam = <String, int>{
+      for (final entry in entries)
+        entry['scoreTeam'] as String: entry['interimScore'] as int,
+    };
+
+    expect(payload, hasLength(2));
+    expect(scoresByTeam, {'home': 8, 'away': 0});
+
+    viewModel.dispose();
+  });
+
+  test('every entry has exactly the four fields the rules allow, with the server clock', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
+    di.registerSingleton<StatsViewModel>(viewModel);
+
+    await viewModel.submitLiveScores(
+      tip: Tip(
+        dbkey: 'tip-1',
+        game: activeGame,
+        tipper: alice,
+        tip: GameResult.a,
+        submittedTimeUTC: DateTime.utc(2026, 3, 26, 8),
+      ),
+      homeScore: '8',
+      awayScore: '3',
+      originalHomeScore: '0',
+      originalAwayScore: '0',
+      selectedDAUComp: comp,
+    );
+
+    final payload =
+        verify(() => liveScoresRef.update(captureAny())).captured.single as Map;
+    for (final entry in payload.values.cast<Map>()) {
+      expect(entry.keys.toSet(), {
+        'tipperID',
+        'scoreTeam',
+        'interimScore',
+        't',
+      }, reason: 'the rules refuse any other field');
+      expect(entry['tipperID'], alice.dbkey);
+      expect(entry['t'], ServerValue.timestamp);
+    }
+
+    viewModel.dispose();
+  });
+
+  test('loads game stats from the game stats tree', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
+
+    await viewModel.handleGameStatsEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'nrl-04-025': <String, Object?>{
+              'pctTipA': 0.0,
+              'pctTipB': 1.0,
+              'pctTipC': 0.0,
+              'pctTipD': 0.0,
+              'pctTipE': 0.0,
+              'avgScore': 2.0,
+              'avgScoreTipCount': 1,
             },
-          ),
+          },
         ),
-      );
+      ),
+    );
 
-      expect(viewModel.gameStatsEntryFor(activeGame)?.averagePoints, 2.0);
-      expect(viewModel.gameStatsEntryFor(activeGame)?.averagePointsTipCount, 1);
+    expect(viewModel.gameStatsEntryFor(activeGame)?.averagePoints, 2.0);
+    expect(viewModel.gameStatsEntryFor(activeGame)?.averagePointsTipCount, 1);
 
-      viewModel.dispose();
-    },
-  );
+    viewModel.dispose();
+  });
 
-  test(
-    'caches game stats before the matching fixture is loaded',
-    () async {
-      final viewModel = StatsViewModel(
-        comp,
-        gamesViewModel,
-        database: rootDb,
-        autoInitialize: false,
-      );
+  test('caches game stats before the matching fixture is loaded', () async {
+    final viewModel = StatsViewModel(
+      comp,
+      gamesViewModel,
+      signedIn: () => Stream.value(true), database: rootDb,
+      autoInitialize: false,
+    );
 
-      await viewModel.handleGameStatsEventForTest(
-        _databaseEvent(
-          _snapshot(
-            exists: true,
-            value: <String, Object?>{
-              'nrl-04-999': <String, Object?>{
-                'pctTipA': 0.0,
-                'pctTipB': 0.625,
-                'pctTipC': 0.0,
-                'pctTipD': 0.375,
-                'pctTipE': 0.0,
-              },
+    await viewModel.handleGameStatsEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Object?>{
+            'nrl-04-999': <String, Object?>{
+              'pctTipA': 0.0,
+              'pctTipB': 0.625,
+              'pctTipC': 0.0,
+              'pctTipD': 0.375,
+              'pctTipE': 0.0,
             },
-          ),
+          },
         ),
-      );
+      ),
+    );
 
-      expect(
-        viewModel.gamesStatsEntry['nrl-04-999']?.percentageTippedHome,
-        0.625,
-      );
-      verifyNever(() => gamesViewModel.findGame('nrl-04-999'));
+    expect(
+      viewModel.gamesStatsEntry['nrl-04-999']?.percentageTippedHome,
+      0.625,
+    );
+    verifyNever(() => gamesViewModel.findGame('nrl-04-999'));
 
-      viewModel.dispose();
-    },
-  );
+    viewModel.dispose();
+  });
 }
 
 MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {
@@ -646,10 +670,7 @@ MockDatabaseEvent _databaseEvent(DataSnapshot snapshot) {
   return event;
 }
 
-MockDataSnapshot _snapshot({
-  required bool exists,
-  required Object? value,
-}) {
+MockDataSnapshot _snapshot({required bool exists, required Object? value}) {
   final snapshot = MockDataSnapshot();
   when(() => snapshot.exists).thenReturn(exists);
   when(() => snapshot.value).thenReturn(value);

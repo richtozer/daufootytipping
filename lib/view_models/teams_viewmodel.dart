@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
+
 import 'package:collection/collection.dart';
 import 'package:daufootytipping/models/team.dart';
+import 'package:daufootytipping/services/auth_aware_stream.dart';
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -12,11 +14,9 @@ class TeamsViewModel extends ChangeNotifier {
   List<Team> _teams = [];
   DatabaseReference get _db => configuredDatabaseRef();
   late StreamSubscription<DatabaseEvent> _teamsStream;
-  bool _savingTeam = false;
   final Completer<void> _initialLoadCompleter = Completer<void>();
   Map _groupedTeams = {};
 
-  bool get savingTeam => _savingTeam;
   List<Team> get teams => _teams;
   Map get groupedTeams => _groupedTeams;
   Future<void> get initialLoadComplete => _initialLoadCompleter.future;
@@ -25,19 +25,25 @@ class TeamsViewModel extends ChangeNotifier {
     _listenToTeams();
   }
 
+  // Teams need a session under the R2 rules, so the listener opens once a user is
+  // signed in (see authAwareStream), not when this view model is created.
   void _listenToTeams() {
-    _teamsStream = _db.child(p.teamsPathRoot).onValue.listen((event) {
-      if (event.snapshot.exists) {
-        _processTeams(event);
-      } else {
-        log('No teams found in database');
-      }
+    _teamsStream =
+        authAwareStream<DatabaseEvent>(
+          signedIn: firebaseSignedInStream,
+          open: () => _db.child(p.teamsPathRoot).onValue,
+        ).listen((event) {
+          if (event.snapshot.exists) {
+            _processTeams(event);
+          } else {
+            log('No teams found in database');
+          }
 
-      if (!_initialLoadCompleter.isCompleted) {
-        _initialLoadCompleter.complete();
-      }
-      notifyListeners();
-    });
+          if (!_initialLoadCompleter.isCompleted) {
+            _initialLoadCompleter.complete();
+          }
+          notifyListeners();
+        });
   }
 
   void _processTeams(DatabaseEvent event) {
@@ -56,8 +62,6 @@ class TeamsViewModel extends ChangeNotifier {
 
   Future<void> editTeam(Team updatedTeam) async {
     await _initialLoadCompleter.future;
-    _savingTeam = true;
-    notifyListeners();
 
     Team? originalTeam = _teams.firstWhereOrNull(
       (existingTeam) => existingTeam.dbkey == updatedTeam.dbkey,
@@ -70,11 +74,8 @@ class TeamsViewModel extends ChangeNotifier {
         'Team: ${updatedTeam.dbkey} does not exist in the database, ignoring edit request',
       );
     }
-
-    _savingTeam = false;
-    notifyListeners(); // Notify about _savingTeam state change
-    // Note: Team data UI update will be triggered by database listener in _listenToTeams()
-    // when the database change event is received
+    // The UI updates when the database listener in _listenToTeams() receives
+    // the change.
   }
 
   Future<void> _editExistingTeam(Team originalTeam, Team updatedTeam) async {
@@ -89,37 +90,10 @@ class TeamsViewModel extends ChangeNotifier {
     Map changed = diff.changed;
     changed.keys.toList().forEach((key) {
       if (changed[key] is List && (changed[key] as List).isNotEmpty) {
-        updates['${p.teamsPathRoot}/${updatedTeam.dbkey}/$key'] = changed[key][1];
+        updates['${p.teamsPathRoot}/${updatedTeam.dbkey}/$key'] =
+            changed[key][1];
       }
     });
-
-    await _db.update(updates);
-  }
-
-  Future<void> addTeam(Team team) async {
-    await _initialLoadCompleter.future;
-    _savingTeam = true;
-    notifyListeners();
-
-    Team? foundTeam = teams.firstWhereOrNull(
-      (existingTeam) =>
-          existingTeam.dbkey.toLowerCase() == team.dbkey.toLowerCase(),
-    );
-
-    if (foundTeam == null) {
-      _addNewTeam(team);
-      log('Team: ${team.dbkey.toLowerCase()} added to the database');
-    }
-
-    _savingTeam = false;
-    notifyListeners();
-  }
-
-  Future<void> _addNewTeam(Team team) async {
-    final postData = team.toJson();
-
-    final Map<String, Map> updates = {};
-    updates['${p.teamsPathRoot}/${team.dbkey.toLowerCase()}'] = postData;
 
     await _db.update(updates);
   }

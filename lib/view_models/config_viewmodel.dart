@@ -1,13 +1,31 @@
 import 'dart:async';
 import 'dart:developer';
 
-import 'package:daufootytipping/services/app_resume_diagnostics.dart';
+import 'package:daufootytipping/services/tipping_policy.dart';
+
 import 'package:daufootytipping/services/configured_realtime_database.dart';
 import 'package:daufootytipping/services/startup_app_check.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/services/identity_service.dart'
+    show identityFunctionsUrlPatternKey;
+
+/// The startup config read could not reach the database: it timed out, or App
+/// Check kept refusing it. From the device this looks the same as having no
+/// signal, so the user is told about the connection rather than shown an error.
+class ConfigConnectionFailure implements Exception {
+  const ConfigConnectionFailure(this.lastError);
+
+  /// The last error the config listener reported, if any. For the log only.
+  final Object? lastError;
+
+  @override
+  String toString() => lastError == null
+      ? 'Config load could not reach the database.'
+      : 'Config load could not reach the database. Last error: $lastError';
+}
 
 class ConfigViewModel extends ChangeNotifier {
   final DatabaseReference _db;
@@ -28,6 +46,9 @@ class ConfigViewModel extends ChangeNotifier {
   bool? _createLinkedTipper;
   bool? get createLinkedTipper => _createLinkedTipper;
 
+  int _tipGracePeriodSeconds = defaultTipGracePeriodSeconds;
+  int get tipGracePeriodSeconds => _tipGracePeriodSeconds;
+
   String? _googleClientId;
   String? get googleClientId => _googleClientId;
 
@@ -43,7 +64,8 @@ class ConfigViewModel extends ChangeNotifier {
       return cachedValue;
     }
 
-    final snapshot = await _db.child(p.adminScoringRescoreURLKey).get();
+    // AppConfig is listened to, so read the key with readOnce.
+    final snapshot = await readOnce(_db.child(p.adminScoringRescoreURLKey));
     final loadedValue = _parseOptionalString(snapshot.value);
     if (loadedValue != null && loadedValue != _adminScoringRescoreURL) {
       _adminScoringRescoreURL = loadedValue;
@@ -55,13 +77,19 @@ class ConfigViewModel extends ChangeNotifier {
   String? _adminCheckFixtureUrlURL;
   String? get adminCheckFixtureUrlURL => _adminCheckFixtureUrlURL;
 
+  /// Optional: a replacement for the identity callables' address pattern
+  /// (`https://{name}-....a.run.app`). Absent in production; the built-in default is used.
+  String? _identityFunctionsUrlPattern;
+  String? get identityFunctionsUrlPattern => _identityFunctionsUrlPattern;
+
   Future<String?> loadAdminCheckFixtureUrlURL() async {
     final cachedValue = _adminCheckFixtureUrlURL;
     if (cachedValue != null) {
       return cachedValue;
     }
 
-    final snapshot = await _db.child(p.adminCheckFixtureUrlURLKey).get();
+    // AppConfig is listened to, so read the key with readOnce.
+    final snapshot = await readOnce(_db.child(p.adminCheckFixtureUrlURLKey));
     final loadedValue = _parseOptionalString(snapshot.value);
     if (loadedValue != null && loadedValue != _adminCheckFixtureUrlURL) {
       _adminCheckFixtureUrlURL = loadedValue;
@@ -98,10 +126,12 @@ class ConfigViewModel extends ChangeNotifier {
       _activeDAUComp = null;
       _minAppVersion = null;
       _createLinkedTipper = null;
+      _tipGracePeriodSeconds = defaultTipGracePeriodSeconds;
       _googleClientId = null;
       _cloudFunctionsBaseURL = null;
       _adminScoringRescoreURL = null;
       _adminCheckFixtureUrlURL = null;
+      _identityFunctionsUrlPattern = null;
     }
 
     _initialLoadCompleter = Completer<void>();
@@ -111,15 +141,16 @@ class ConfigViewModel extends ChangeNotifier {
 
   void _armInitialLoadTimeout(Completer<void> completer) {
     completer.future.timeout(_initialLoadTimeout).catchError((_) {
-      if (!identical(_initialLoadCompleter, completer) || completer.isCompleted) {
+      if (!identical(_initialLoadCompleter, completer) ||
+          completer.isCompleted) {
         return;
       }
 
-      final Object? lastInitialLoadError = _lastInitialLoadError;
-      final String message = lastInitialLoadError == null
-          ? 'Config load timed out. Please check your connection or we may be having backend issues.'
-          : 'Config load timed out. Last startup error: $lastInitialLoadError';
-      completer.completeError(message);
+      final ConfigConnectionFailure failure = ConfigConnectionFailure(
+        _lastInitialLoadError,
+      );
+      log('ConfigViewModel initial load failed: $failure');
+      completer.completeError(failure);
       notifyListeners();
     });
   }
@@ -130,23 +161,6 @@ class ConfigViewModel extends ChangeNotifier {
         final bool isFirstLoad = !_initialLoadCompleter.isCompleted;
         final Stopwatch processingStopwatch = Stopwatch()..start();
         final dynamic rawValue = event.snapshot.value;
-        if (AppResumeDiagnostics.enabled) {
-          final bool probePresent =
-              rawValue is Map &&
-              rawValue.containsKey(AppResumeDiagnostics.configProbeKey);
-          AppResumeDiagnostics.record(
-            'config_listener_snapshot_received',
-            details: <String, Object?>{
-              'exists': event.snapshot.exists,
-              'resumeProbePresent': probePresent,
-              'resumeProbe': probePresent
-                  ? AppResumeDiagnostics.probeValueForDiagnostics(
-                      rawValue[AppResumeDiagnostics.configProbeKey],
-                    )
-                  : null,
-            },
-          );
-        }
         final int? payloadBytes = StartupProfiling.estimatePayloadBytes(
           rawValue,
         );
@@ -220,7 +234,9 @@ class ConfigViewModel extends ChangeNotifier {
 
     if (_retryableStartupReconnectAttempts >=
         _maxRetryableStartupReconnectAttempts) {
-      _initialLoadCompleter.completeError(error);
+      final ConfigConnectionFailure failure = ConfigConnectionFailure(error);
+      log('ConfigViewModel initial load failed: $failure');
+      _initialLoadCompleter.completeError(failure);
       notifyListeners();
       return;
     }
@@ -265,6 +281,9 @@ class ConfigViewModel extends ChangeNotifier {
   }
 
   void _processSnapshot(DataSnapshot snapshot) {
+    _tipGracePeriodSeconds = parseTipGracePeriodSeconds(
+      _snapshotValue(snapshot, tipGracePeriodSecondsKey),
+    );
     _activeDAUComp = _parseOptionalString(
       _snapshotValue(snapshot, p.currentDAUCompKey),
     );
@@ -285,6 +304,9 @@ class ConfigViewModel extends ChangeNotifier {
     );
     _adminCheckFixtureUrlURL = _parseOptionalString(
       _snapshotValue(snapshot, p.adminCheckFixtureUrlURLKey),
+    );
+    _identityFunctionsUrlPattern = _parseOptionalString(
+      _snapshotValue(snapshot, identityFunctionsUrlPatternKey),
     );
   }
 
@@ -329,14 +351,6 @@ class ConfigViewModel extends ChangeNotifier {
 
   Future<void> setConfigCurrentDAUComp(String value) async {
     await _db.child(p.currentDAUCompKey).set(value);
-  }
-
-  Future<void> setConfigMinAppVersion(String value) async {
-    await _db.child(p.minAppVersionKey).set(value);
-  }
-
-  Future<void> setCreateLinkedTipper(bool value) async {
-    await _db.child(p.createLinkedTipperKey).set(value);
   }
 
   @override

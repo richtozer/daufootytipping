@@ -51,28 +51,32 @@ void main() {
       expect(count, 0);
     });
 
-    test('activates a round exactly 48 hours before its first kickoff', () {
-      final round = DAURound(
-        dAUroundNumber: 1,
-        firstGameKickOffUTC: now.add(const Duration(hours: 48)),
-        lastGameKickOffUTC: now.add(const Duration(days: 3)),
-      );
+    test(
+      'activates a round 48 hours before 0:00 UTC on its start date even when stored with a time',
+      () {
+        final round = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 8, 6, 12),
+          lastGameKickOffUTC: DateTime.utc(2026, 8, 8, 12),
+        );
+        final activationBoundary = DateTime.utc(2026, 8, 4);
 
-      expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
-          rounds: <DAURound>[round],
-          now: now.subtract(const Duration(microseconds: 1)),
-        ),
-        isNull,
-      );
-      expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
-          rounds: <DAURound>[round],
-          now: now,
-        ),
-        same(round),
-      );
-    });
+        expect(
+          OutstandingTipsCalculator.appBadgeRoundsForTime(
+            rounds: <DAURound>[round],
+            now: activationBoundary.subtract(const Duration(microseconds: 1)),
+          ),
+          isEmpty,
+        );
+        expect(
+          OutstandingTipsCalculator.appBadgeRoundsForTime(
+            rounds: <DAURound>[round],
+            now: activationBoundary,
+          ),
+          <DAURound>[round],
+        );
+      },
+    );
 
     test('deactivates a round after its last kickoff', () {
       final round = DAURound(
@@ -82,18 +86,83 @@ void main() {
       );
 
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now,
         ),
-        same(round),
+        <DAURound>[round],
       );
       expect(
-        OutstandingTipsCalculator.appBadgeRoundForTime(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
           rounds: <DAURound>[round],
           now: now.add(const Duration(microseconds: 1)),
         ),
-        isNull,
+        isEmpty,
+      );
+    });
+
+    test(
+      'uses the admin override start at 0:00 UTC for badge activation even when stored with a time',
+      () {
+        final round = DAURound(
+          dAUroundNumber: 1,
+          firstGameKickOffUTC: DateTime.utc(2026, 8, 10, 12),
+          lastGameKickOffUTC: DateTime.utc(2026, 8, 12, 12),
+          adminOverrideRoundStartDate: DateTime.utc(2026, 8, 6, 18),
+        );
+        final activationBoundary = DateTime.utc(2026, 8, 4);
+
+        expect(
+          OutstandingTipsCalculator.appBadgeRoundsForTime(
+            rounds: <DAURound>[round],
+            now: activationBoundary.subtract(const Duration(microseconds: 1)),
+          ),
+          isEmpty,
+        );
+        expect(
+          OutstandingTipsCalculator.appBadgeRoundsForTime(
+            rounds: <DAURound>[round],
+            now: activationBoundary,
+          ),
+          <DAURound>[round],
+        );
+      },
+    );
+
+    test('skips an empty round whose end is at or before its start', () {
+      final start = DateTime.utc(2026, 8, 5);
+      final emptyRound = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: start,
+        lastGameKickOffUTC: start,
+      );
+
+      expect(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
+          rounds: <DAURound>[emptyRound],
+          now: now,
+        ),
+        isEmpty,
+      );
+    });
+
+    test('returns all overlapping active rounds', () {
+      final round1 = DAURound(
+        dAUroundNumber: 1,
+        firstGameKickOffUTC: now.subtract(const Duration(days: 3)),
+        lastGameKickOffUTC: now.add(const Duration(hours: 6)),
+      );
+      final round2 = DAURound(
+        dAUroundNumber: 2,
+        firstGameKickOffUTC: now.add(const Duration(hours: 40)),
+        lastGameKickOffUTC: now.add(const Duration(days: 4)),
+      );
+      expect(
+        OutstandingTipsCalculator.appBadgeRoundsForTime(
+          rounds: <DAURound>[round1, round2],
+          now: now,
+        ),
+        <DAURound>[round1, round2],
       );
     });
   });

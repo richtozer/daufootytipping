@@ -92,6 +92,32 @@ two-step sequence.
 After this first deployment, the Dart HTTPS URL should remain stable. Future
 deployments can deploy both codebases together if the env files remain present.
 
+## If the deploy reports "timed out after 30000ms"
+
+`firebase deploy` can print `Task index 0 failed: timed out after 30000ms` and list several Dart functions as
+failed. That means it stopped waiting for a Cloud Run operation after about 30 seconds, and rollouts of several
+services at once take longer. **Treat each timeout as inconclusive, not as success and not as failure**, until the
+intended revision, the endpoint's response and its permissions have been checked: in the 9 November deploys the
+revisions were fine, but the services whose create had timed out were left without their public-invoker setting
+and answered 403 until it was repaired. Do not run the whole deploy again; every run makes a new revision of every
+service. Check the real state instead:
+
+```bash
+gcloud run services list --project dau-footy-tipping-f8a42 --region asia-southeast1 --format="table(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.conditions[0].status)"
+```
+
+Healthy means the created and ready revisions match and the status is `True`. Then check each **new** service has
+its public invoker, because the CLI adds it after the create finishes and a timeout can skip it (the symptom is a
+403 from Google, or an HTML 401, instead of our JSON 401):
+
+```bash
+gcloud run services get-iam-policy <name> --project dau-footy-tipping-f8a42 --region asia-southeast1
+gcloud run services add-iam-policy-binding <name> --project dau-footy-tipping-f8a42 --region asia-southeast1 --member=allUsers --role=roles/run.invoker
+```
+
+If the deploy script stopped, also run `node scripts/build_admin_allowlist.mjs --record functions` yourself so the
+deployment record is written.
+
 ## Region Migration Notes
 
 Changing function regions creates new functions in the new region rather than
@@ -140,6 +166,49 @@ When moving backend scoring from `us-central1` to `asia-southeast1`:
    ```bash
    firebase functions:delete admin-fixture-download --region us-central1
    ```
+
+## Live-score aggregator (`liveScoreHistoryWrittenBackendScoring`)
+
+A second TypeScript trigger, `liveScoreHistoryWrittenBackendScoring`, fires on
+`/Stats/<compKey>/live_scores_backend_v1/<gameKey>/history/<entry>` and posts a
+`liveScoreHistoryWritten` command to the same `backend-scoring-command` endpoint
+with the same secret. The Dart worker derives the game's `current` snapshot from
+`history`. It needs no new configuration.
+
+- **Deploy the Dart codebase first, then the TypeScript one.** The other order is
+  harmless but noisy: the old worker answers `400` to the unknown command type and
+  the wrapper logs a warning per submission.
+- **Mode** is `/ServerConfig/liveScores/mode`: `shadow` (the default, and what a
+  missing or unrecognised value means) writes nothing and logs one
+  `[liveScores] shadow ...` line per submission; `active` and `compat` write
+  `current`. `compat` is the fallback for while 1.4.x clients can still write
+  `current` (possibly before the R2 rules); `active` belongs after the R2 rules close
+  those writes. Each is the owner's separate decision and neither is enabled by a
+  deployment (see `DESIGN-database-rules-phase4.md`, section 6i).
+- **Deploying it in shadow**, in this order, treating every CLI "timed out after
+  30000ms" as inconclusive:
+  1. Read `/ServerConfig/liveScores/mode` (expect `null`, or `"shadow"`). If it holds
+     anything else, stop.
+  2. `scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only dart`, then
+     check `gcloud run services list` (every service created and ready, a new revision
+     for `backend-scoring-command`), each endpoint's unauthenticated response, and
+     `gcloud run services get-iam-policy` for any service that reports an error. Send the
+     worker a command with a wrong secret: expect `403`.
+  3. `scripts/deploy-functions.sh --project dau-footy-tipping-f8a42 --only default`, then
+     confirm `liveScoreHistoryWrittenBackendScoring` exists in `asia-southeast1` with the
+     trigger on `.../history/{entryKey}`, and that the other TypeScript triggers still
+     have theirs (`firebase functions:list`).
+  4. Read the mode again (still `null` or `"shadow"`). There are no live games to
+     exercise it until March; the first real submission will log one
+     `[liveScores] shadow ...` line and change nothing.
+- **Correcting a game by hand:** remove `current`, then fix or delete the bad
+  `history` entry. That is an event, and with no `current` left the aggregator
+  writes a fresh one from what remains (only in `active` or `compat`).
+- **Local end-to-end check** (emulators only, no network, no credentials):
+
+  ```bash
+  scripts/test-live-score-wiring.sh
+  ```
 
 ## Smoke Test
 

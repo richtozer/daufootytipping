@@ -67,7 +67,7 @@ jobs:
 
       - name: Install Flutter SDK
         env:
-          FLUTTER_VERSION: "3.47.2"
+          FLUTTER_VERSION: "3.50.0"
         run: |
           set -euo pipefail
           git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$HOME/flutter"
@@ -79,7 +79,7 @@ jobs:
       - name: Get dependencies
         run: |
           flutter pub get
-          cd functions_dart && dart pub get
+          (cd functions_dart && dart pub get)
 
       - name: Verify installation
         run: flutter doctor -v
@@ -87,7 +87,11 @@ jobs:
       - name: Run analyzer
         run: flutter analyze
 
+      # Golden images are not compared on a runner: see
+      # test/flutter_test_config.dart.
       - name: Run tests
+        env:
+          SKIP_GOLDEN_COMPARISON: "true"
         run: flutter test
 
       - name: Read app version from pubspec
@@ -102,17 +106,6 @@ jobs:
           build_number="${pubspec_version##*+}"
           echo "build_name=$build_name" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve Android resume diagnostics mode
-        id: resume_diagnostics
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/testing" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "Android resume diagnostics enabled for testing build."
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "Android resume diagnostics disabled for non-testing build."
-          fi
 
       - name: Configure Android signing for release builds
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
@@ -147,7 +140,6 @@ jobs:
           flutter build apk --debug
           --build-name "${{ steps.app_version.outputs.build_name }}"
           --build-number "${{ steps.app_version.outputs.build_number }}"
-          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Build APK (Release) for main branch
         if: github.ref == 'refs/heads/main'
@@ -155,7 +147,6 @@ jobs:
           flutter build apk --release
           --build-name "${{ steps.app_version.outputs.build_name }}"
           --build-number "${{ steps.app_version.outputs.build_number }}"
-          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Build AAB (Release) for testing/main branches
         if: github.ref == 'refs/heads/testing' || github.ref == 'refs/heads/main'
@@ -163,7 +154,6 @@ jobs:
           flutter build appbundle --release
           --build-name "${{ steps.app_version.outputs.build_name }}"
           --build-number "${{ steps.app_version.outputs.build_number }}"
-          --dart-define=ANDROID_RESUME_DIAGNOSTICS=${{ steps.resume_diagnostics.outputs.enabled }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6

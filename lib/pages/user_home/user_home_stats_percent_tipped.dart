@@ -1,14 +1,22 @@
 import 'dart:developer';
+
+import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_gamelist.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_geometry.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
+import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
+import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
+import 'package:daufootytipping/constants/paths.dart' as p;
+import 'package:daufootytipping/widgets/empty_state_card.dart';
 
 class StatPercentTipped extends StatefulWidget {
   const StatPercentTipped({super.key});
@@ -18,14 +26,18 @@ class StatPercentTipped extends StatefulWidget {
 }
 
 class StatPercentTippedState extends State<StatPercentTipped> {
+  /// How much of the list's height, from the top, the fade under the title
+  /// takes.
+  static const double _topFadeFraction = 0.06;
+
+  TipsCardLayout? _cardLayout;
+  String? _cardLayoutKey;
   DAUCompsViewModel daucompsViewModel = di<DAUCompsViewModel>();
 
-  int latestRoundNumber = 0;
   String? _lastScrolledCompDbKey;
   bool _selectingActiveComp = false;
   late ScrollController scrollController;
   late FocusNode focusNode;
-  int initialScrollOffset = -150;
 
   @override
   void initState() {
@@ -35,50 +47,36 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     focusNode = FocusNode();
     scrollController = ScrollController();
     daucompsViewModel.addListener(_handleDAUCompsUpdated);
-    _syncSelectedCompState();
     _ensureSelectedComp();
   }
 
   void _handleDAUCompsUpdated() {
     if (!mounted) return;
-    _syncSelectedCompState();
     _ensureSelectedComp();
   }
 
-  void _syncSelectedCompState() {
-    final selectedComp = daucompsViewModel.selectedDAUComp;
-    if (selectedComp == null) {
+  /// Opens each comp on its latest completed round, once the list it scrolls
+  /// has been laid out.
+  void _scrollToLatestCompletedRound(
+    DAUComp selectedComp,
+    List<TipsLeagueSection> sections,
+  ) {
+    if (_lastScrolledCompDbKey == selectedComp.dbkey || sections.isEmpty) {
       return;
     }
-
-    final nextLatestRoundNumber = selectedComp.latestsCompletedRoundNumber();
-    log(
-      'StatPercentTipped._syncSelectedCompState() latestRoundNumber: $nextLatestRoundNumber',
+    _lastScrolledCompDbKey = selectedComp.dbkey;
+    final targetOffset = latestCompletedRoundOffset(
+      selectedComp: selectedComp,
+      sections: sections,
     );
-
-    if (latestRoundNumber != nextLatestRoundNumber && mounted) {
-      setState(() {
-        latestRoundNumber = nextLatestRoundNumber;
-      });
-    }
-
-    if (_lastScrolledCompDbKey != selectedComp.dbkey) {
-      _lastScrolledCompDbKey = selectedComp.dbkey;
-      final targetOffset =
-          selectedComp.pixelHeightUpToRound(nextLatestRoundNumber) +
-          initialScrollOffset;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !scrollController.hasClients) {
-          return;
-        }
-
-        final clampedOffset = targetOffset.clamp(
-          0.0,
-          scrollController.position.maxScrollExtent,
-        );
-        scrollController.jumpTo(clampedOffset);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scrollController.hasClients) {
+        return;
+      }
+      scrollController.jumpTo(
+        targetOffset.clamp(0.0, scrollController.position.maxScrollExtent),
+      );
+    });
   }
 
   void _ensureSelectedComp() {
@@ -127,13 +125,6 @@ class StatPercentTippedState extends State<StatPercentTipped> {
     log('StatPercentTipped.build()');
 
     Orientation orientation = MediaQuery.of(context).orientation;
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
 
     if (daucompsViewModel.selectedDAUComp == null) {
       return Center(
@@ -141,12 +132,12 @@ class StatPercentTippedState extends State<StatPercentTipped> {
           height: 75,
           child: Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
+              borderRadius: BorderRadius.circular(kCardCornerRadius),
             ),
             color: Colors.black38,
             child: Center(
               child: Text(
-                'Nothing to see here.\nContact support: https://interview.coach/tipping.',
+                'Nothing to see here.\nContact support: ${p.supportUrl}.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),
@@ -155,115 +146,208 @@ class StatPercentTippedState extends State<StatPercentTipped> {
       );
     }
 
-    return KeyboardListener(
-      focusNode: focusNode,
-      autofocus: true,
-      onKeyEvent: (event) => _handleKeyEvent(event, context),
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<DAUCompsViewModel>.value(
-            value: daucompsViewModel,
-          ),
-        ],
-        child: Theme(
-          data: myTheme,
-          child: Consumer<DAUCompsViewModel>(
-            builder: (context, daucompsViewmodelConsumer, client) {
-              final selectedComp = daucompsViewmodelConsumer.selectedDAUComp;
-              if (selectedComp == null) {
-                return const SizedBox.shrink();
-              }
-              final sections = buildTipsLeagueSections(
-                selectedComp: selectedComp,
-                officialFixtureScoresOnly: true,
-              );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _syncCardLayout(context, constraints.maxWidth);
+        final cardLayout = _cardLayout;
+        if (cardLayout == null) {
+          return const SizedBox.shrink();
+        }
+        return KeyboardListener(
+          focusNode: focusNode,
+          autofocus: true,
+          onKeyEvent: (event) => _handleKeyEvent(event, context),
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider<DAUCompsViewModel>.value(
+                value: daucompsViewModel,
+              ),
+            ],
+            child: Theme(
+              data: myTheme,
+              child: Consumer<DAUCompsViewModel>(
+                builder: (context, daucompsViewmodelConsumer, client) {
+                  final selectedComp =
+                      daucompsViewmodelConsumer.selectedDAUComp;
+                  if (selectedComp == null) {
+                    return const SizedBox.shrink();
+                  }
+                  final sections = buildTipsLeagueSections(
+                    selectedComp: selectedComp,
+                    cardExtent: cardLayout.cardExtent,
+                    headerExtent: cardLayout.headerExtent,
+                    officialFixtureScoresOnly: true,
+                  );
+                  _scrollToLatestCompletedRound(selectedComp, sections);
 
-              return ChangeNotifierProvider<StatsViewModel?>.value(
-                value: daucompsViewmodelConsumer.statsViewModel,
-                child: SelectedCompBanner(
-                  child: Scaffold(
-                floatingActionButton: FloatingActionButton.small(
-                  backgroundColor: fabBackgroundColor,
-                  foregroundColor: fabForegroundColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Icon(Icons.arrow_back),
-                ),
-                body: SafeArea(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (orientation == Orientation.portrait)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Hero(
-                                  tag: 'percentage',
-                                  child: Icon(Icons.percent, size: 50),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Percentage Tipped',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
+                  return ChangeNotifierProvider<StatsViewModel?>.value(
+                    value: daucompsViewmodelConsumer.statsViewModel,
+                    child: SelectedCompBanner(
+                      child: Scaffold(
+                        // The backdrop the page is pushed over shows through,
+                        // as on the other tips pages, and the list scrolls
+                        // under the floating controls rather than stopping
+                        // short of them.
+                        backgroundColor: Colors.transparent,
+                        body: AppUnderControlsArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (orientation == Orientation.portrait)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16.0,
+                                    8.0,
+                                    16.0,
+                                    0.0,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Hero(
+                                            tag: 'percentage',
+                                            child: Icon(
+                                              Icons.percent,
+                                              size: 50,
+                                              color: appPanelTextColor(context),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              'Percentage Tipped',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleLarge
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: appPanelTextColor(
+                                                      context,
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: Text(
+                                          'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color:
+                                                    appPanelTextColor(
+                                                      context,
+                                                    ) ??
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: Colors.grey[600]),
-                              ),
-                            ),
-                          ],
+                              if (sections.isEmpty)
+                                const EmptyStateCard(
+                                  title: 'Tipping breakdown coming soon',
+                                  message: "Each game's breakdown will appear once its final score is in.",
+                                )
+                              else
+                                Expanded(
+                                  // The cards dissolve into the title as they
+                                  // scroll up to it, instead of being cut off by
+                                  // a hard edge under the text.
+                                  child: ShaderMask(
+                                    blendMode: BlendMode.dstIn,
+                                    shaderCallback: (bounds) =>
+                                        const LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [
+                                            Colors.transparent,
+                                            Colors.black,
+                                          ],
+                                          stops: [0, _topFadeFraction],
+                                        ).createShader(bounds),
+                                    child: CustomScrollView(
+                                      controller: scrollController,
+                                      restorationId: 'statsPercentTippedView',
+                                      slivers: [
+                                        for (
+                                          var sectionIndex = 0;
+                                          sectionIndex < sections.length;
+                                          sectionIndex++
+                                        )
+                                          buildRoundLeagueSection(
+                                            section: sections[sectionIndex],
+                                            dauCompsViewModel:
+                                                daucompsViewmodelConsumer,
+                                            currentTipper:
+                                                di<TippersViewModel>()
+                                                    .selectedTipper,
+                                            isPercentStatsPage: true,
+                                            layout: cardLayout,
+                                          ),
+                                        SliverToBoxAdapter(
+                                          child: SizedBox(
+                                            height: AppScrollEndPadding.of(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    Expanded(
-                      child: CustomScrollView(
-                        controller: scrollController,
-                        restorationId: 'statsPercentTippedView',
-                        slivers: [
-                          for (var sectionIndex = 0; sectionIndex < sections.length; sectionIndex++)
-                            ...buildRoundLeagueSectionSlivers(
-                              section: sections[sectionIndex],
-                              roundIndex: sections[sectionIndex].roundIndex,
-                              league: sections[sectionIndex].league,
-                              dauCompsViewModel: daucompsViewmodelConsumer,
-                              currentTipper: di<TippersViewModel>().selectedTipper,
-                              isPercentStatsPage: true,
-                              showInlineHeader: true,
-                              hideInlineHeaderVisual: false,
-                            ),
-                        ],
-                      ),
                     ),
-                    ],
-                  ),
-                ),
-                  ),
-                ),
-              );
-            },
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  /// Percentage cards carry a single panel, so they measure on their own terms.
+  /// Width comes from the list's constraints, never from MediaQuery.
+  void _syncCardLayout(BuildContext context, double width) {
+    final selectedComp = daucompsViewModel.selectedDAUComp;
+    if (selectedComp == null || width <= 0) {
+      return;
+    }
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textTheme = Theme.of(context).textTheme;
+    final key = '${selectedComp.dbkey}:$width:${textScaler.scale(16)}';
+    if (key == _cardLayoutKey && _cardLayout != null) {
+      return;
+    }
+    _cardLayoutKey = key;
+    _cardLayout = TipsCardLayout.measure(
+      width: width,
+      textScaler: textScaler,
+      textTheme: textTheme,
+      textDirection: Directionality.of(context),
+      cards: [
+        for (final card in tipsMeasurementCards(selectedComp.daurounds))
+          card.content(textTheme),
+      ],
+      percentStats: true,
     );
   }
 

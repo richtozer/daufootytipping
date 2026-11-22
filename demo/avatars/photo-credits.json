@@ -1,0 +1,79 @@
+[
+  {
+    "id": "ellie",
+    "person": "Ellie Carpenter",
+    "file": "ellie.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:20250905-Ellie_Carpenter.jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c5/20250905-Ellie_Carpenter.jpg/500px-20250905-Ellie_Carpenter.jpg",
+    "author": "Katie Chan",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "mary",
+    "person": "Mary Fowler",
+    "file": "mary.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Adelaide_United_v_Canberra_United_W-League_Rd_6_2019-12-22_Fowler_(49258071411)_(cropped).jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f4/Adelaide_United_v_Canberra_United_W-League_Rd_6_2019-12-22_Fowler_%2849258071411%29_%28cropped%29.jpg/500px-Adelaide_United_v_Canberra_United_W-League_Rd_6_2019-12-22_Fowler_%2849258071411%29_%28cropped%29.jpg",
+    "author": "LittleBlinky",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "billy",
+    "person": "Billy Slater",
+    "file": "billy.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:BillySlater_(cropped).jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/eb/BillySlater_%28cropped%29.jpg/500px-BillySlater_%28cropped%29.jpg",
+    "author": "me",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "hugh",
+    "person": "Hugh Jackman",
+    "file": "hugh.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Hugh_Jackman_by_Gage_Skidmore_3.jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/02/Hugh_Jackman_by_Gage_Skidmore_3.jpg/500px-Hugh_Jackman_by_Gage_Skidmore_3.jpg",
+    "author": "Gage Skidmore",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "jess",
+    "person": "Jessica Mauboy",
+    "file": "jess.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Jessica_Mauboy_2015_(cropped).jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/31/Jessica_Mauboy_2015_%28cropped%29.jpg/500px-Jessica_Mauboy_2015_%28cropped%29.jpg",
+    "author": "Eva Rinaldi",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "buddy",
+    "person": "Lance Franklin",
+    "file": "buddy.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Lance_Franklin_2017.4.jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/Lance_Franklin_2017.4.jpg/500px-Lance_Franklin_2017.4.jpg",
+    "author": "Flickerd",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  },
+  {
+    "id": "sam",
+    "person": "Sam Kerr",
+    "file": "sam.jpg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sam_Kerr_Gotham_v_Seattle_18_July_2026-378_(cropped).jpg",
+    "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d7/Sam_Kerr_Gotham_v_Seattle_18_July_2026-378_%28cropped%29.jpg/500px-Sam_Kerr_Gotham_v_Seattle_18_July_2026-378_%28cropped%29.jpg",
+    "author": "Bryan Berlin",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "changes": "Wikimedia thumbnail, resized to 256px; displayed through the app circular avatar mask."
+  }
+]

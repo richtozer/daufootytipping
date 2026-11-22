@@ -3,12 +3,21 @@ import 'dart:async';
 import 'package:daufootytipping/pages/user_home/user_home_tips.dart';
 import 'package:daufootytipping/services/app_badge_service.dart';
 import 'package:daufootytipping/services/startup_profiling.dart';
+import 'package:daufootytipping/services/unconfirmed_tips_service.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats.dart';
 import 'package:daufootytipping/pages/user_home/user_home_profile.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
+import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_backdrop.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -22,6 +31,12 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   final DAUCompsViewModel _dauCompsViewModel = di<DAUCompsViewModel>();
   final TippersViewModel _tippersViewModel = di<TippersViewModel>();
   final GlobalKey<TipsTabState> _tipsTabKey = GlobalKey<TipsTabState>();
+  final UnconfirmedTipsService? _unconfirmedTips =
+      di.isRegistered<UnconfirmedTipsService>()
+      ? di<UnconfirmedTipsService>()
+      : null;
+  bool _tipNoticeShowing = false;
+  TipsViewModel? _watchedTips;
   final OutstandingTipsAppBadgeController _appBadgeController =
       OutstandingTipsAppBadgeController(AppBadgeService());
   late final RestorableInt _currentIndex = RestorableInt(0);
@@ -34,6 +49,7 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     super.initState();
     _dauCompsViewModel.addListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.addListener(_handleHomeViewModelsUpdated);
+    _unconfirmedTips?.addListener(_showTipNotices);
     _outstandingTipsCount = _calculateOutstandingTipsCount();
     unawaited(_syncAppBadge());
     _trackStartupMilestones();
@@ -136,6 +152,102 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     }
 
     _trackTipsContentReadyIfNeeded();
+    _watchQueuedTips();
+  }
+
+  /// Keeps an eye on the signed-in tipper's tips for any that were queued and
+  /// have since disappeared, which means the server refused them. Follows the
+  /// tips view model as the selected tipper or competition changes.
+  void _watchQueuedTips() {
+    final tips = _dauCompsViewModel.selectedTipperTipsViewModel;
+    if (_unconfirmedTips == null || identical(tips, _watchedTips)) {
+      return;
+    }
+    _watchedTips?.removeListener(_lookAtQueuedTips);
+    _watchedTips = tips;
+    tips?.addListener(_lookAtQueuedTips);
+    _lookAtQueuedTips();
+  }
+
+  void _lookAtQueuedTips() {
+    final UnconfirmedTipsService? service = _unconfirmedTips;
+    final String? compKey = _dauCompsViewModel.selectedDAUComp?.dbkey;
+    final TipsViewModel? tips = _watchedTips;
+    final tipper = _tippersViewModel.selectedTipper;
+    final String? tipperKey = tipper.dbkey;
+    if (!mounted ||
+        service == null ||
+        compKey == null ||
+        tipperKey == null ||
+        tips == null ||
+        !tips.isInitialLoadComplete ||
+        tipper.isAnonymous) {
+      return;
+    }
+    unawaited(
+      service.observe(
+        compKey: compKey,
+        tipperKey: tipperKey,
+        shown: (String gameKey) {
+          final shownTip = tips.submittedTipForGame(gameKey, tipper);
+          return shownTip == null
+              ? null
+              : (
+                  choice: shownTip.tip.name,
+                  submittedUtcSeconds:
+                      shownTip.submittedTimeUTC.millisecondsSinceEpoch ~/ 1000,
+                );
+        },
+      ),
+    );
+  }
+
+  /// Says so when a tip did not count, however long after it was made that
+  /// became known.
+  void _showTipNotices() {
+    final UnconfirmedTipsService? service = _unconfirmedTips;
+    if (!mounted || service == null || _tipNoticeShowing) {
+      return;
+    }
+    final notices = service.takeNotices();
+    final List<String> messages = notices.messages;
+    if (messages.isEmpty) {
+      return;
+    }
+    _tipNoticeShowing = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          icon: const Icon(Icons.info_outline),
+          title: Text(
+            notices.allConfirmed ? 'Tip not counted' : 'Please check your tips',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                for (final String message in messages)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(message),
+                  ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ).whenComplete(() {
+        _tipNoticeShowing = false;
+        _showTipNotices();
+      }),
+    );
   }
 
   void _trackTipsContentReadyIfNeeded() {
@@ -169,8 +281,63 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
   void dispose() {
     _dauCompsViewModel.removeListener(_handleHomeViewModelsUpdated);
     _tippersViewModel.removeListener(_handleHomeViewModelsUpdated);
+    _unconfirmedTips?.removeListener(_showTipNotices);
+    _unconfirmedTips?.stopObserving();
+    _watchedTips?.removeListener(_lookAtQueuedTips);
     _currentIndex.dispose();
     super.dispose();
+  }
+
+  /// The destinations the floating tab pill offers.
+  List<AppNavDestination> _navDestinations(TippersViewModel tippersViewModel) {
+    final tipsTabIcon = SizedBox(
+      width: kGlassIconSlot,
+      height: kGlassIconSlot,
+      child: Center(
+        child: Builder(
+          builder: (context) {
+            final iconTheme = IconTheme.of(context);
+            return SvgPicture.asset(
+              'assets/icon/DAU-football-black.svg',
+              width: iconTheme.size ?? 24,
+              height: iconTheme.size ?? 24,
+              colorFilter: ColorFilter.mode(
+                (iconTheme.color ?? Colors.black).withValues(
+                  alpha: (iconTheme.color?.a ?? 1) * (iconTheme.opacity ?? 1),
+                ),
+                BlendMode.srcIn,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    final tipsIcon = _outstandingTipsCount > 0
+        ? Badge.count(
+            count: _outstandingTipsCount,
+            backgroundColor: Colors.red[800],
+            largeSize: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            textStyle: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+            child: tipsTabIcon,
+          )
+        : tipsTabIcon;
+    return [
+      AppNavDestination(
+        icon: tipsIcon,
+        shortLabel: 'TIPS',
+        enabled: !tippersViewModel.selectedTipper.isAnonymous,
+      ),
+      const AppNavDestination(
+        icon: Icon(Icons.auto_graph),
+        shortLabel: 'STATS',
+      ),
+      const AppNavDestination(icon: Icon(Icons.person), shortLabel: 'PROFILE'),
+    ];
   }
 
   @override
@@ -178,9 +345,6 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
     List<Widget> destinationContent = content();
     final isDarkMode =
         MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final navIndicatorColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
 
     return ChangeNotifierProvider<DAUCompsViewModel>.value(
       value: di<DAUCompsViewModel>(),
@@ -190,89 +354,36 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
           builder: (context, dauCompsViewModelConsumer, child) {
             return Consumer<TippersViewModel>(
               builder: (context, tippersViewModelConsumer, child) {
-                Widget scaffold = Stack(
-                  children: [
-                    RepaintBoundary(
-                      child: Image.asset(
-                        'assets/grass_background_blurred.webp',
-                        width: MediaQuery.of(context).size.width,
-                        height: MediaQuery.of(context).size.height,
-                        fit: BoxFit.fill,
+                // The floating controls hold their own room clear of the
+                // content, so the body is simply the selected tab.
+                final Widget scaffold = AppNavTabsScope(
+                  tabs: AppNavTabs(
+                    destinations: _navDestinations(tippersViewModelConsumer),
+                    selectedIndex: _currentIndex.value,
+                    onSelected: onTabTapped,
+                  ),
+                  child: Stack(
+                    children: [
+                      const Positioned.fill(
+                        child: RepaintBoundary(child: AppBackdrop()),
                       ),
-                    ),
-                    Scaffold(
-                      backgroundColor: !isDarkMode
-                          ? Colors.white54
-                          : Colors.black54,
-                      body: Center(
-                        child: destinationContent[_currentIndex.value],
-                      ),
-                      bottomNavigationBar: NavigationBar(
-                        indicatorColor: navIndicatorColor,
-                        indicatorShape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
+                      Scaffold(
+                        backgroundColor: !isDarkMode
+                            ? Colors.white54
+                            : Colors.black54,
+                        body: AppContentWidth(
+                          daurounds:
+                              dauCompsViewModelConsumer
+                                  .selectedDAUComp
+                                  ?.daurounds ??
+                              const [],
+                          child: Center(
+                            child: destinationContent[_currentIndex.value],
+                          ),
                         ),
-                        onDestinationSelected: (int index) {
-                          onTabTapped(index);
-                        },
-                        selectedIndex: _currentIndex.value,
-                        height: 60,
-                        destinations: [
-                          (() {
-                            final isAnonymous = tippersViewModelConsumer
-                                .selectedTipper
-                                .isAnonymous;
-                            const tipsTabIcon = SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: Center(
-                                child: Icon(Icons.sports_rugby_outlined),
-                              ),
-                            );
-                            final tipsIcon = _outstandingTipsCount > 0
-                                ? Badge.count(
-                                    count: _outstandingTipsCount,
-                                    backgroundColor: Colors.red[800],
-                                    largeSize: 20,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                      vertical: 2,
-                                    ),
-                                    textStyle: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    child: tipsTabIcon,
-                                  )
-                                : tipsTabIcon;
-
-                            return NavigationDestination(
-                              icon: tipsIcon,
-                              selectedIcon: tipsIcon,
-                              enabled: !isAnonymous,
-                              label: MediaQuery.of(context).size.width > 400
-                                  ? 'T  I  P  S'
-                                  : 'TIPS',
-                            );
-                          })(),
-                          NavigationDestination(
-                            enabled: true,
-                            icon: const Icon(Icons.auto_graph),
-                            label: MediaQuery.of(context).size.width > 400
-                                ? 'S  T  A  T  S'
-                                : 'STATS',
-                          ),
-                          NavigationDestination(
-                            icon: Icon(Icons.person),
-                            label: MediaQuery.of(context).size.width > 400
-                                ? 'P  R  O  F  I  L  E'
-                                : 'PROFILE',
-                          ),
-                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 );
 
                 final scaffoldWithCompBanner = SelectedCompBanner(

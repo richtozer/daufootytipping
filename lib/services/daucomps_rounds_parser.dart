@@ -22,10 +22,11 @@ class DaucompsRoundsParser {
   }
 
   DateTime? computeGreaterEndDate(DAUComp comp) {
-    if (comp.aflRegularCompEndDateUTC != null || comp.nrlRegularCompEndDateUTC != null) {
-      if (comp.aflRegularCompEndDateUTC == null) return comp.nrlRegularCompEndDateUTC;
-      if (comp.nrlRegularCompEndDateUTC == null) return comp.aflRegularCompEndDateUTC;
-      return comp.aflRegularCompEndDateUTC!.isAfter(comp.nrlRegularCompEndDateUTC!)
+    if (comp.aflRegularCompEndDateUTC != null &&
+        comp.nrlRegularCompEndDateUTC != null) {
+      return comp.aflRegularCompEndDateUTC!.isAfter(
+            comp.nrlRegularCompEndDateUTC!,
+          )
           ? comp.aflRegularCompEndDateUTC!
           : comp.nrlRegularCompEndDateUTC!;
     }

@@ -1,4 +1,5 @@
-import 'package:data_table_2/data_table_2.dart';
+import 'package:daufootytipping/theme_data.dart';
+import 'package:daufootytipping/widgets/app_table/app_table.dart';
 import 'package:daufootytipping/models/scoring_roundstats.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
@@ -7,7 +8,10 @@ import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
+import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:watch_it/watch_it.dart';
 
 class StatRoundLeaderboard extends StatefulWidget {
@@ -27,15 +31,96 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
   bool isAscending = true;
   int? sortColumnIndex = 1;
 
-  final List<String> columns = [
-    'Name',
-    "Rank",
-    'Total',
-    'NRL',
-    'AFL',
-    'Margins',
-    'UPS',
+  static const columns = [
+    AppColumn.text('Name', sortable: true),
+    AppColumn.numeric('Rank', sortable: true, descendingFirst: false),
+    AppColumn.numeric('Total', sortable: true),
+    AppColumn.numeric('NRL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('AFL', sortable: true, headingGroup: 'league'),
+    AppColumn.numeric('Margins', sortable: true, headingGroup: 'margins'),
+    AppColumn.numeric('UPS', sortable: true, headingGroup: 'margins'),
+    AppColumn.navigation(),
   ];
+  List<Object?> _renderedValues = const [];
+  Tipper? _renderedTipper;
+  Color? _renderedHighlight;
+  List<AppRow> _rows = const [];
+
+  // Preserve list identity through resize/rebuild so AppTable reuses metrics.
+  List<AppRow> _tableRows(BuildContext context) {
+    final selectedTipper = di<TippersViewModel>().selectedTipper;
+    final highlight = appSelectionColor(context);
+    // Snapshot primitives: StatsViewModel may update existing model objects.
+    final values = <Object?>[
+      widget.roundNumberToDisplay,
+      for (final entry in roundLeaderboard.entries) ...[
+        entry.key,
+        entry.key.name,
+        entry.key.photoURL,
+        entry.value.rank,
+        entry.value.aflPoints,
+        entry.value.nrlPoints,
+        entry.value.aflMarginTips,
+        entry.value.nrlMarginTips,
+        entry.value.aflMarginUPS,
+        entry.value.nrlMarginUPS,
+      ],
+    ];
+    if (listEquals(_renderedValues, values) &&
+        _renderedTipper == selectedTipper &&
+        _renderedHighlight == highlight) {
+      return _rows;
+    }
+    _renderedValues = values;
+    _renderedTipper = selectedTipper;
+    _renderedHighlight = highlight;
+    _rows = [
+      for (final entry in roundLeaderboard.entries)
+        AppRow(
+          key: ValueKey(entry.key.dbkey),
+          colour: entry.key == selectedTipper ? highlight : Colors.transparent,
+          onTap: () => Navigator.push(
+            context,
+            appPageRoute(
+              (context) => StatRoundGameScoresForTipper(
+                entry.key,
+                widget.roundNumberToDisplay,
+              ),
+            ),
+          ),
+          cells: [
+            AppCell.text(
+              entry.key.name,
+              leadingSize: const Size(30, 30),
+              leading: avatarPic(entry.key, widget.roundNumberToDisplay),
+            ),
+            AppCell.text(entry.value.rank.toString()),
+            AppCell.total(
+              (entry.value.aflPoints + entry.value.nrlPoints).toString(),
+            ),
+            AppCell.text(entry.value.nrlPoints.toString()),
+            AppCell.text(entry.value.aflPoints.toString()),
+            AppCell.text(
+              (entry.value.aflMarginTips + entry.value.nrlMarginTips)
+                  .toString(),
+            ),
+            AppCell.text(
+              (entry.value.aflMarginUPS + entry.value.nrlMarginUPS).toString(),
+            ),
+            AppCell.navigation(),
+          ],
+        ),
+    ];
+    return _rows;
+  }
+
+  @override
+  void didUpdateWidget(covariant StatRoundLeaderboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.roundNumberToDisplay != widget.roundNumberToDisplay) {
+      _loadLeaderboard();
+    }
+  }
 
   @override
   void initState() {
@@ -75,163 +160,34 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     );
   }
 
-  Widget buildScaffold(
-    BuildContext context,
-    String name,
-    Color color,
-  ) {
-    Orientation orientation = MediaQuery.of(context).orientation;
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    final fabBackgroundColor = isDarkMode
-        ? const Color(0xFF4E7A36)
-        : Colors.lightGreen[200];
-    final fabForegroundColor =
-        isDarkMode ? Colors.white : Colors.black87;
+  Widget buildScaffold(BuildContext context, String name, Color color) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: fabBackgroundColor,
-        foregroundColor: fabForegroundColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Icon(Icons.arrow_back),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-          children: [
-            if (orientation == Orientation.portrait)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Hero(
-                          tag: 'one_two_three',
-                          child: Icon(Icons.onetwothree, size: 50),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Round ${widget.roundNumberToDisplay} Leaderboard',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Tap a row to see the tips for that tipper.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: Colors.grey[600]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            LiveScoresWarningCard(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(5.0),
-                child: DataTable2(
-                  border: TableBorder.all(
-                    width: 1.0,
-                    color: Colors.grey.shade300,
-                  ),
-                  sortColumnIndex: sortColumnIndex,
-                  sortAscending: isAscending,
-                  columnSpacing: 0,
-                  horizontalMargin: 0,
-                  minWidth: 600,
-                  fixedTopRows: 1,
-                  fixedLeftColumns: orientation == Orientation.portrait ? 1 : 0,
-                  showCheckboxColumn: false,
-                  isHorizontalScrollBarVisible: true,
-                  isVerticalScrollBarVisible: true,
-                  columns: getColumns(columns),
-                  rows: roundLeaderboard.entries.map((
-                    MapEntry<Tipper, RoundStats> entry,
-                  ) {
-                    return DataRow(
-                      color: entry.key == di<TippersViewModel>().selectedTipper
-                          ? WidgetStateProperty.resolveWith(
-                              (states) => Theme.of(context).highlightColor,
-                            )
-                          : WidgetStateProperty.resolveWith(
-                              (states) => Colors.transparent,
-                            ),
-                      cells: [
-                        DataCell(
-                          Row(
-                            children: [
-                              const Icon(Icons.arrow_forward, size: 15),
-                              avatarPic(entry.key, widget.roundNumberToDisplay),
-                              Expanded(
-                                child: Text(
-                                  softWrap: false,
-                                  entry.key.name,
-                                  overflow: TextOverflow.fade,
-                                ),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    StatRoundGameScoresForTipper(
-                                      entry.key,
-                                      widget.roundNumberToDisplay,
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                        DataCell(Text(entry.value.rank.toString())),
-                        DataCell(
-                          Text(
-                            (entry.value.aflPoints + entry.value.nrlPoints)
-                                .toString(),
-                          ),
-                        ),
-                        DataCell(Text(entry.value.nrlPoints.toString())),
-                        DataCell(Text(entry.value.aflPoints.toString())),
-                        DataCell(
-                          Text(
-                            (entry.value.aflMarginTips +
-                                    entry.value.nrlMarginTips)
-                                .toString(),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            (entry.value.aflMarginUPS +
-                                    entry.value.nrlMarginUPS)
-                                .toString(),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
+      body: AppUnderControlsArea(
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          banner: LiveScoresWarningCard(),
+          heading: AppTableHeading(
+            leading: const Hero(
+              tag: 'one_two_three',
+              child: Icon(Icons.onetwothree, size: 50),
             ),
-            ],
+            title: 'Round ${widget.roundNumberToDisplay} Leaderboard',
+            description: 'Tap a row to see the tips for that tipper.',
+          ),
+          table: Padding(
+            padding: const EdgeInsets.all(5.0),
+            child: AppTable(
+              columns: columns,
+              rows: _tableRows(context),
+              frozenLeading: 1,
+              sort: AppSort(
+                column: sortColumnIndex ?? 1,
+                ascending: isAscending,
+              ),
+              onSort: onSort,
+            ),
           ),
         ),
       ),
@@ -251,7 +207,11 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
       roundLeaderboard = Map.fromEntries(sortedEntries);
     }
     if (columnIndex == 1 || columnIndex == 2) {
-      if (ascending) {
+      // Rank and Total are one ordering read from opposite ends: the highest
+      // total is rank 1. Both columns sort on rank, so Total has to ask for
+      // it the other way round or "most points first" lands on last place.
+      final bool byRank = columnIndex == 2 ? !ascending : ascending;
+      if (byRank) {
         // Sort by RoundPoints.rank and then by name
         var sortedEntries = roundLeaderboard.entries.toList()
           ..sort((a, b) {
@@ -373,7 +333,6 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
         roundLeaderboard = Map.fromEntries(sortedEntries);
       }
     }
-
   }
 
   void onSort(int columnIndex, bool ascending) {
@@ -384,31 +343,9 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
     });
   }
 
-  List<DataColumn> getColumns(List<String> columns) => columns
-      .asMap()
-      .entries
-      .map(
-        (entry) {
-          int index = entry.key;
-          String column = entry.value;
-          return DataColumn2(
-            fixedWidth: column == 'Name'
-                ? 150
-                : column == '#\nrounds\nwon' || column == 'Margins'
-                ? 75
-                : 55,
-            numeric: column == 'Name' ? false : true,
-            label: Text(column),
-            onSort: (columnIndex, ascending) => onSort(index, ascending),
-          );
-        },
-      )
-      .toList();
-
   Widget avatarPic(Tipper tipper, int round) {
     return Hero(
-      tag:
-          '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
+      tag: '$round-${tipper.dbkey!}', // disambiguate the tag when tipper has won multiple rounds
       child: circleAvatarWithFallback(
         imageUrl: tipper.photoURL,
         text: tipper.name,

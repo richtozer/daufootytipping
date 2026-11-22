@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Cloud Firestore holds one thing: tipLogs2, a record of every tip, kept for backup and forensics.
+// It is only ever read in the Firebase console, which is not subject to these rules, so an app
+// may create an entry and do nothing else. Everything not matched here is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tipLogs2/{logId} {
+      allow create: if isSignedInTipper() && isTipLog(request.resource.data);
+      allow read, update, delete: if false;
+    }
+
+    // A real account, not the anonymous one the app creates for browsing the stats.
+    function isSignedInTipper() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // The shape the client writes (GameTipsViewModel._addLogOfTipToFirestore). It checks the fields a
+    // log is useless without and caps the rest, rather than listing every field: a field added to the
+    // client later must not make logging fail silently again, which is how this record stopped in
+    // May 2026. rules_test/firestore.rules.test.mjs reads the client's field list to catch drift.
+    function isTipLog(log) {
+      return log.keys().hasAll([
+          'createdAt', 'submittedAtUTC', 'tipperId', 'gameId', 'compId', 'tipResult', 'tip'
+        ])
+        && log.keys().size() <= 40
+        && log.createdAt == request.time
+        && log.submittedAtUTC is timestamp
+        && log.tipperId is string && log.tipperId.size() <= 128
+        && log.gameId is string && log.gameId.size() <= 128
+        && log.compId is string && log.compId.size() <= 128
+        && log.tipResult in ['a', 'b', 'c', 'd', 'e', 'z']
+        && log.tip is string && log.tip.size() <= 64;
+    }
+  }
+}

@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/admin_daucomps/admin_daucomps_edit_datetimepickerfield.dart';
 
 class AdminDaucompsEditRoundsTable extends StatefulWidget {
   final List<DAURound> rounds;
-  final Function(DAURound round, DateTime newDate, bool isStartDate)
-  onRoundDateChanged;
+  final void Function(DAURound round, DateTime newDate) onRoundDateChanged;
 
   const AdminDaucompsEditRoundsTable({
     super.key,
@@ -22,7 +20,6 @@ class AdminDaucompsEditRoundsTable extends StatefulWidget {
 class AdminDaucompsEditRoundsTableState
     extends State<AdminDaucompsEditRoundsTable> {
   final Map<int, TextEditingController> _startDateControllers = {};
-  final Map<int, TextEditingController> _endDateControllers = {};
 
   @override
   void initState() {
@@ -40,18 +37,9 @@ class AdminDaucompsEditRoundsTableState
       for (int i = 0; i < widget.rounds.length; i++) {
         if (widget.rounds[i].dAUroundNumber !=
                 oldWidget.rounds[i].dAUroundNumber ||
-            widget.rounds[i].getRoundStartDate().toLocal() !=
-                oldWidget.rounds[i].getRoundStartDate().toLocal() ||
-            widget.rounds[i].getRoundEndDate().toLocal() !=
-                oldWidget.rounds[i].getRoundEndDate().toLocal() ||
-            widget.rounds[i].firstGameKickOffUTC.toLocal() !=
-                oldWidget.rounds[i].firstGameKickOffUTC.toLocal() ||
-            widget.rounds[i].lastGameKickOffUTC.toLocal() !=
-                oldWidget.rounds[i].lastGameKickOffUTC.toLocal() ||
-            (widget.rounds[i].adminOverrideRoundStartDate !=
-                oldWidget.rounds[i].adminOverrideRoundStartDate) ||
-            (widget.rounds[i].adminOverrideRoundEndDate !=
-                oldWidget.rounds[i].adminOverrideRoundEndDate)) {
+            !widget.rounds[i].getRoundStartDate().isAtSameMomentAs(
+              oldWidget.rounds[i].getRoundStartDate(),
+            )) {
           needsReinitialization = true;
           break;
         }
@@ -67,12 +55,7 @@ class AdminDaucompsEditRoundsTableState
   void _initializeRoundControllers() {
     for (var round in widget.rounds) {
       _startDateControllers[round.dAUroundNumber] = TextEditingController(
-        text:
-            '${DateFormat('E d/M').format(round.getRoundStartDate().toLocal())} ${DateFormat('h:mm a').format(round.firstGameKickOffUTC.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
-      );
-      _endDateControllers[round.dAUroundNumber] = TextEditingController(
-        text:
-            '${DateFormat('E d/M').format(round.getRoundEndDate().toLocal())} ${DateFormat('h:mm a').format(round.lastGameKickOffUTC.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}',
+        text: formatRoundDateTime(round.getRoundStartDate()),
       );
     }
   }
@@ -82,10 +65,6 @@ class AdminDaucompsEditRoundsTableState
       controller.dispose();
     }
     _startDateControllers.clear();
-    for (var controller in _endDateControllers.values) {
-      controller.dispose();
-    }
-    _endDateControllers.clear();
   }
 
   @override
@@ -100,9 +79,8 @@ class AdminDaucompsEditRoundsTableState
       columnWidths: const {
         0: FlexColumnWidth(0.40),
         1: FlexColumnWidth(2),
-        2: FlexColumnWidth(2),
+        2: FlexColumnWidth(0.5),
         3: FlexColumnWidth(0.5),
-        4: FlexColumnWidth(0.5),
       },
       children: [
         const TableRow(
@@ -114,14 +92,7 @@ class AdminDaucompsEditRoundsTableState
             TableCell(
               verticalAlignment: TableCellVerticalAlignment.bottom,
               child: Text(
-                'First kickoff',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            TableCell(
-              verticalAlignment: TableCellVerticalAlignment.bottom,
-              child: Text(
-                'Last kickoff',
+                'Round Start (UTC)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -136,54 +107,53 @@ class AdminDaucompsEditRoundsTableState
           ],
         ),
         for (DAURound round in widget.rounds)
-          if (round.games.isNotEmpty)
-            TableRow(
-              children: [
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.dAUroundNumber.toString()),
+          TableRow(
+            children: [
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.dAUroundNumber.toString()),
+              ),
+              TableCell(
+                child: Builder(
+                  builder: (context) {
+                    final controller =
+                        _startDateControllers[round.dAUroundNumber]!;
+                    final expectedText = formatRoundDateTime(
+                      round.getRoundStartDate(),
+                    );
+                    if (controller.text != expectedText) {
+                      controller.text = expectedText;
+                    }
+                    return DateTimePickerField(
+                      key: ValueKey('start-${round.dAUroundNumber}'),
+                      controller: controller,
+                      initialDate: round.getRoundStartDate(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                      isBold: round.adminOverrideRoundStartDate != null,
+                      onDateTimeChanged: (selectedDateTime) {
+                        // Re-picking the current start date is not an edit.
+                        if (selectedDateTime.isAtSameMomentAs(
+                          round.getRoundStartDate(),
+                        )) {
+                          return;
+                        }
+                        widget.onRoundDateChanged(round, selectedDateTime);
+                      },
+                    );
+                  },
                 ),
-                TableCell(
-                  child: DateTimePickerField(
-                    key: ValueKey('start-${round.dAUroundNumber}'),
-                    controller: _startDateControllers[round.dAUroundNumber]!,
-                    initialDate: round.getRoundStartDate(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    isBold: round.adminOverrideRoundStartDate != null,
-                    onDateTimeChanged: (selectedDateTime) {
-                      widget.onRoundDateChanged(round, selectedDateTime, true);
-                      // Update controller text after parent handles state change
-                      _startDateControllers[round.dAUroundNumber]!.text =
-                          '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-                    },
-                  ),
-                ),
-                TableCell(
-                  child: DateTimePickerField(
-                    key: ValueKey('end-${round.dAUroundNumber}'),
-                    controller: _endDateControllers[round.dAUroundNumber]!,
-                    initialDate: round.getRoundEndDate(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                    isBold: round.adminOverrideRoundEndDate != null,
-                    onDateTimeChanged: (selectedDateTime) {
-                      widget.onRoundDateChanged(round, selectedDateTime, false);
-                      _endDateControllers[round.dAUroundNumber]!.text =
-                          '${DateFormat('E d/M').format(selectedDateTime.toLocal())} ${DateFormat('h:mm a').format(selectedDateTime.toLocal()).replaceAll(" AM", "a").replaceAll(" PM", "p")}';
-                    },
-                  ),
-                ),
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.nrlGameCount.toString()),
-                ),
-                TableCell(
-                  verticalAlignment: TableCellVerticalAlignment.middle,
-                  child: Text(round.aflGameCount.toString()),
-                ),
-              ],
-            ),
+              ),
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.nrlGameCount.toString()),
+              ),
+              TableCell(
+                verticalAlignment: TableCellVerticalAlignment.middle,
+                child: Text(round.aflGameCount.toString()),
+              ),
+            ],
+          ),
       ],
     );
   }

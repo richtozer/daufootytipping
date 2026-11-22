@@ -21,12 +21,15 @@ class LadderCalculationService {
           .toList();
     }
 
-    final seasonLeagueGames = allGames.where((game) => game.league == league).toList();
+    final seasonLeagueGames = allGames
+        .where((game) => game.league == league)
+        .toList();
 
     // 2. Derive the ladder's team set from the selected season's games.
     final leagueTeamsByKey = {
       for (final team in leagueTeams)
-        if (team.league == league && team.name != 'To be announced') team.dbkey: team,
+        if (team.league == league && team.name != 'To be announced')
+          team.dbkey: team,
     };
     if (leagueTeamsByKey.isEmpty) {
       return null;
@@ -68,7 +71,9 @@ class LadderCalculationService {
               lastGameStartTime = game.startTimeUTC;
             }
           }
-          return targetTime.isAfter(lastGameStartTime.add(const Duration(hours: 3)));
+          return targetTime.isAfter(
+            lastGameStartTime.add(const Duration(hours: 3)),
+          );
         })
         .map((entry) => entry.key)
         .toList();
@@ -84,7 +89,6 @@ class LadderCalculationService {
       ladderTeamsMap[team.dbkey] = LadderTeam(
         dbkey: team.dbkey,
         teamName: team.name,
-        logoURI: team.logoURI,
       );
     }
 
