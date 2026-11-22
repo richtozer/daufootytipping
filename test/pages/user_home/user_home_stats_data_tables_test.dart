@@ -313,6 +313,20 @@ void main() {
   });
 
   testWidgets('competition leaderboard renders its AppTable', (tester) async {
+    when(() => statsViewModel.compLeaderboard).thenReturn([
+      LeaderboardEntry(
+        rank: 1,
+        tipper: selectedTipper,
+        total: 10,
+        nRL: 6,
+        aFL: 4,
+        numRoundsWon: 0,
+        aflMargins: 0,
+        nrlMargins: 0,
+        aflUPS: 0,
+        nrlUPS: 0,
+      ),
+    ]);
     await _expectPageRendersTable(tester, const StatCompLeaderboard());
   });
 
@@ -482,7 +496,17 @@ void main() {
   });
 
   testWidgets('round winners renders its AppTable', (tester) async {
+    populateWinners();
     await _expectPageRendersTable(tester, const StatRoundWinners());
+  });
+
+  testWidgets('with no round scored yet the winners page says they are coming '
+      'instead of showing an empty table', (tester) async {
+    await pumpRound(tester, page: const StatRoundWinners());
+
+    expect(find.text('Round winners coming soon'), findsOneWidget);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.text('Round Winners'), findsOneWidget);
   });
 
   Map<Tipper, RoundStats> populateMissing() {

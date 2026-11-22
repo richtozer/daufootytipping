@@ -15,6 +15,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsforti
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
+import 'package:daufootytipping/widgets/empty_state_card.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
@@ -280,19 +281,24 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
             description:
                 'Competition leaderboard up to round ${di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway() == 0 ? '1' : di<DAUCompsViewModel>().selectedDAUComp!.latestRoundWithGamesCompletedOrUnderway()}. Tap a row to see round points. Tap column headings to sort.',
           ),
-          table: Padding(
-            padding: const EdgeInsets.all(5.0),
-            child: AppTable(
-              columns: columns,
-              rows: _tableRows(context, dbkey, color),
-              frozenLeading: 1,
-              sort: AppSort(
-                column: sortColumnIndex ?? 1,
-                ascending: isAscending,
-              ),
-              onSort: onSort,
-            ),
-          ),
+          table: sortedLeaderboard.isEmpty
+              ? const EmptyStateCard(
+                  title: 'Leaderboard coming soon',
+                  message: 'Standings will appear once the first game of Round 1 has been scored.',
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(context, dbkey, color),
+                    frozenLeading: 1,
+                    sort: AppSort(
+                      column: sortColumnIndex ?? 1,
+                      ascending: isAscending,
+                    ),
+                    onSort: onSort,
+                  ),
+                ),
         ),
       ),
     );

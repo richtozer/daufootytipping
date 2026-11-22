@@ -11,6 +11,7 @@ import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
+import 'package:daufootytipping/widgets/empty_state_card.dart';
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -132,19 +133,24 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                     title: 'Round Winners',
                     description: 'Round winners grouped by round. Tap a row to see the full round leaderboard.',
                   ),
-                  table: Padding(
-                    padding: const EdgeInsets.all(5.0),
-                    child: AppTable(
-                      columns: columns,
-                      rows: _tableRows(context),
-                      frozenLeading: 2,
-                      sort: AppSort(
-                        column: sortColumnIndex ?? 0,
-                        ascending: isAscending,
-                      ),
-                      onSort: onSort,
-                    ),
-                  ),
+                  table: statsViewModel.roundWinners.isEmpty
+                      ? const EmptyStateCard(
+                          title: 'Round winners coming soon',
+                          message: "Each round's leaders will appear once its first game has been scored.",
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: AppTable(
+                            columns: columns,
+                            rows: _tableRows(context),
+                            frozenLeading: 2,
+                            sort: AppSort(
+                              column: sortColumnIndex ?? 0,
+                              ascending: isAscending,
+                            ),
+                            onSort: onSort,
+                          ),
+                        ),
                 ),
               ),
             ),

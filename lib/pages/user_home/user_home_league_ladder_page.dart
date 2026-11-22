@@ -7,7 +7,7 @@ import 'package:daufootytipping/pages/user_home/user_home_league_ladder_historic
 import 'package:daufootytipping/pages/user_home/user_home_team_games_history_page.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/widgets/ladder_empty_state_card.dart';
+import 'package:daufootytipping/widgets/empty_state_card.dart';
 import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
@@ -583,7 +583,8 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
   Widget _pageArea(Widget child) => AppUnderControlsArea(child: child);
 
   Widget _buildEmptyStateCard(BuildContext context) {
-    return LadderEmptyStateCard(
+    return EmptyStateCard(
+      title: 'Ladder coming soon',
       message: _emptyMessage ?? 'No ladder data is available yet.',
     );
   }

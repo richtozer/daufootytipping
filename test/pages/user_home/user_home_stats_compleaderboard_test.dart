@@ -174,6 +174,16 @@ void main() {
     }
   }
 
+  testWidgets('before any game is scored the page says standings are coming '
+      'instead of showing an empty table', (tester) async {
+    entries = [];
+    await pumpPage(tester);
+
+    expect(find.text('Leaderboard coming soon'), findsOneWidget);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.text('Comp Leaderboard'), findsOneWidget);
+  });
+
   testWidgets('competition landscape golden', (tester) async {
     await pumpPage(tester, width: 900, height: 500);
     await expectLater(
