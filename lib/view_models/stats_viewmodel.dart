@@ -904,7 +904,13 @@ class StatsViewModel extends ChangeNotifier {
     // Use the scoring data itself to identify the current ladder round. Round
     // schedules can overlap the completion grace period, and backend snapshots
     // can contain all-zero structural rows for future rounds.
-    final previousRankRound = _latestScoredRoundNumber() - 1;
+    final latestScoredRound = _latestScoredRoundNumber();
+    // A tip writes an all-zero round row; wait for a scored game (live too).
+    if (latestScoredRound == 0) {
+      _compLeaderboard = [];
+      return;
+    }
+    final previousRankRound = latestScoredRound - 1;
 
     // Calculate previous round ranks if there are any completed rounds
     Map<Tipper, int> previousRoundRanks = {};
@@ -942,8 +948,7 @@ class StatsViewModel extends ChangeNotifier {
             total: 0,
             nRL: 0,
             aFL: 0,
-            numRoundsWon:
-                0, // to be replaced later with actual numRoundsWon calculation
+            numRoundsWon: 0, // counted later from the round winners
             aflMargins: 0,
             aflUPS: 0,
             nrlMargins: 0,
@@ -987,16 +992,11 @@ class StatsViewModel extends ChangeNotifier {
     }
 
     // Sort by rank and then by tipper name
-    leaderboard.sort((a, b) {
-      int rankComparison = a.rank.compareTo(b.rank);
-      if (rankComparison == 0) {
-        return (a.tipper.name.toLowerCase()).compareTo(
-          b.tipper.name.toLowerCase(),
-        );
-      } else {
-        return rankComparison;
-      }
-    });
+    leaderboard.sort(
+      (a, b) => a.rank != b.rank
+          ? a.rank.compareTo(b.rank)
+          : a.tipper.name.toLowerCase().compareTo(b.tipper.name.toLowerCase()),
+    );
 
     _compLeaderboard = leaderboard;
   }
