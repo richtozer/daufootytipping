@@ -50,6 +50,10 @@ class _StatRoundGameScoresForTipperState
     League.afl: const <Game>[],
   };
   final Map<String, Tip?> _tipsByGameKey = {};
+  // Leagues with games this round, started or not. Games still open for
+  // tipping are left out of the table, as another tipper's tips stay hidden
+  // until kickoff, so an empty league may only be waiting for its first game.
+  Set<League> _leaguesWithGames = {};
   late DAURound roundToDisplay;
 
   static const columns = [
@@ -66,6 +70,7 @@ class _StatRoundGameScoresForTipperState
     final titleStyle = Theme.of(context).textTheme.titleLarge;
     final values = <Object?>[
       titleStyle,
+      ..._leaguesWithGames,
       for (final league in [League.nrl, League.afl])
         for (final game in games[league] ?? <Game>[]) ...[
           game.dbkey,
@@ -100,9 +105,11 @@ class _StatRoundGameScoresForTipperState
           AppRow(
             key: ValueKey('${league.name}-no-games'),
             cells: [
-              const AppCell.text(
-                'No games this round',
-                style: TextStyle(fontStyle: FontStyle.italic),
+              AppCell.text(
+                _leaguesWithGames.contains(league)
+                    ? 'Games show here once they kick off'
+                    : 'No games this round',
+                style: const TextStyle(fontStyle: FontStyle.italic),
               ),
               for (var i = 1; i < columns.length; i++) const AppCell.text(''),
             ],
@@ -245,6 +252,11 @@ class _StatRoundGameScoresForTipperState
     }
 
     setState(() {
+      _leaguesWithGames = {
+        for (final MapEntry(key: league, value: leagueGames)
+            in groupedGames.entries)
+          if (leagueGames.isNotEmpty) league,
+      };
       games = filteredGames;
       _tipsByGameKey
         ..clear()

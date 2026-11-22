@@ -795,7 +795,10 @@ void main() {
     );
   });
 
-  (Widget, List<Game>, MockTableTipsViewModel) populateGameScores() {
+  (Widget, List<Game>, MockTableTipsViewModel) populateGameScores({
+    DateTime? kickoff,
+  }) {
+    final start = kickoff ?? DateTime.utc(2025);
     final tips = MockTableTipsViewModel();
     when(() => tips.addListener(any())).thenAnswer((_) {});
     when(() => tips.removeListener(any())).thenAnswer((_) {});
@@ -810,7 +813,7 @@ void main() {
           homeTeam: homeTeam,
           awayTeam: awayTeam,
           location: 'Test Ground',
-          startTimeUTC: DateTime.utc(2025),
+          startTimeUTC: start,
           fixtureRoundNumber: 1,
           fixtureMatchNumber: i + 1,
           scoring: Scoring(homeTeamScore: 40 + i, awayTeamScore: 10),
@@ -828,8 +831,8 @@ void main() {
     }
     final round = DAURound(
       dAUroundNumber: 1,
-      firstGameKickOffUTC: DateTime.utc(2025),
-      lastGameKickOffUTC: DateTime.utc(2025),
+      firstGameKickOffUTC: start,
+      lastGameKickOffUTC: start,
       games: games,
     );
     selectedComp.daurounds.add(round);
@@ -957,6 +960,17 @@ void main() {
       tester,
       StatRoundGameScoresForTipper(selectedTipper, 1),
     );
+  });
+
+  testWidgets('a round still open for tipping says its games show at '
+      'kickoff, not that the round has none', (tester) async {
+    final (page, _, _) = populateGameScores(
+      kickoff: DateTime.now().toUtc().add(const Duration(days: 90)),
+    );
+    await pumpRound(tester, width: 680, page: page);
+
+    expect(find.text('No games this round'), findsNothing);
+    expect(find.text('Games show here once they kick off'), findsNWidgets(2));
   });
 
   testWidgets('a league with no games in the round says so', (tester) async {
