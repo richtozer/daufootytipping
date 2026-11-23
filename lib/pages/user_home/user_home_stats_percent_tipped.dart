@@ -8,7 +8,6 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/theme_data.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
@@ -182,135 +181,127 @@ class StatPercentTippedState extends State<StatPercentTipped> {
 
                   return ChangeNotifierProvider<StatsViewModel?>.value(
                     value: daucompsViewmodelConsumer.statsViewModel,
-                    child: SelectedCompBanner(
-                      child: Scaffold(
-                        // The backdrop the page is pushed over shows through,
-                        // as on the other tips pages, and the list scrolls
-                        // under the floating controls rather than stopping
-                        // short of them.
-                        backgroundColor: Colors.transparent,
-                        body: AppUnderControlsArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (orientation == Orientation.portrait)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16.0,
-                                    8.0,
-                                    16.0,
-                                    0.0,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Hero(
-                                            tag: 'percentage',
-                                            child: Icon(
-                                              Icons.percent,
-                                              size: 50,
-                                              color: appPanelTextColor(context),
-                                            ),
+                    child: Scaffold(
+                      // The backdrop the page is pushed over shows through,
+                      // as on the other tips pages, and the list scrolls
+                      // under the floating controls rather than stopping
+                      // short of them.
+                      backgroundColor: Colors.transparent,
+                      body: AppUnderControlsArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (orientation == Orientation.portrait)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16.0,
+                                  8.0,
+                                  16.0,
+                                  0.0,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Hero(
+                                          tag: 'percentage',
+                                          child: Icon(
+                                            Icons.percent,
+                                            size: 50,
+                                            color: appPanelTextColor(context),
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              'Percentage Tipped',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleLarge
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.bold,
-                                                    color: appPanelTextColor(
-                                                      context,
-                                                    ),
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: 8.0,
                                         ),
-                                        child: Text(
-                                          'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                color:
-                                                    appPanelTextColor(
-                                                      context,
-                                                    ) ??
-                                                    Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Percentage Tipped',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleLarge
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: appPanelTextColor(
+                                                    context,
+                                                  ),
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8.0),
+                                      child: Text(
+                                        'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color:
+                                                  appPanelTextColor(context) ??
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (sections.isEmpty)
+                              const EmptyStateCard(
+                                title: 'Tipping breakdown coming soon',
+                                message: "Each game's breakdown will appear once its final score is in.",
+                              )
+                            else
+                              Expanded(
+                                // The cards dissolve into the title as they
+                                // scroll up to it, instead of being cut off by
+                                // a hard edge under the text.
+                                child: ShaderMask(
+                                  blendMode: BlendMode.dstIn,
+                                  shaderCallback: (bounds) =>
+                                      const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black,
+                                        ],
+                                        stops: [0, _topFadeFraction],
+                                      ).createShader(bounds),
+                                  child: CustomScrollView(
+                                    controller: scrollController,
+                                    restorationId: 'statsPercentTippedView',
+                                    slivers: [
+                                      for (
+                                        var sectionIndex = 0;
+                                        sectionIndex < sections.length;
+                                        sectionIndex++
+                                      )
+                                        buildRoundLeagueSection(
+                                          section: sections[sectionIndex],
+                                          dauCompsViewModel:
+                                              daucompsViewmodelConsumer,
+                                          currentTipper: di<TippersViewModel>()
+                                              .selectedTipper,
+                                          isPercentStatsPage: true,
+                                          layout: cardLayout,
+                                        ),
+                                      SliverToBoxAdapter(
+                                        child: SizedBox(
+                                          height: AppScrollEndPadding.of(
+                                            context,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              if (sections.isEmpty)
-                                const EmptyStateCard(
-                                  title: 'Tipping breakdown coming soon',
-                                  message: "Each game's breakdown will appear once its final score is in.",
-                                )
-                              else
-                                Expanded(
-                                  // The cards dissolve into the title as they
-                                  // scroll up to it, instead of being cut off by
-                                  // a hard edge under the text.
-                                  child: ShaderMask(
-                                    blendMode: BlendMode.dstIn,
-                                    shaderCallback: (bounds) =>
-                                        const LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Colors.transparent,
-                                            Colors.black,
-                                          ],
-                                          stops: [0, _topFadeFraction],
-                                        ).createShader(bounds),
-                                    child: CustomScrollView(
-                                      controller: scrollController,
-                                      restorationId: 'statsPercentTippedView',
-                                      slivers: [
-                                        for (
-                                          var sectionIndex = 0;
-                                          sectionIndex < sections.length;
-                                          sectionIndex++
-                                        )
-                                          buildRoundLeagueSection(
-                                            section: sections[sectionIndex],
-                                            dauCompsViewModel:
-                                                daucompsViewmodelConsumer,
-                                            currentTipper:
-                                                di<TippersViewModel>()
-                                                    .selectedTipper,
-                                            isPercentStatsPage: true,
-                                            layout: cardLayout,
-                                          ),
-                                        SliverToBoxAdapter(
-                                          child: SizedBox(
-                                            height: AppScrollEndPadding.of(
-                                              context,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     ),

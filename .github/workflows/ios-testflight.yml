@@ -479,12 +479,6 @@ jobs:
 
             echo "$upload_output"
 
-            has_failure_markers=0
-            if echo "$upload_output" | grep -Eqi \
-              'UPLOAD FAILED|Failed to upload package|Error uploading|ERROR:|Failed to determine the Apple ID|A required agreement is missing or has expired|did not receive a response|The Internet connection appears to be offline|The network connection was lost'; then
-              has_failure_markers=1
-            fi
-
             is_agreement_error=0
             if echo "$upload_output" | grep -Eqi \
               'Failed to determine the Apple ID|A required agreement is missing or has expired'; then
@@ -496,7 +490,10 @@ jobs:
               exit 1
             fi
 
-            if [ "$upload_status" -eq 0 ] && [ "$has_failure_markers" -eq 0 ]; then
+            # altool's own success line decides it: from Xcode 27.2 it also logs
+            # a harmless "ERROR: ... CDUploaderStateInfoResumeFilePath" line on
+            # an upload that succeeded.
+            if [ "$upload_status" -eq 0 ] && echo "$upload_output" | grep -q 'UPLOAD SUCCEEDED'; then
               echo "TestFlight upload completed successfully."
               exit 0
             fi

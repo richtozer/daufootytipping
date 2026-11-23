@@ -8,7 +8,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundleaderboard.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:daufootytipping/widgets/empty_state_card.dart';
@@ -117,41 +116,39 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
       value: statsViewModel,
       child: Consumer<StatsViewModel>(
         builder: (context, statsViewModelConsumer, child) {
-          return SelectedCompBanner(
-            child: Scaffold(
-              body: AppUnderControlsArea(
-                child: AppTableFrame(
-                  columns: columns,
-                  rows: _tableRows(context),
-                  frozenLeading: 2,
-                  banner: LiveScoresWarningCard(),
-                  heading: const AppTableHeading(
-                    leading: Hero(
-                      tag: 'person',
-                      child: Icon(Icons.person, size: 50),
-                    ),
-                    title: 'Round Winners',
-                    description: 'Round winners grouped by round. Tap a row to see the full round leaderboard.',
+          return Scaffold(
+            body: AppUnderControlsArea(
+              child: AppTableFrame(
+                columns: columns,
+                rows: _tableRows(context),
+                frozenLeading: 2,
+                banner: LiveScoresWarningCard(),
+                heading: const AppTableHeading(
+                  leading: Hero(
+                    tag: 'person',
+                    child: Icon(Icons.person, size: 50),
                   ),
-                  table: statsViewModel.roundWinners.isEmpty
-                      ? const EmptyStateCard(
-                          title: 'Round winners coming soon',
-                          message: "Each round's leaders will appear once its first game has been scored.",
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.all(5.0),
-                          child: AppTable(
-                            columns: columns,
-                            rows: _tableRows(context),
-                            frozenLeading: 2,
-                            sort: AppSort(
-                              column: sortColumnIndex ?? 0,
-                              ascending: isAscending,
-                            ),
-                            onSort: onSort,
-                          ),
-                        ),
+                  title: 'Round Winners',
+                  description: 'Round winners grouped by round. Tap a row to see the full round leaderboard.',
                 ),
+                table: statsViewModel.roundWinners.isEmpty
+                    ? const EmptyStateCard(
+                        title: 'Round winners coming soon',
+                        message: "Each round's leaders will appear once its first game has been scored.",
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(5.0),
+                        child: AppTable(
+                          columns: columns,
+                          rows: _tableRows(context),
+                          frozenLeading: 2,
+                          sort: AppSort(
+                            column: sortColumnIndex ?? 0,
+                            ascending: isAscending,
+                          ),
+                          onSort: onSort,
+                        ),
+                      ),
               ),
             ),
           );

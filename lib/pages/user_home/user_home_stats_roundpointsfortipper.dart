@@ -9,7 +9,6 @@ import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundgamescoresfortipper.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
@@ -185,12 +184,10 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
 
   @override
   Widget build(BuildContext context) {
-    return SelectedCompBanner(
-      child: buildScaffold(
-        context,
-        sortedPoints ?? const <RoundStats>[],
-        MediaQuery.of(context).size.width > 500,
-      ),
+    return buildScaffold(
+      context,
+      sortedPoints ?? const <RoundStats>[],
+      MediaQuery.of(context).size.width > 500,
     );
   }
 

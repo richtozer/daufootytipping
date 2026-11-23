@@ -1,6 +1,7 @@
 import 'package:daufootytipping/models/dauround.dart';
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/widgets/tips/tips_card_layout.dart';
+import 'package:daufootytipping/widgets/app_banners.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_backdrop.dart';
@@ -130,25 +131,29 @@ class AppPageWidth extends StatelessWidget {
     // route's own backdrop showing as bars.
     final isDarkMode =
         MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    return Stack(
-      children: [
-        const Positioned.fill(child: RepaintBoundary(child: AppBackdrop())),
-        // The veil spans the display rather than only the content band, so
-        // the backdrop reads at one strength edge to edge instead of jumping
-        // where the page ends.
-        Positioned.fill(
-          child: ColoredBox(
-            color: isDarkMode ? Colors.black54 : Colors.white54,
+    // Full width, so the year and god mode banners sit in the window's
+    // corners rather than the page column's.
+    return AppBanners(
+      child: Stack(
+        children: [
+          const Positioned.fill(child: RepaintBoundary(child: AppBackdrop())),
+          // The veil spans the display rather than only the content band, so
+          // the backdrop reads at one strength edge to edge instead of jumping
+          // where the page ends.
+          Positioned.fill(
+            child: ColoredBox(
+              color: isDarkMode ? Colors.black54 : Colors.white54,
+            ),
           ),
-        ),
-        // The page itself adds nothing further: its content carries its own
-        // surface on top, exactly as the tabs' cards do.
-        Theme(
-          data: Theme.of(context)
-              .copyWith(scaffoldBackgroundColor: Colors.transparent),
-          child: AppContentWidth(daurounds: daurounds, child: child),
-        ),
-      ],
+          // The page itself adds nothing further: its content carries its own
+          // surface on top, exactly as the tabs' cards do.
+          Theme(
+            data: Theme.of(context)
+                .copyWith(scaffoldBackgroundColor: Colors.transparent),
+            child: AppContentWidth(daurounds: daurounds, child: child),
+          ),
+        ],
+      ),
     );
   }
 }

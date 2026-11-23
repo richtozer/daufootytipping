@@ -5,7 +5,6 @@ import 'package:daufootytipping/models/league.dart';
 import 'package:daufootytipping/models/team.dart';
 import 'package:daufootytipping/models/team_game_history_item.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:daufootytipping/widgets/team_logo.dart';
@@ -216,50 +215,48 @@ class _TeamGamesHistoryPageState extends State<TeamGamesHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SelectedCompBanner(
-      child: Scaffold(
-        body: AppUnderControlsArea(
-          child: AppTableFrame(
-            columns: columns,
-            rows: _tableRows(context),
-            frozenLeading: 1,
-            heading: AppTableHeading(
-              leading: Hero(
-                tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
-                child: TeamLogo(
-                  teamDbKey: widget.team.dbkey,
-                  teamName: widget.team.name,
-                  size: 50,
-                ),
+    return Scaffold(
+      body: AppUnderControlsArea(
+        child: AppTableFrame(
+          columns: columns,
+          rows: _tableRows(context),
+          frozenLeading: 1,
+          heading: AppTableHeading(
+            leading: Hero(
+              tag: widget.heroTag ?? teamHeroTag(widget.team.dbkey),
+              child: TeamLogo(
+                teamDbKey: widget.team.dbkey,
+                teamName: widget.team.name,
+                size: 50,
               ),
-              title: '${widget.team.name} - Game History',
-              description:
-                  'Matchup history for the ${widget.team.name} across recent years. Shaded rows mark games won by the ${widget.team.name}. Tap column headings to sort.',
             ),
-            table: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(child: Text('Error: $_error'))
-                : _gameHistory.isEmpty
-                ? const Center(
-                    child: Text('No game history available for this team.'),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.all(5.0),
-                    child: AppTable(
-                      columns: columns,
-                      rows: _tableRows(context),
-                      frozenLeading: 1,
-                      sort: _sortColumnIndex == null
-                          ? null
-                          : AppSort(
-                              column: _sortColumnIndex!,
-                              ascending: _sortAscending,
-                            ),
-                      onSort: _onSort,
-                    ),
-                  ),
+            title: '${widget.team.name} - Game History',
+            description:
+                'Matchup history for the ${widget.team.name} across recent years. Shaded rows mark games won by the ${widget.team.name}. Tap column headings to sort.',
           ),
+          table: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(child: Text('Error: $_error'))
+              : _gameHistory.isEmpty
+              ? const Center(
+                  child: Text('No game history available for this team.'),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: AppTable(
+                    columns: columns,
+                    rows: _tableRows(context),
+                    frozenLeading: 1,
+                    sort: _sortColumnIndex == null
+                        ? null
+                        : AppSort(
+                            column: _sortColumnIndex!,
+                            ascending: _sortAscending,
+                          ),
+                    onSort: _onSort,
+                  ),
+                ),
         ),
       ),
     );
