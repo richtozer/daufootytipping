@@ -586,14 +586,12 @@ class StatsViewModel extends ChangeNotifier {
   }
 
   Map<Tipper, RoundStats> getRoundLeaderBoard(int roundNumber) {
-    if (_allTipperRoundStats.isEmpty) {
-      return {};
-    }
-
     // only include tippers who's paid status matches that of the authenticated tipper
     Map<Tipper, RoundStats> roundLeaderboard = {};
     assert(roundNumber != -1);
-    for (var tipperEntry in _allTipperRoundStats[roundNumber - 1]!.entries) {
+    // A round nobody has tipped yet has no stats, even when a later one does.
+    final roundStats = _allTipperRoundStats[roundNumber - 1] ?? const {};
+    for (var tipperEntry in roundStats.entries) {
       if (_isSelectedTipperPaidUpMember !=
           tipperEntry.key.paidForComp(selectedDAUComp)) {
         continue;

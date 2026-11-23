@@ -6,7 +6,6 @@ import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/view_models/stats_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:flutter/material.dart';
@@ -124,12 +123,10 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
 
   @override
   Widget build(BuildContext context) {
-    return SelectedCompBanner(
-      child: buildScaffold(
-        context,
-        'Round ${widget.roundNumberToDisplay} - missing tips',
-        Colors.blue,
-      ),
+    return buildScaffold(
+      context,
+      'Round ${widget.roundNumberToDisplay} - missing tips',
+      Colors.blue,
     );
   }
 
@@ -146,7 +143,11 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
         child: Icon(Icons.search, size: 50),
       ),
       title: name,
-      description: rows.isEmpty
+      // A tipper's round has stats once they tip in it, so a round with none
+      // has not been tipped by anyone yet.
+      description: roundLeaderboard.isEmpty
+          ? 'No one has tipped round ${widget.roundNumberToDisplay} yet.'
+          : rows.isEmpty
           ? 'No missing tips: everyone has tipped every game in round ${widget.roundNumberToDisplay}.'
           : 'Total of $outstanding tips outstanding across all tippers.',
     );

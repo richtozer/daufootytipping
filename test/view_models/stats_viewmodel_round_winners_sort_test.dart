@@ -464,6 +464,38 @@ void main() {
       viewModel.dispose();
     },
   );
+
+  test('a round nobody has tipped yet has an empty leaderboard, even when a '
+      'later round has stats', () async {
+    // A tip in round 2 writes stats for round 2 only; round 1 has none.
+    final viewModel = StatsViewModel(
+      comp,
+      null,
+      database: database,
+      autoInitialize: false,
+    );
+
+    await viewModel.handleRoundPointsEventForTest(
+      _databaseEvent(
+        _snapshot(
+          exists: true,
+          value: <String, Map<String, Map<String, int>>>{
+            '2': <String, Map<String, int>>{
+              'tipper-1': _roundStatsJson(
+                roundNumber: 2,
+                total: 0,
+                hasScoring: false,
+              ),
+            },
+          },
+        ),
+      ),
+    );
+
+    expect(viewModel.getRoundLeaderBoard(1), isEmpty);
+    expect(viewModel.getRoundLeaderBoard(2).keys, [alice]);
+    viewModel.dispose();
+  });
 }
 
 Future<void> _settleBackgroundStats() async {

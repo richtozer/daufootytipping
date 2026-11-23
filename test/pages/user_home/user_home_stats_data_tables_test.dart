@@ -642,6 +642,17 @@ void main() {
     expect(find.textContaining('No missing tips'), findsOneWidget);
   });
 
+  testWidgets('a round nobody has tipped yet says so, rather than that '
+      'everyone has tipped it', (tester) async {
+    // The setup's round leaderboard is empty: no stats for this round.
+    await pumpRound(tester, page: const RoundMissingTipsStats(1));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(AppTable), findsNothing);
+    expect(find.textContaining('No missing tips'), findsNothing);
+    expect(find.text('No one has tipped round 1 yet.'), findsOneWidget);
+  });
+
   List<RoundStats> populatePoints() {
     selectedComp.daurounds.add(
       DAURound(
