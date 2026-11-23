@@ -473,7 +473,7 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
           ? _comparisonSubtitle(comparisonTeamNames)
           : null,
       description: filtered
-          ? 'Tap a team for its full game history.'
+          ? 'Tap a team for its full game history. Tap column headings to sort.'
           : _ladderColourExplanation(seasonYear),
     );
   }

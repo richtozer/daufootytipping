@@ -61,6 +61,12 @@ Color appPanelColor(BuildContext context) =>
 const Color kChipDarkColor = Color(0xFF2C3627);
 const Color kChipSelectedDarkColor = Color(0xFF4F7A2C);
 
+Color selectedTipColor(bool dark) =>
+    dark ? kChipSelectedDarkColor : Colors.lightGreen;
+
+const IconData gameResultIcon = Icons.emoji_events;
+Color gameResultIconColor(bool dark) => dark ? Colors.white : Colors.black;
+
 /// The surface of the panels laid inside a see-through panel, such as a tips
 /// card's result, choices and info. Opaque and dark in dark mode, where the
 /// forced light theme would otherwise leave them bright; null in light mode,

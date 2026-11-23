@@ -149,7 +149,7 @@ class _RoundMissingTipsStatsState extends State<RoundMissingTipsStats> {
           ? 'No one has tipped round ${widget.roundNumberToDisplay} yet.'
           : rows.isEmpty
           ? 'No missing tips: everyone has tipped every game in round ${widget.roundNumberToDisplay}.'
-          : 'Total of $outstanding tips outstanding across all tippers.',
+          : 'Total of $outstanding tips outstanding across all tippers. Tap column headings to sort.',
     );
     return Scaffold(
       body: AppUnderControlsArea(

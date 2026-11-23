@@ -171,7 +171,7 @@ class _StatRoundLeaderboardState extends State<StatRoundLeaderboard> {
               child: Icon(Icons.onetwothree, size: 50),
             ),
             title: 'Round ${widget.roundNumberToDisplay} Leaderboard',
-            description: 'Tap a row to see the tips for that tipper.',
+            description: 'Tap a row to see the tips for that tipper. Tap column headings to sort.',
           ),
           table: Padding(
             padding: const EdgeInsets.all(5.0),
