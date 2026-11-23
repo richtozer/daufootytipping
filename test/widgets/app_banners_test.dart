@@ -1,9 +1,18 @@
+import 'dart:math' as math;
+
 import 'package:daufootytipping/models/daucomp.dart';
 import 'package:daufootytipping/models/tipper.dart';
 import 'package:daufootytipping/models/tipperrole.dart';
+import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
+import 'package:daufootytipping/widgets/app_banners.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_host.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_observer.dart';
+import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
+import 'package:daufootytipping/widgets/app_nav/app_glass_pill.dart';
+import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -111,35 +120,87 @@ void main() {
     }
   }
 
-  Finder banner(String message) => find.byWidgetPredicate(
-    (widget) => widget is Banner && widget.message == message,
+  Offset expectedCenter(double windowHeight, double innerDistance) {
+    final center = (innerDistance + 6) * math.sqrt1_2;
+    return Offset(center, windowHeight - center);
+  }
+
+  BoxDecoration ribbonDecoration(WidgetTester tester, String label) {
+    final box = tester.widget<DecoratedBox>(
+      find
+          .ancestor(of: find.text(label), matching: find.byType(DecoratedBox))
+          .first,
+    );
+    return box.decoration as BoxDecoration;
+  }
+
+  double ribbonTextWidth(WidgetTester tester, String label) => tester
+      .getSize(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(SizedBox))
+            .first,
+      )
+      .width;
+
+  Finder ribbons() => find.descendant(
+    of: find.descendant(
+      of: find.byType(AppBanners),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Stack &&
+            widget.fit == StackFit.expand &&
+            widget.clipBehavior == Clip.hardEdge,
+      ),
+    ),
+    matching: find.byType(Transform),
   );
+
   const window = Rect.fromLTWH(0, 0, 1200, 800);
 
-  testWidgets('a past comp\'s year sits in the window\'s corner, not the '
-      'narrow page\'s', (tester) async {
+  testWidgets('a past comp\'s year sits in the window\'s bottom-left corner, '
+      'not the narrow page\'s', (tester) async {
     await openPageInWideWindow(tester);
 
-    expect(tester.getRect(banner('2025')), window);
+    expect(tester.getRect(find.byType(AppBanners)), window);
     expect(
-      tester.widget<Banner>(banner('2025')).location,
-      BannerLocation.bottomStart,
+      tester.getCenter(find.text('2025')),
+      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
     );
+    expect(ribbonDecoration(tester, '2025').color, Colors.orange);
+    final style = tester.widget<Text>(find.text('2025')).style!;
+    expect(style.color, Colors.black);
+    expect(style.decoration, TextDecoration.none);
   });
 
-  testWidgets('the banners sit just clear of the nav controls, so the tab '
-      'pill or Back never covers them', (tester) async {
+  testWidgets('the banners sit at the bottom of the window even when bottom '
+      'or right controls reserve room', (tester) async {
     when(() => tippers.inGodMode).thenReturn(true);
 
     await openPageInWideWindow(
       tester,
       controlsRoom: const EdgeInsets.only(bottom: 96),
     );
+    expect(
+      tester.getCenter(find.text('2025')),
+      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
+    );
+    expect(
+      tester.getCenter(find.text('Daisy')),
+      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+    );
 
-    // Both ribbons share the area above the controls' strip.
-    const clearOfControls = Rect.fromLTWH(0, 0, 1200, 704);
-    expect(tester.getRect(banner('2025')), clearOfControls);
-    expect(tester.getRect(banner('Daisy')), clearOfControls);
+    await openPageInWideWindow(
+      tester,
+      controlsRoom: const EdgeInsets.only(right: 80),
+    );
+    expect(
+      tester.getCenter(find.text('2025')),
+      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
+    );
+    expect(
+      tester.getCenter(find.text('Daisy')),
+      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+    );
   });
 
   testWidgets('the banner is part of the page, so a dialog or sheet opened '
@@ -149,7 +210,7 @@ void main() {
     // Inside the page's route, rather than around the navigator that also
     // holds the dialogs and sheets.
     expect(
-      find.ancestor(of: banner('2025'), matching: find.byType(Navigator)),
+      find.ancestor(of: find.text('2025'), matching: find.byType(Navigator)),
       findsOneWidget,
     );
   });
@@ -159,38 +220,138 @@ void main() {
 
     await openPageInWideWindow(tester);
 
-    expect(find.byType(Banner), findsNothing);
+    expect(ribbons(), findsNothing);
   });
 
-  testWidgets('god mode is one red banner with the tipper\'s name, in the '
-      'window\'s bottom-right corner', (tester) async {
+  testWidgets('god mode is one red banner with the tipper\'s name in the '
+      'outer bottom-left slot', (tester) async {
     when(() => comps.isSelectedCompActiveComp()).thenReturn(true);
     when(() => tippers.inGodMode).thenReturn(true);
 
     await openPageInWideWindow(tester);
 
-    expect(find.byType(Banner), findsOneWidget);
-    final godMode = tester.widget<Banner>(banner('Daisy'));
-    expect(godMode.location, BannerLocation.bottomEnd);
-    expect(godMode.color, Colors.red);
-    expect(tester.getRect(banner('Daisy')), window);
+    expect(ribbons(), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Daisy')),
+      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+    );
+    expect(ribbonDecoration(tester, 'Daisy').color, Colors.red);
+    final style = tester.widget<Text>(find.text('Daisy')).style!;
+    expect(style.color, Colors.white);
+    expect(style.decoration, TextDecoration.none);
   });
 
-  testWidgets('god mode on a past comp shows both: the year bottom-left and '
-      'the tipper bottom-right', (tester) async {
+  testWidgets('god mode on a past comp stacks parallel above the year banner '
+      'in the bottom-left corner with wider room for names', (tester) async {
     when(() => tippers.inGodMode).thenReturn(true);
 
     await openPageInWideWindow(tester);
 
+    final yearCenter = tester.getCenter(find.text('2025'));
+    final godModeCenter = tester.getCenter(find.text('Daisy'));
+    expect(godModeCenter.dy, lessThan(yearCenter.dy));
+    expect(godModeCenter.dx, greaterThan(yearCenter.dx));
+    // Centers are 18pt apart along the 45-degree diagonal (12pt ribbon + 6pt gap).
     expect(
-      tester.widget<Banner>(banner('2025')).location,
-      BannerLocation.bottomStart,
+      (godModeCenter - yearCenter).distance,
+      moreOrLessEquals(18, epsilon: 0.2),
     );
+    expect(ribbonTextWidth(tester, 'Daisy'), 84);
+    expect(ribbonTextWidth(tester, '2025'), 48);
     expect(
-      tester.widget<Banner>(banner('Daisy')).location,
-      BannerLocation.bottomEnd,
+      ribbonTextWidth(tester, 'Daisy'),
+      greaterThan(ribbonTextWidth(tester, '2025')),
     );
   });
+
+  testWidgets('god mode truncates a very long tipper name on one line without '
+      'overflowing', (tester) async {
+    final longTipper = Tipper(
+      dbkey: 'tipper-long',
+      authuid: 'auth-long',
+      email: 'long@example.com',
+      name: 'Bartholomew Maximilian Kensington',
+      tipperRole: TipperRole.tipper,
+      compsPaidFor: [],
+    );
+    when(() => tippers.inGodMode).thenReturn(true);
+    when(() => tippers.selectedTipper).thenReturn(longTipper);
+
+    await openPageInWideWindow(tester);
+
+    expect(tester.takeException(), isNull);
+    final text = tester.widget<Text>(
+      find.text('Bartholomew Maximilian Kensington'),
+    );
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+  });
+
+  testWidgets(
+    'stays clear of the floating tab pill on a narrow portrait phone',
+    (tester) async {
+      when(() => tippers.inGodMode).thenReturn(true);
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final controls = AppControlsViewModel();
+      addTearDown(controls.dispose);
+      final observer = AppControlsObserver(controls);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          navigatorObservers: [observer],
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(padding: const EdgeInsets.only(bottom: 34)),
+            child: AppControlsHost(
+              viewModel: controls,
+              observer: observer,
+              child: child!,
+            ),
+          ),
+          home: AppNavTabsScope(
+            viewModel: controls,
+            tabs: AppNavTabs(
+              destinations: const [
+                AppNavDestination(
+                  icon: Icon(Icons.sports_football),
+                  shortLabel: 'TIPS',
+                ),
+                AppNavDestination(
+                  icon: Icon(Icons.auto_graph),
+                  shortLabel: 'STATS',
+                ),
+                AppNavDestination(
+                  icon: Icon(Icons.person),
+                  shortLabel: 'PROFILE',
+                ),
+              ],
+              selectedIndex: 0,
+              onSelected: (_) {},
+            ),
+            child: const AppBanners(child: Scaffold(body: Text('home'))),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final pill = tester.getRect(find.byType(AppGlassPill));
+      // Outer edge of the god-mode ribbon: x + (height - y) = (46 + 12) * sqrt(2).
+      final ribbonMaxXAtPillBottom = 58 * math.sqrt2 - (852 - pill.bottom);
+      expect(ribbonMaxXAtPillBottom, lessThan(pill.left));
+      expect(
+        tester.getCenter(find.text('2025')),
+        offsetMoreOrLessEquals(expectedCenter(852, 28), epsilon: 0.1),
+      );
+      expect(
+        tester.getCenter(find.text('Daisy')),
+        offsetMoreOrLessEquals(expectedCenter(852, 46), epsilon: 0.1),
+      );
+    },
+  );
 
   testWidgets('a banner coming or going leaves the page under it as it was', (
     tester,
@@ -204,7 +365,7 @@ void main() {
     notify();
     await tester.pump();
 
-    expect(banner('2025'), findsOneWidget);
+    expect(find.text('2025'), findsOneWidget);
     expect(find.text('Taps 1'), findsOneWidget);
   });
 
@@ -218,6 +379,6 @@ void main() {
     await openPageInWideWindow(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(Banner), findsNothing);
+    expect(ribbons(), findsNothing);
   });
 }
