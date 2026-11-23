@@ -4,8 +4,9 @@ This is a fictional AFL/NRL competition for development and store screenshots:
 20 tippers (eight women), 12 combined rounds, seven completed rounds, a mixed
 eighth round, two games in progress and future fixtures. Completed scores and matchups
 come from the 2026 season. The 2022-2025 seasons are included unshifted as past
-competitions, so head-to-head history shows real results; only Daisy has past
-tips, which lights up the "tipped correctly" shading on her screens. Dates, identities, accounts and tips are
+competitions, so head-to-head history shows real results. Every tipper played and
+tipped them, and they are scored, so their leaderboards show; Daisy's tips light up
+the "tipped correctly" shading on her screens. Dates, identities, accounts and tips are
 synthetic. No real tipper data or production credentials are copied.
 
 ## Start it

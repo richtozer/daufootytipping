@@ -12,10 +12,20 @@ void main(List<String> args) {
   final file = File(args[0]);
   final data = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   final now = DateTime.parse(args[1]).toUtc();
-  final compKey = data['AppConfig']['currentDAUComp'] as String;
-  if (compKey != 'demo-celebrity-2026') {
+  if (data['AppConfig']['currentDAUComp'] != 'demo-celebrity-2026') {
     throw ArgumentError('Not a demo dataset');
   }
+  // The current comp and each past season the generator added.
+  for (final compKey in (data['Stats'] as Map).keys.cast<String>()) {
+    _scoreComp(data, compKey, now);
+  }
+  file.writeAsStringSync(
+    '${const JsonEncoder.withIndent('  ').convert(data)}\n',
+  );
+}
+
+/// Writes the backend's round and game stats for one demo comp into `data`.
+void _scoreComp(Map<String, dynamic> data, String compKey, DateTime now) {
   final rawComp = Map<String, dynamic>.from(data['AllDAUComps'][compKey]);
   final rounds = <DAURound>[
     for (final (index, raw) in (rawComp['combinedRounds2'] as List).indexed)
@@ -45,11 +55,11 @@ void main(List<String> args) {
       homeTeamScore: raw['HomeTeamScore'],
       awayTeamScore: raw['AwayTeamScore'],
     );
-    games[key] = game;
+    // A past season's finals come after its cutoff, so they belong to no
+    // round and are not scored, as in the app.
     final matchedRound = game.getDAURound(comp);
-    if (matchedRound == null) {
-      throw StateError('Game $key must belong to a round');
-    }
+    if (matchedRound == null) continue;
+    games[key] = game;
     // DAURound's default games list is const; populate with a new list.
     matchedRound.games = [...matchedRound.games, game];
   }
@@ -63,12 +73,9 @@ void main(List<String> args) {
     final rawTips = data['AllTips'][compKey][tipper.dbkey] as Map;
     tipsByTipper[tipper.dbkey!] = {
       for (final entry in rawTips.entries)
-        entry.key: Tip.fromJson(
-          entry.value,
-          entry.key,
-          tipper,
-          games[entry.key]!,
-        ),
+        // Tips on unscored finals are left out with their games.
+        if (games[entry.key] case final game?)
+          entry.key: Tip.fromJson(entry.value, entry.key, tipper, game),
     };
     // Match backend defaults: missing tips on started games become Away.
     for (final game in games.values.where(
@@ -113,10 +120,7 @@ void main(List<String> args) {
     },
   };
   data['Stats'][compKey] = stats;
-  file.writeAsStringSync(
-    '${const JsonEncoder.withIndent('  ').convert(data)}\n',
-  );
   stdout.writeln(
-    'Calculated ${rounds.length} rounds and ${games.length} games with shared scoring code.',
+    '$compKey: calculated ${rounds.length} rounds and ${games.length} games with shared scoring code.',
   );
 }

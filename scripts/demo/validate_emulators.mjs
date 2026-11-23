@@ -56,4 +56,6 @@ for (const season of [2022, 2023, 2024, 2025]) {
   assert.ok(Object.keys(past ?? {}).length > 400, `past season ${season}`);
 }
 assert.ok(Object.keys(await (await db('AllTips/demo-celebrity-2025/demo-daisy')).json()).length > 400);
-console.log('PASS: imported data and 20 sign-ins, private identity isolation, own future tip, rejected cross-user/past writes, round/game stats, no live scores, past seasons.');
+const pastRounds = (await (await db('Stats/demo-celebrity-2025')).json()).round_stats_backend_v1;
+assert.equal(Object.keys(pastRounds.at(-1)).length, 20, 'Past seasons are scored for every tipper');
+console.log('PASS: imported data and 20 sign-ins, private identity isolation, own future tip, rejected cross-user/past writes, round/game stats, no live scores, scored past seasons.');
