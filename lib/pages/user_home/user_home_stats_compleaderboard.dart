@@ -12,7 +12,6 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
 import 'package:daufootytipping/widgets/live_scores_warning_card.dart';
 import 'package:daufootytipping/pages/user_home/user_home_stats_roundpointsfortipper.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:daufootytipping/widgets/empty_state_card.dart';
@@ -255,12 +254,10 @@ class _StatCompLeaderboardState extends State<StatCompLeaderboard> {
 
   @override
   Widget build(BuildContext context) {
-    return SelectedCompBanner(
-      child: buildScaffold(
-        context,
-        di<TippersViewModel>().selectedTipper.dbkey ?? '',
-        appSelectionColor(context),
-      ),
+    return buildScaffold(
+      context,
+      di<TippersViewModel>().selectedTipper.dbkey ?? '',
+      appSelectionColor(context),
     );
   }
 

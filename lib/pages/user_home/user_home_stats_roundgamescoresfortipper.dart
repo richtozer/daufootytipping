@@ -15,7 +15,6 @@ import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:daufootytipping/view_models/tips_viewmodel.dart';
 import 'package:daufootytipping/pages/user_home/user_home_avatar.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -266,13 +265,11 @@ class _StatRoundGameScoresForTipperState
 
   @override
   Widget build(BuildContext context) {
-    return SelectedCompBanner(
-      child: buildScaffold(
-        context,
-        games[League.afl],
-        games[League.nrl],
-        MediaQuery.of(context).size.width > 500,
-      ),
+    return buildScaffold(
+      context,
+      games[League.afl],
+      games[League.nrl],
+      MediaQuery.of(context).size.width > 500,
     );
   }
 

@@ -8,7 +8,6 @@ import 'package:daufootytipping/pages/user_home/user_home_team_games_history_pag
 import 'package:daufootytipping/pages/user_home/user_home_tips_card_adapter.dart';
 import 'package:daufootytipping/view_models/daucomps_viewmodel.dart';
 import 'package:daufootytipping/widgets/empty_state_card.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:flutter/foundation.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_under_controls_area.dart';
@@ -517,63 +516,61 @@ class _LeagueLadderPageState extends State<LeagueLadderPage> {
         widget.teamDbKeysToDisplay ?? const <String>[];
     final Widget table = _ladderTable(context, seasonYear);
 
-    return SelectedCompBanner(
-      child: Scaffold(
-        body: _pageArea(
-          _isComparisonMode
-              // Two sections, each with its heading beside its own table
-              // rather than one heading at the top speaking for both.
-              ? Builder(
-                  builder: (context) => SingleChildScrollView(
-                    // The end of the page keeps clear of the display's own
-                    // inset; the controls fade away at the end instead.
-                    padding: EdgeInsets.only(
-                      bottom: AppScrollEndPadding.of(context),
-                    ),
-                    child: Column(
-                      children: [
-                        AppTableFrame(
-                          fill: false,
-                          columns: _columns,
-                          rows: _rows,
-                          frozenLeading: _frozenLeading,
-                          heading: _header(
-                            context,
-                            comparisonTeamNames,
-                            seasonYear,
-                          ),
-                          table: Padding(
-                            padding: const EdgeInsets.all(5.0),
-                            child: table,
-                          ),
-                        ),
-                        const Divider(
-                          height: 24,
-                          thickness: 1,
-                          indent: 16,
-                          endIndent: 16,
-                        ),
-                        LeagueLadderHistoricalMatchups(
-                          league: widget.league,
-                          teamDbKeys: comparedTeams,
-                        ),
-                      ],
-                    ),
+    return Scaffold(
+      body: _pageArea(
+        _isComparisonMode
+            // Two sections, each with its heading beside its own table
+            // rather than one heading at the top speaking for both.
+            ? Builder(
+                builder: (context) => SingleChildScrollView(
+                  // The end of the page keeps clear of the display's own
+                  // inset; the controls fade away at the end instead.
+                  padding: EdgeInsets.only(
+                    bottom: AppScrollEndPadding.of(context),
                   ),
-                )
-              // The whole ladder: one table, filling the page, as every other
-              // table page does.
-              : AppTableFrame(
-                  columns: _columns,
-                  rows: _rows,
-                  frozenLeading: _frozenLeading,
-                  heading: _header(context, comparisonTeamNames, seasonYear),
-                  table: Padding(
-                    padding: const EdgeInsets.all(5.0),
-                    child: table,
+                  child: Column(
+                    children: [
+                      AppTableFrame(
+                        fill: false,
+                        columns: _columns,
+                        rows: _rows,
+                        frozenLeading: _frozenLeading,
+                        heading: _header(
+                          context,
+                          comparisonTeamNames,
+                          seasonYear,
+                        ),
+                        table: Padding(
+                          padding: const EdgeInsets.all(5.0),
+                          child: table,
+                        ),
+                      ),
+                      const Divider(
+                        height: 24,
+                        thickness: 1,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      LeagueLadderHistoricalMatchups(
+                        league: widget.league,
+                        teamDbKeys: comparedTeams,
+                      ),
+                    ],
                   ),
                 ),
-        ),
+              )
+            // The whole ladder: one table, filling the page, as every other
+            // table page does.
+            : AppTableFrame(
+                columns: _columns,
+                rows: _rows,
+                frozenLeading: _frozenLeading,
+                heading: _header(context, comparisonTeamNames, seasonYear),
+                table: Padding(
+                  padding: const EdgeInsets.all(5.0),
+                  child: table,
+                ),
+              ),
       ),
     );
   }

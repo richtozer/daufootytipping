@@ -13,9 +13,9 @@ import 'package:daufootytipping/view_models/app_controls_viewmodel.dart';
 import 'package:daufootytipping/widgets/app_nav/app_controls_scopes.dart';
 import 'package:daufootytipping/widgets/app_nav/app_glass_style.dart';
 import 'package:daufootytipping/widgets/app_nav/app_nav_destination.dart';
-import 'package:daufootytipping/widgets/selected_comp_banner.dart';
 import 'package:daufootytipping/widgets/app_content_width.dart';
 import 'package:daufootytipping/widgets/app_backdrop.dart';
+import 'package:daufootytipping/widgets/app_banners.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -386,26 +386,9 @@ class _HomePageState extends State<HomePage> with RestorationMixin {
                   ),
                 );
 
-                final scaffoldWithCompBanner = SelectedCompBanner(
-                  dauCompsViewModel: dauCompsViewModelConsumer,
-                  child: scaffold,
-                );
-
-                if (tippersViewModelConsumer.inGodMode) {
-                  return Banner(
-                    message: tippersViewModelConsumer.selectedTipper.name,
-                    location: BannerLocation.bottomStart,
-                    color: Colors.red,
-                    child: Banner(
-                      message: 'God mode',
-                      location: BannerLocation.bottomEnd,
-                      color: Colors.red,
-                      child: scaffoldWithCompBanner,
-                    ),
-                  );
-                } else {
-                  return scaffoldWithCompBanner;
-                }
+                // Around the full-width tabs, so the banners sit in the
+                // window's corners.
+                return AppBanners(child: scaffold);
               },
             );
           },
