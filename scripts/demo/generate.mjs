@@ -97,6 +97,12 @@ export function extractHistory(snapshot) {
 
 const DAISY_ACCURACY = 0.86;
 
+// How often a tipper picks the result. The screenshot account (Daisy) sits
+// near the top of the leaderboard.
+function accuracyFor(person, index) {
+  return person.id === 'daisy' ? DAISY_ACCURACY : 0.35 + (index % 7) * 0.065;
+}
+
 // The tip that a game's final score makes correct (margins: AFL 31+, NRL 13+).
 function resultFor(key, game) {
   const homeMargin = game.HomeTeamScore - game.AwayTeamScore;
@@ -114,12 +120,11 @@ export function teamLogosFor(logoDir = LOGO_DIR) {
 }
 
 // Past seasons as their own competitions, unshifted, so head-to-head history
-// shows real results. Only the screenshot account (Daisy) gets past tips, which
-// is what lights up the "tipped correctly" shading in her matchup history. The
-// tippers' compsParticipatedIn is left alone: these seasons hold no stats.
+// shows real results. Every tipper played and tipped them, as well as they tip
+// this season, and demo_stats.dart scores them so their leaderboards show.
+// Daisy's tips light up the "tipped correctly" shading in her matchup history.
 function addHistory(database, history) {
   Object.assign(database.Teams, structuredClone(history.teams));
-  const daisy = roster.find(person => person.id === 'daisy');
   for (const [season, past] of Object.entries(history.seasons)) {
     const compKey = `demo-celebrity-${season}`;
     database.AllDAUComps[compKey] = {
@@ -131,17 +136,21 @@ function addHistory(database, history) {
       combinedRounds2: past.rounds,
     };
     const games = {};
-    const tips = {};
+    const tips = Object.fromEntries(roster.map(person => [person.tipperId, {}]));
     for (const [key, raw] of Object.entries(past.games)) {
       const kickoff = millis(raw.DateUtc);
       games[key] = { League: key.slice(0, 3), ...raw, DateUtcEpochMs: kickoff };
-      const pick = random(`${daisy.id}/${season}/${key}/pick`) < DAISY_ACCURACY
-        ? resultFor(key, raw)
-        : ['a', 'b', 'd', 'e'][Math.floor(random(`${season}/${key}/${daisy.id}/other`) * 4)];
-      tips[key] = { r: pick, t: Math.floor((kickoff - 10 * hour) / 1000) };
+      for (const [index, person] of roster.entries()) {
+        const pick = random(`${person.id}/${season}/${key}/pick`) < accuracyFor(person, index)
+          ? resultFor(key, raw)
+          : ['a', 'b', 'd', 'e'][Math.floor(random(`${season}/${key}/${person.id}/other`) * 4)];
+        tips[person.tipperId][key] = { r: pick, t: Math.floor((kickoff - 10 * hour) / 1000) };
+      }
     }
     database.DAUCompsGames[compKey] = games;
-    database.AllTips[compKey] = { [daisy.tipperId]: tips };
+    database.AllTips[compKey] = tips;
+    database.Stats[compKey] = {};
+    for (const tipper of Object.values(database.AllTippers)) tipper.compsParticipatedIn.push(compKey);
   }
 }
 
@@ -219,9 +228,7 @@ export function buildDemo(source, { anchor = new Date().toISOString(), avatarHos
           ? states[key] === 'future' && random(key) < 0.35
           : random(`${person.id}/${key}/missing`) < (r >= 7 ? 0.15 : 0.035);
         if (missing) continue;
-        // The screenshot account sits near the top of the leaderboard.
-        const accuracy = person.id === 'daisy' ? DAISY_ACCURACY : 0.35 + (index % 7) * 0.065;
-        const pick = rand < accuracy ? resultFor(key, source.games[key]) : ['a', 'b', 'd', 'e'][Math.floor(random(`${key}/${person.id}/other`) * 4)];
+        const pick = rand < accuracyFor(person, index) ? resultFor(key, source.games[key]) : ['a', 'b', 'd', 'e'][Math.floor(random(`${key}/${person.id}/other`) * 4)];
         tips[key] = { r: pick, t: Math.floor(Math.min(now - hour, g.DateUtcEpochMs - (8 + index) * hour) / 1000) };
       }
     }

@@ -81,14 +81,22 @@ void main() {
 
   /// A wide window showing a page opened from the tabs, which on the web is a
   /// narrow column in the middle of it.
-  Future<void> openPageInWideWindow(WidgetTester tester) async {
+  Future<void> openPageInWideWindow(
+    WidgetTester tester, {
+    EdgeInsets controlsRoom = EdgeInsets.zero,
+  }) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: SizedBox.shrink(),
+        // The nav controls tell the pages the room they take this way.
+        builder: (context, navigator) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(padding: controlsRoom),
+          child: navigator!,
+        ),
+        home: const SizedBox.shrink(),
       ),
     );
     tester
@@ -117,6 +125,21 @@ void main() {
       tester.widget<Banner>(banner('2025')).location,
       BannerLocation.bottomStart,
     );
+  });
+
+  testWidgets('the banners sit just clear of the nav controls, so the tab '
+      'pill or Back never covers them', (tester) async {
+    when(() => tippers.inGodMode).thenReturn(true);
+
+    await openPageInWideWindow(
+      tester,
+      controlsRoom: const EdgeInsets.only(bottom: 96),
+    );
+
+    // Both ribbons share the area above the controls' strip.
+    const clearOfControls = Rect.fromLTWH(0, 0, 1200, 704);
+    expect(tester.getRect(banner('2025')), clearOfControls);
+    expect(tester.getRect(banner('Daisy')), clearOfControls);
   });
 
   testWidgets('the banner is part of the page, so a dialog or sheet opened '

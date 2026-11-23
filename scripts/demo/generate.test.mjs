@@ -121,7 +121,7 @@ test('malformed anchors and remote avatar hosts are refused', () => {
   assert.throws(() => buildDemo(source, { anchor, avatarHost: 'example.com' }));
 });
 
-test('past seasons become separate competitions with real results and only Daisy tips', () => {
+test('past seasons become separate competitions everyone played and tipped, with real results', () => {
   const history = JSON.parse(readFileSync(resolve(repoRoot, 'demo/history.json')));
   const { database } = buildDemo(source, { anchor, history });
   const daisy = roster.find(person => person.id === 'daisy');
@@ -136,9 +136,15 @@ test('past seasons become separate competitions with real results and only Daisy
       assert.ok(database.Teams[`${game.League}-${game.HomeTeam}`], key);
       assert.ok(database.Teams[`${game.League}-${game.AwayTeam}`], key);
     }
-    assert.deepEqual(Object.keys(database.AllTips[compKey]), [daisy.tipperId]);
+    assert.deepEqual(Object.keys(database.AllTips[compKey]).sort(), roster.map(person => person.tipperId).sort());
+    assert.equal(Object.keys(database.AllTips[compKey][daisy.tipperId]).length, Object.keys(pastGames).length);
+    // demo_stats.dart fills this in, so the season's leaderboards show.
+    assert.deepEqual(database.Stats[compKey], {});
   }
-  assert.deepEqual(database.AllTippers[daisy.tipperId].compsParticipatedIn, [COMP]);
+  const pastComps = HISTORY_SEASONS.map(season => `demo-celebrity-${season}`);
+  for (const tipper of Object.values(database.AllTippers)) {
+    assert.deepEqual(tipper.compsParticipatedIn, [COMP, ...pastComps]);
+  }
   assert.equal(JSON.stringify(history).match(/tipper|email|authuid/i), null);
 });
 
