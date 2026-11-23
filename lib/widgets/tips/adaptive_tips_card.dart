@@ -430,8 +430,8 @@ class AdaptiveTipsCard extends StatelessWidget {
                         ),
                   avatar: percentages && data.result == options[index]
                       ? Icon(
-                          Icons.emoji_events,
-                          color: dark ? Colors.white : Colors.black,
+                          gameResultIcon,
+                          color: gameResultIconColor(dark),
                           size: trophySize,
                         )
                       : null,
@@ -456,12 +456,12 @@ class AdaptiveTipsCard extends StatelessWidget {
                   color: dark
                       ? WidgetStateProperty.resolveWith(
                           (states) => states.contains(WidgetState.selected)
-                              ? kChipSelectedDarkColor
+                              ? selectedTipColor(dark)
                               : kChipDarkColor,
                         )
                       : null,
                   surfaceTintColor: dark ? Colors.transparent : null,
-                  selectedColor: dark ? null : Colors.lightGreen[500],
+                  selectedColor: dark ? null : selectedTipColor(dark),
                   labelStyle: chipText == null
                       ? null
                       : TextStyle(color: chipText),

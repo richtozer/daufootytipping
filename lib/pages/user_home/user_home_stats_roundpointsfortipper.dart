@@ -207,7 +207,7 @@ class _StatRoundPointsForTipperState extends State<StatRoundPointsForTipper> {
             leading: avatarPic(widget.statsTipper),
             title: 'Round Points',
             subtitle: widget.statsTipper.name,
-            description: 'Tap a row to see tips for that round.',
+            description: 'Tap a row to see tips for that round. Tap column headings to sort.',
           ),
           table: Padding(
             padding: const EdgeInsets.all(5.0),

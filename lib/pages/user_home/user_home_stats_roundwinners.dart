@@ -129,7 +129,7 @@ class _StatRoundWinnersState extends State<StatRoundWinners> {
                     child: Icon(Icons.person, size: 50),
                   ),
                   title: 'Round Winners',
-                  description: 'Round winners grouped by round. Tap a row to see the full round leaderboard.',
+                  description: 'Round winners grouped by round. Tap a row to see the full round leaderboard. Tap column headings to sort.',
                 ),
                 table: statsViewModel.roundWinners.isEmpty
                     ? const EmptyStateCard(

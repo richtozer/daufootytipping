@@ -122,8 +122,7 @@ class StatPercentTippedState extends State<StatPercentTipped> {
   @override
   Widget build(BuildContext context) {
     log('StatPercentTipped.build()');
-
-    Orientation orientation = MediaQuery.of(context).orientation;
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
 
     if (daucompsViewModel.selectedDAUComp == null) {
       return Center(
@@ -162,152 +161,174 @@ class StatPercentTippedState extends State<StatPercentTipped> {
                 value: daucompsViewModel,
               ),
             ],
-            child: Theme(
-              data: myTheme,
-              child: Consumer<DAUCompsViewModel>(
-                builder: (context, daucompsViewmodelConsumer, client) {
-                  final selectedComp =
-                      daucompsViewmodelConsumer.selectedDAUComp;
-                  if (selectedComp == null) {
-                    return const SizedBox.shrink();
-                  }
-                  final sections = buildTipsLeagueSections(
-                    selectedComp: selectedComp,
-                    cardExtent: cardLayout.cardExtent,
-                    headerExtent: cardLayout.headerExtent,
-                    officialFixtureScoresOnly: true,
-                  );
-                  _scrollToLatestCompletedRound(selectedComp, sections);
+            child: Consumer<DAUCompsViewModel>(
+              builder: (context, daucompsViewmodelConsumer, client) {
+                final selectedComp = daucompsViewmodelConsumer.selectedDAUComp;
+                if (selectedComp == null) {
+                  return const SizedBox.shrink();
+                }
+                final sections = buildTipsLeagueSections(
+                  selectedComp: selectedComp,
+                  cardExtent: cardLayout.cardExtent,
+                  headerExtent: cardLayout.headerExtent,
+                  officialFixtureScoresOnly: true,
+                );
+                _scrollToLatestCompletedRound(selectedComp, sections);
 
-                  return ChangeNotifierProvider<StatsViewModel?>.value(
-                    value: daucompsViewmodelConsumer.statsViewModel,
-                    child: Scaffold(
-                      // The backdrop the page is pushed over shows through,
-                      // as on the other tips pages, and the list scrolls
-                      // under the floating controls rather than stopping
-                      // short of them.
-                      backgroundColor: Colors.transparent,
-                      body: AppUnderControlsArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (orientation == Orientation.portrait)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16.0,
-                                  8.0,
-                                  16.0,
-                                  0.0,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                return ChangeNotifierProvider<StatsViewModel?>.value(
+                  value: daucompsViewmodelConsumer.statsViewModel,
+                  child: Scaffold(
+                    // The backdrop the page is pushed over shows through,
+                    // as on the other tips pages, and the list scrolls
+                    // under the floating controls rather than stopping
+                    // short of them.
+                    backgroundColor: Colors.transparent,
+                    body: AppUnderControlsArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              16.0,
+                              8.0,
+                              16.0,
+                              0.0,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Hero(
-                                          tag: 'percentage',
-                                          child: Icon(
-                                            Icons.percent,
-                                            size: 50,
-                                            color: appPanelTextColor(context),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            'Percentage Tipped',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.bold,
-                                                  color: appPanelTextColor(
-                                                    context,
-                                                  ),
-                                                ),
-                                          ),
-                                        ),
-                                      ],
+                                    Hero(
+                                      tag: 'percentage',
+                                      child: Icon(
+                                        Icons.percent,
+                                        size: 50,
+                                        color: appPanelTextColor(context),
+                                      ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
+                                    const SizedBox(width: 12),
+                                    Expanded(
                                       child: Text(
-                                        'Breakdown of how people tipped each game. Legend: 🟩 = Your tip, 🏆 = Game result.',
+                                        'Percentage Tipped',
                                         style: Theme.of(context)
                                             .textTheme
-                                            .bodyMedium
+                                            .titleLarge
                                             ?.copyWith(
-                                              color:
-                                                  appPanelTextColor(context) ??
-                                                  Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
+                                              fontWeight: FontWeight.bold,
+                                              color: appPanelTextColor(context),
                                             ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            if (sections.isEmpty)
-                              const EmptyStateCard(
-                                title: 'Tipping breakdown coming soon',
-                                message: "Each game's breakdown will appear once its final score is in.",
-                              )
-                            else
-                              Expanded(
-                                // The cards dissolve into the title as they
-                                // scroll up to it, instead of being cut off by
-                                // a hard edge under the text.
-                                child: ShaderMask(
-                                  blendMode: BlendMode.dstIn,
-                                  shaderCallback: (bounds) =>
-                                      const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.black,
-                                        ],
-                                        stops: [0, _topFadeFraction],
-                                      ).createShader(bounds),
-                                  child: CustomScrollView(
-                                    controller: scrollController,
-                                    restorationId: 'statsPercentTippedView',
-                                    slivers: [
-                                      for (
-                                        var sectionIndex = 0;
-                                        sectionIndex < sections.length;
-                                        sectionIndex++
-                                      )
-                                        buildRoundLeagueSection(
-                                          section: sections[sectionIndex],
-                                          dauCompsViewModel:
-                                              daucompsViewmodelConsumer,
-                                          currentTipper: di<TippersViewModel>()
-                                              .selectedTipper,
-                                          isPercentStatsPage: true,
-                                          layout: cardLayout,
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: 'Breakdown of how people tipped each game. Legend: ',
                                         ),
-                                      SliverToBoxAdapter(
-                                        child: SizedBox(
-                                          height: AppScrollEndPadding.of(
-                                            context,
+                                        WidgetSpan(
+                                          alignment:
+                                              PlaceholderAlignment.middle,
+                                          child: Container(
+                                            width: 18,
+                                            height: 14,
+                                            decoration: BoxDecoration(
+                                              color: selectedTipColor(dark),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    kCardCornerRadius,
+                                                  ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                        const TextSpan(text: ' = Your tip, '),
+                                        WidgetSpan(
+                                          alignment:
+                                              PlaceholderAlignment.middle,
+                                          child: Icon(
+                                            gameResultIcon,
+                                            size: 18,
+                                            color: gameResultIconColor(dark),
+                                          ),
+                                        ),
+                                        const TextSpan(text: ' = Game result.'),
+                                      ],
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color:
+                                              appPanelTextColor(context) ??
+                                              Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                        ),
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                          if (sections.isEmpty)
+                            const EmptyStateCard(
+                              title: 'Tipping breakdown coming soon',
+                              message: "Each game's breakdown will appear once its final score is in.",
+                            )
+                          else
+                            Expanded(
+                              // The cards dissolve into the title as they
+                              // scroll up to it, instead of being cut off by
+                              // a hard edge under the text.
+                              child: ShaderMask(
+                                blendMode: BlendMode.dstIn,
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Colors.black,
+                                      ],
+                                      stops: [0, _topFadeFraction],
+                                    ).createShader(bounds),
+                                child: CustomScrollView(
+                                  controller: scrollController,
+                                  restorationId: 'statsPercentTippedView',
+                                  slivers: [
+                                    for (
+                                      var sectionIndex = 0;
+                                      sectionIndex < sections.length;
+                                      sectionIndex++
+                                    )
+                                      buildRoundLeagueSection(
+                                        section: sections[sectionIndex],
+                                        dauCompsViewModel:
+                                            daucompsViewmodelConsumer,
+                                        currentTipper: di<TippersViewModel>()
+                                            .selectedTipper,
+                                        isPercentStatsPage: true,
+                                        layout: cardLayout,
+                                      ),
+                                    SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        height: AppScrollEndPadding.of(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         );

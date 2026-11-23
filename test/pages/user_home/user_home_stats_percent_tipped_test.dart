@@ -66,18 +66,28 @@ void main() {
     when(() => dauCompsViewModel.isSelectedCompActiveComp()).thenReturn(true);
     when(() => dauCompsViewModel.addListener(any())).thenAnswer((_) {});
     when(() => dauCompsViewModel.removeListener(any())).thenAnswer((_) {});
-    // A phone held upright, where the page shows its title.
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: StatPercentTipped())),
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: const Scaffold(body: StatPercentTipped()),
+      ),
     );
     await tester.pump();
 
     expect(find.text('Tipping breakdown coming soon'), findsOneWidget);
     expect(find.text('Percentage Tipped'), findsOneWidget);
+
+    tester.view.physicalSize = const Size(800, 400);
+    await tester.pump();
+
+    expect(find.text('Percentage Tipped').hitTestable(), findsOneWidget);
+    final warning = find.text('Tipping breakdown coming soon');
+    expect(warning.hitTestable(), findsOneWidget);
+    expect(Theme.of(tester.element(warning)).brightness, Brightness.dark);
   });
 
   /// Opens the page on a comp of [roundCount] rounds, the first

@@ -347,7 +347,7 @@ class _LeagueLadderHistoricalMatchupsState
       heading: const AppTableHeading(
         leading: Icon(Icons.history, size: 50),
         title: 'Historical Matchups',
-        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Shaded rows mark games you tipped correctly.',
+        description: 'Recent head-to-head history between these teams. Includes your tipping history (where available). Shaded rows mark games you tipped correctly. Tap column headings to sort.',
       ),
       table: _matchupsTable(context),
     );
