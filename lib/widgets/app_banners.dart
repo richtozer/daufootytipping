@@ -30,11 +30,16 @@ class AppBanners extends StatelessWidget {
       fit: StackFit.passthrough,
       children: [
         child,
+        // Inside the room the page is given, which leaves out the floating
+        // nav controls' strip, so the tab pill or Back never covers a ribbon.
         Positioned.fill(
           child: IgnorePointer(
             child: ListenableBuilder(
               listenable: Listenable.merge([comps, tippers]),
-              builder: (context, _) => _banners(comps, tippers),
+              builder: (context, _) => Padding(
+                padding: MediaQuery.paddingOf(context),
+                child: _banners(comps, tippers),
+              ),
             ),
           ),
         ),
