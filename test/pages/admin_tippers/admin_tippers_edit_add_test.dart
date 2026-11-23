@@ -173,6 +173,38 @@ void main() {
     );
   });
 
+  testWidgets('scrolls rather than overflowing on a short landscape screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(874, 402);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    when(() => mockDauCompsViewModel.getDAUcomps()).thenAnswer(
+      (_) async => [
+        for (var year = 2022; year <= 2026; year++)
+          DAUComp(
+            dbkey: 'comp-$year',
+            name: 'Comp $year',
+            aflFixtureJsonURL: Uri.parse('https://example.com/afl'),
+            nrlFixtureJsonURL: Uri.parse('https://example.com/nrl'),
+            daurounds: [],
+          ),
+      ],
+    );
+
+    await pumpEditPage(tester);
+
+    expect(tester.takeException(), isNull);
+    // The last comp is below the screen until the form is scrolled.
+    expect(find.text('Comp 2022').hitTestable(), findsNothing);
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Comp 2022').hitTestable(), findsOneWidget);
+  });
+
   testWidgets('renders logon as read-only and shows last login time', (
     tester,
   ) async {

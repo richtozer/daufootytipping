@@ -473,7 +473,8 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
             onPressed: _canSave ? () => _onSavePressed(context) : null,
           ),
         ],
-        body: Padding(
+        // Scrolls to fit a short landscape screen; Save and Back float apart.
+        body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
@@ -678,55 +679,53 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
                                   a.name.toLowerCase(),
                                 ),
                               );
-                              return Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        'Select the competitions this tipper has paid for:',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
+                              // Centred across the page, as the form is.
+                              return Center(
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'Select the competitions this tipper has paid for:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    DataTable(
+                                      sortColumnIndex: 1,
+                                      sortAscending: true,
+                                      columns: const [
+                                        DataColumn(label: Text('Paid')),
+                                        DataColumn(
+                                          label: Text('Competition Name'),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  DataTable(
-                                    sortColumnIndex: 1,
-                                    sortAscending: true,
-                                    columns: const [
-                                      DataColumn(label: Text('Paid')),
-                                      DataColumn(
-                                        label: Text('Competition Name'),
-                                      ),
-                                    ],
-                                    rows: comps
-                                        .map(
-                                          (comp) => DataRow(
-                                            cells: [
-                                              DataCell(
-                                                Checkbox(
-                                                  value:
-                                                      tipper.isAnonymous ||
-                                                      _paidCompKeys.contains(
-                                                        comp.dbkey,
-                                                      ),
-                                                  onChanged: _isBusy
-                                                      ? null
-                                                      : (bool? value) =>
-                                                            _setCompPaid(
-                                                              comp,
-                                                              value ?? false,
-                                                            ),
+                                      ],
+                                      rows: comps
+                                          .map(
+                                            (comp) => DataRow(
+                                              cells: [
+                                                DataCell(
+                                                  Checkbox(
+                                                    value:
+                                                        tipper.isAnonymous ||
+                                                        _paidCompKeys.contains(
+                                                          comp.dbkey,
+                                                        ),
+                                                    onChanged: _isBusy
+                                                        ? null
+                                                        : (bool? value) =>
+                                                              _setCompPaid(
+                                                                comp,
+                                                                value ?? false,
+                                                              ),
+                                                  ),
                                                 ),
-                                              ),
-                                              DataCell(Text(comp.name)),
-                                            ],
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ],
+                                                DataCell(Text(comp.name)),
+                                              ],
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ],
+                                ),
                               );
                             }
                           },

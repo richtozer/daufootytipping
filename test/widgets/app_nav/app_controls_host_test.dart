@@ -446,6 +446,58 @@ void main() {
     expect(pill.center.dx, 420 - 40, reason: 'middle of the 80pt strip');
   });
 
+  group('in a landscape iPhone with the Dynamic Island in a right inset', () {
+    const islandInset = 59.0;
+    Future<void> pumpLandscape(WidgetTester tester) async {
+      useView(tester, const Size(874, 402));
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [observer],
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(padding: const EdgeInsets.only(right: islandInset)),
+            child: AppControlsHost(
+              viewModel: viewModel,
+              observer: observer,
+              child: child!,
+            ),
+          ),
+          home: homeWithTabs(),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a page\'s own buttons sit clear of the inset, where a tall '
+        'column of them would reach the island', (tester) async {
+      await pumpLandscape(tester);
+      await push(
+        tester,
+        AppPageActions(
+          viewModel: viewModel,
+          actions: [
+            for (final icon in [Icons.merge, Icons.person, Icons.save])
+              AppGlassAction(icon: icon, label: '$icon', onPressed: () {}),
+          ],
+          child: const Scaffold(body: Text('form')),
+        ),
+      );
+
+      final controls = tester.getRect(find.byType(AppGlassGroup));
+      expect(controls.right, lessThanOrEqualTo(874 - islandInset));
+    });
+
+    testWidgets('Back alone, being short, still tucks into the inset', (
+      tester,
+    ) async {
+      await pumpLandscape(tester);
+      await push(tester, const Scaffold(body: Text('page')));
+
+      final back = tester.getRect(find.byType(AppGlassButton));
+      expect(back.right, 874 - kControlsInsetEdgeMargin);
+    });
+  });
+
   testWidgets('tells the content how much room the controls take', (
     tester,
   ) async {

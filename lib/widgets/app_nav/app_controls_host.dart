@@ -82,11 +82,15 @@ class AppControlsHost extends StatelessWidget {
         // A dialog or sheet covers the page, so the controls step aside for it
         // too, while the content keeps their room so nothing moves behind it.
         final hidden = overlayOnTop || (keyboardUp && !aboveKeyboard);
+        // Only Back on its own is short enough to tuck into a slim inset.
+        final tucksIntoInset =
+            mode == AppControlsMode.back && viewModel.pageActions.isEmpty;
         final contentPadding = _contentPadding(
           media.padding,
           media.size,
           axis,
           mode,
+          tucksIntoInset,
         );
         return Stack(
           children: [
@@ -106,7 +110,7 @@ class AppControlsHost extends StatelessWidget {
                   : null,
               right: axis == Axis.horizontal
                   ? media.padding.right + kControlsEdgeMargin
-                  : _rightOffset(media.padding, mode),
+                  : _rightOffset(media.padding, tucksIntoInset),
               bottom: aboveKeyboard
                   ? media.viewInsets.bottom + kControlsEdgeMargin
                   : _bottomOffset(media.padding, media.size, axis),
@@ -144,6 +148,7 @@ class AppControlsHost extends StatelessWidget {
     Size size,
     Axis axis,
     AppControlsMode mode,
+    bool tucksIntoInset,
   ) {
     if (mode == AppControlsMode.none) {
       return padding;
@@ -159,7 +164,9 @@ class AppControlsHost extends StatelessWidget {
     // From the same offset the controls are placed at, so the room reserved is
     // exactly the room they take whatever the inset is.
     final sideRoom =
-        _rightOffset(padding, mode) + kGlassSideThickness + kControlsContentGap;
+        _rightOffset(padding, tucksIntoInset) +
+        kGlassSideThickness +
+        kControlsContentGap;
     return padding.copyWith(
       right: padding.right > sideRoom ? padding.right : sideRoom,
     );
@@ -181,20 +188,20 @@ class AppControlsHost extends StatelessWidget {
   /// enough to hold them, so they take room the content could not use anyway.
   /// In a slimmer inset the tall tab pill sits clear of it, in the content's
   /// area, which is told to leave room for it: in landscape the inset can hold
-  /// a Dynamic Island, and the pill is tall enough to reach it. Back and the
-  /// page actions are short, so they tuck just inside the display edge, over
-  /// the inset, as there is nothing in it for them to cover. With no inset
-  /// they float clear of the edge.
-  double _rightOffset(EdgeInsets padding, AppControlsMode mode) {
+  /// a Dynamic Island, and the pill is tall enough to reach it. So is a column
+  /// of page actions above Back. Back on its own is short, so it tucks just
+  /// inside the display edge, over the inset, as there is nothing in it for it
+  /// to cover. With no inset the controls float clear of the edge.
+  double _rightOffset(EdgeInsets padding, bool tucksIntoInset) {
     if (padding.right >= kSideControlsInsetWidth) {
       return (padding.right - kGlassSideThickness) / 2;
     }
     if (padding.right <= 0) {
       return kControlsEdgeMargin;
     }
-    return mode == AppControlsMode.tabs
-        ? padding.right + kControlsEdgeMargin
-        : kControlsInsetEdgeMargin;
+    return tucksIntoInset
+        ? kControlsInsetEdgeMargin
+        : padding.right + kControlsEdgeMargin;
   }
 }
 
