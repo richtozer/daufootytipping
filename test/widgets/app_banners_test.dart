@@ -139,22 +139,34 @@ void main() {
     expect(find.byType(Banner), findsNothing);
   });
 
-  testWidgets('god mode names the tipper and says god mode, in the window\'s '
-      'two bottom corners', (tester) async {
+  testWidgets('god mode is one red banner with the tipper\'s name, in the '
+      'window\'s bottom-right corner', (tester) async {
     when(() => comps.isSelectedCompActiveComp()).thenReturn(true);
     when(() => tippers.inGodMode).thenReturn(true);
 
     await openPageInWideWindow(tester);
 
+    expect(find.byType(Banner), findsOneWidget);
+    final godMode = tester.widget<Banner>(banner('Daisy'));
+    expect(godMode.location, BannerLocation.bottomEnd);
+    expect(godMode.color, Colors.red);
+    expect(tester.getRect(banner('Daisy')), window);
+  });
+
+  testWidgets('god mode on a past comp shows both: the year bottom-left and '
+      'the tipper bottom-right', (tester) async {
+    when(() => tippers.inGodMode).thenReturn(true);
+
+    await openPageInWideWindow(tester);
+
     expect(
-      tester.widget<Banner>(banner('Daisy')).location,
+      tester.widget<Banner>(banner('2025')).location,
       BannerLocation.bottomStart,
     );
     expect(
-      tester.widget<Banner>(banner('God mode')).location,
+      tester.widget<Banner>(banner('Daisy')).location,
       BannerLocation.bottomEnd,
     );
-    expect(tester.getRect(banner('God mode')), window);
   });
 
   testWidgets('a banner coming or going leaves the page under it as it was', (

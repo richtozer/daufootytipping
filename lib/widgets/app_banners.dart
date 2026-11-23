@@ -3,8 +3,9 @@ import 'package:daufootytipping/view_models/tippers_viewmodel.dart';
 import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
-/// The diagonal corner banners: the year of a past comp being viewed and, in
-/// god mode, the tipper being viewed and "God mode".
+/// The diagonal corner banners: the year of a past comp being viewed, in
+/// orange bottom-left, and in god mode the tipper being viewed, in red
+/// bottom-right.
 ///
 /// Wrap a full-width layer, so the banners sit in the window's corners even
 /// when the page itself is a narrower column on a wide display: the home tabs,
@@ -53,18 +54,15 @@ class AppBanners extends StatelessWidget {
         child: banners,
       );
     }
-    // God mode needs a signed-in tipper to compare the selected one with.
+    // God mode is the tipper being viewed, in red, in the other bottom corner,
+    // so it never covers the year. It needs a signed-in tipper to compare the
+    // selected one with.
     if (tippers.authenticatedTipper != null && tippers.inGodMode) {
       banners = Banner(
         message: tippers.selectedTipper.name,
-        location: BannerLocation.bottomStart,
+        location: BannerLocation.bottomEnd,
         color: Colors.red,
-        child: Banner(
-          message: 'God mode',
-          location: BannerLocation.bottomEnd,
-          color: Colors.red,
-          child: banners,
-        ),
+        child: banners,
       );
     }
     return banners;
