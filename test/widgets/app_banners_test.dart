@@ -164,7 +164,7 @@ void main() {
     expect(tester.getRect(find.byType(AppBanners)), window);
     expect(
       tester.getCenter(find.text('2025')),
-      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 44), epsilon: 0.1),
     );
     expect(ribbonDecoration(tester, '2025').color, Colors.orange);
     final style = tester.widget<Text>(find.text('2025')).style!;
@@ -182,11 +182,11 @@ void main() {
     );
     expect(
       tester.getCenter(find.text('2025')),
-      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 44), epsilon: 0.1),
     );
     expect(
       tester.getCenter(find.text('Daisy')),
-      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 62), epsilon: 0.1),
     );
 
     await openPageInWideWindow(
@@ -195,11 +195,11 @@ void main() {
     );
     expect(
       tester.getCenter(find.text('2025')),
-      offsetMoreOrLessEquals(expectedCenter(800, 28), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 44), epsilon: 0.1),
     );
     expect(
       tester.getCenter(find.text('Daisy')),
-      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 62), epsilon: 0.1),
     );
   });
 
@@ -233,7 +233,7 @@ void main() {
     expect(ribbons(), findsOneWidget);
     expect(
       tester.getCenter(find.text('Daisy')),
-      offsetMoreOrLessEquals(expectedCenter(800, 46), epsilon: 0.1),
+      offsetMoreOrLessEquals(expectedCenter(800, 62), epsilon: 0.1),
     );
     expect(ribbonDecoration(tester, 'Daisy').color, Colors.red);
     final style = tester.widget<Text>(find.text('Daisy')).style!;
@@ -256,8 +256,8 @@ void main() {
       (godModeCenter - yearCenter).distance,
       moreOrLessEquals(18, epsilon: 0.2),
     );
-    expect(ribbonTextWidth(tester, 'Daisy'), 84);
-    expect(ribbonTextWidth(tester, '2025'), 48);
+    expect(ribbonTextWidth(tester, 'Daisy'), 116);
+    expect(ribbonTextWidth(tester, '2025'), 80);
     expect(
       ribbonTextWidth(tester, 'Daisy'),
       greaterThan(ribbonTextWidth(tester, '2025')),
@@ -339,16 +339,16 @@ void main() {
       await tester.pumpAndSettle();
 
       final pill = tester.getRect(find.byType(AppGlassPill));
-      // Outer edge of the god-mode ribbon: x + (height - y) = (46 + 12) * sqrt(2).
-      final ribbonMaxXAtPillBottom = 58 * math.sqrt2 - (852 - pill.bottom);
+      // Outer edge of the god-mode ribbon: x + (height - y) = (62 + 12) * sqrt(2).
+      final ribbonMaxXAtPillBottom = 74 * math.sqrt2 - (852 - pill.bottom);
       expect(ribbonMaxXAtPillBottom, lessThan(pill.left));
       expect(
         tester.getCenter(find.text('2025')),
-        offsetMoreOrLessEquals(expectedCenter(852, 28), epsilon: 0.1),
+        offsetMoreOrLessEquals(expectedCenter(852, 44), epsilon: 0.1),
       );
       expect(
         tester.getCenter(find.text('Daisy')),
-        offsetMoreOrLessEquals(expectedCenter(852, 46), epsilon: 0.1),
+        offsetMoreOrLessEquals(expectedCenter(852, 62), epsilon: 0.1),
       );
     },
   );
