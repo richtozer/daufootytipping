@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:watch_it/watch_it.dart';
 
 const double _ribbonThickness = 12.0;
-const double _yearInnerDistance = 28.0;
+const double _yearInnerDistance = 44.0;
 const double _ribbonGap = 6.0;
 const double _godModeInnerDistance =
     _yearInnerDistance + _ribbonThickness + _ribbonGap;
