@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Builds the App Store creative assets (product page header, search results,
-universal) from the app's own art and the iPad tips screenshot.
+universal) from the app's own art, the iPad tips screenshot and a Duo stats
+screenshot.
 
 Specs (App Store Connect "Creative assets specifications"):
   universal  5244x2950, PNG only, safe area 1402x962 at (1921, 660)
@@ -8,8 +9,10 @@ Specs (App Store Connect "Creative assets specifications"):
   search     3840x2560 (3:2, 1920x1280 to 3840x2560), safe area 2168x1030 at (836, 765)
 No alpha is allowed, so every file is saved as RGB.
 
-Key art (icon, headline, cards) stays inside the safe area; only the blurred
-grass background fills the rest. Each asset is also written with a "-guide"
+Key art stays inside the safe area; only the blurred grass background fills
+the rest. Most assets show an icon and headline over four tips cards;
+search-stats instead shows the stats page panel, whose header carries the
+icon and comp name. Each asset is also written with a "-guide"
 suffix showing the safe area outline, for review only (do not upload those).
 
 Run from the repository root (needs Pillow):
@@ -28,6 +31,11 @@ FONT = ROOT / "assets" / "fonts" / "Roboto-Bold.ttf"
 TIPS = ROOT / "screenshots" / "app-store" / "ipad-13" / "02-tips.png"
 # The four NRL round 8 cards (two "Game today" ribbons, two picked tips).
 CARDS_BOX = (230, 270, 1830, 790)
+STATS = ROOT / "screenshots" / "app-store" / "creative" / "sources" / "stats-duo-inner.webp"
+# The stats panel, from its comp-name header to the NRL and AFL ladder cards.
+STATS_BOX = (393, 434, 1431, 1330)
+# The panel's corner radius in STATS pixels.
+STATS_RADIUS = 24
 
 PANEL = (52, 64, 56)  # the app's dark round-header green
 WHITE = (255, 255, 255)
@@ -72,16 +80,51 @@ def shadow_paste(canvas: Image.Image, art: Image.Image, xy: tuple[int, int],
     canvas.alpha_composite(art, xy)
 
 
-def build(name: str, size: tuple[int, int], safe: tuple[int, int, int, int],
-          headline: str) -> None:
-    sx, sy, sw, sh = safe
+def background(size: tuple[int, int]) -> Image.Image:
+    """The blurred grass, darkened slightly towards the bottom so the key art
+    stands out."""
     canvas = cover(Image.open(BACKGROUND).convert("RGB"), size).convert("RGBA")
-    # Darken slightly towards the bottom so the key art stands out.
     shade = Image.new("L", (1, size[1]))
     for y in range(size[1]):
         shade.putpixel((0, y), round(70 * y / size[1]))
     canvas.alpha_composite(Image.merge("RGBA", (
         *(Image.new("L", size, 0),) * 3, shade.resize(size))))
+    return canvas
+
+
+def save(name: str, size: tuple[int, int], safe: tuple[int, int, int, int],
+         canvas: Image.Image) -> None:
+    """Writes [canvas] as RGB, plus a review copy outlining the safe area."""
+    sx, sy, sw, sh = safe
+    final = canvas.convert("RGB")
+    final.save(OUT / f"{name}-{size[0]}x{size[1]}.png", "PNG", optimize=True)
+
+    guide = final.copy()
+    ImageDraw.Draw(guide).rectangle((sx, sy, sx + sw, sy + sh),
+                                    outline=(255, 0, 255), width=max(6, sw // 300))
+    guide.save(OUT / "guides" / f"{name}-guide.png", "PNG", optimize=True)
+    print(f"{name}: {size[0]}x{size[1]} written")
+
+
+def build_stats(name: str, size: tuple[int, int],
+                safe: tuple[int, int, int, int]) -> None:
+    """The stats panel, as large as fits, centred in the safe area."""
+    sx, sy, sw, sh = safe
+    canvas = background(size)
+    panel = Image.open(STATS).convert("RGB").crop(STATS_BOX)
+    scale = min(sw / panel.width, sh / panel.height)
+    panel_w, panel_h = round(panel.width * scale), round(panel.height * scale)
+    art = rounded(panel.resize((panel_w, panel_h), Image.LANCZOS),
+                  round(STATS_RADIUS * scale))
+    shadow_paste(canvas, art, (sx + (sw - panel_w) // 2, sy + (sh - panel_h) // 2),
+                 round(panel_h * 0.03))
+    save(name, size, safe, canvas)
+
+
+def build(name: str, size: tuple[int, int], safe: tuple[int, int, int, int],
+          headline: str) -> None:
+    sx, sy, sw, sh = safe
+    canvas = background(size)
 
     # Layout inside the safe area: headline bar on top, cards below.
     gap = round(sh * 0.05)
@@ -122,21 +165,15 @@ def build(name: str, size: tuple[int, int], safe: tuple[int, int, int, int],
                        round(cards_h * 0.04))
     shadow_paste(canvas, card_art, (sx + (sw - cards_w) // 2, top + bar_h + gap),
                  round(cards_h * 0.03))
-
-    final = canvas.convert("RGB")
-    final.save(OUT / f"{name}-{size[0]}x{size[1]}.png", "PNG", optimize=True)
-
-    guide = final.copy()
-    ImageDraw.Draw(guide).rectangle((sx, sy, sx + sw, sy + sh),
-                                    outline=(255, 0, 255), width=max(6, sw // 300))
-    guide.save(OUT / "guides" / f"{name}-guide.png", "PNG", optimize=True)
-    print(f"{name}: {size[0]}x{size[1]} written")
+    save(name, size, safe, canvas)
 
 
 def main() -> None:
     (OUT / "guides").mkdir(parents=True, exist_ok=True)
     for name, spec in ASSETS.items():
         build(name, **spec)
+    search = ASSETS["search"]
+    build_stats("search-stats", search["size"], search["safe"])
 
 
 if __name__ == "__main__":
