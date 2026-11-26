@@ -77,13 +77,6 @@ void main() {
     when(() => mockDauCompsViewModel.getDAUcomps())
         .thenAnswer((_) async => <DAUComp>[]);
 
-    when(
-      () => mockTippersViewModel.isEmailOrLogonAlreadyAssigned(
-        any(),
-        any(),
-        tipper,
-      ),
-    ).thenAnswer((_) async => null);
     when(() => mockTippersViewModel.updateTipperAttribute(any(), any(), any()))
         .thenAnswer((_) async {});
     when(
@@ -296,13 +289,6 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(
-      () => mockTippersViewModel.isEmailOrLogonAlreadyAssigned(
-        'updated@example.com',
-        'login@example.com',
-        tipper,
-      ),
-    ).called(1);
-    verify(
       () => identity.adminUpdateTipper(
         tipperId: 'tipper-1',
         name: null,
@@ -411,44 +397,6 @@ void main() {
       expect(find.byKey(TipperAdminEditPage.emailFieldKey), findsOneWidget);
     },
   );
-
-  testWidgets('a duplicate email is still caught before anything is sent', (
-    tester,
-  ) async {
-    final other = Tipper(
-      dbkey: 'tipper-2',
-      authuid: 'auth-2',
-      email: 'taken@example.com',
-      name: 'Other',
-      tipperRole: TipperRole.tipper,
-      compsPaidFor: const [],
-    );
-    when(
-      () => mockTippersViewModel.isEmailOrLogonAlreadyAssigned(
-        'taken@example.com',
-        'login@example.com',
-        tipper,
-      ),
-    ).thenAnswer((_) async => other);
-    await pumpEditPage(tester);
-
-    await editEmail(tester, 'taken@example.com');
-    await tester.tap(find.byIcon(Icons.save));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.textContaining('is already assigned to tipper Other'),
-      findsOneWidget,
-    );
-    verifyNever(
-      () => identity.adminUpdateTipper(
-        tipperId: any(named: 'tipperId'),
-        name: any(named: 'name'),
-        email: any(named: 'email'),
-        role: any(named: 'role'),
-      ),
-    );
-  });
 
   group('paid ticks', () {
     final DAUComp comp = DAUComp(

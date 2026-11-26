@@ -165,6 +165,44 @@ void main() {
       }, skip: skip);
 
       test(
+        'an email another tipper has as its contact email, in any case: and the name and role in the same request are not applied',
+        () async {
+          await refusedWithoutWriting(
+            () => update(
+              const AdminUpdateTipperRequest(
+                tipperId: 't2',
+                name: 'Samuel',
+                email: ' PAT@example.com ',
+                role: TipperRole.admin,
+              ),
+            ),
+            refusedAs('email_taken'),
+          );
+        },
+        skip: skip,
+      );
+
+      test('an email another tipper signs in with', () async {
+        await seed(
+          baseline()..tipper(
+            't3',
+            name: 'Kim',
+            logon: 'kim.login@example.com',
+            email: 'kim@example.com',
+          ),
+        );
+        await refusedWithoutWriting(
+          () => update(
+            const AdminUpdateTipperRequest(
+              tipperId: 't2',
+              email: 'kim.login@example.com',
+            ),
+          ),
+          refusedAs('email_taken'),
+        );
+      }, skip: skip);
+
+      test(
         'a name another tipper holds: and the email and role in the same request are not applied',
         () async {
           await refusedWithoutWriting(
@@ -261,6 +299,30 @@ void main() {
             reason: 'no login claim moved',
           );
           expectIdentityConsistent(root);
+        },
+        skip: skip,
+      );
+
+      test(
+        'an address another tipper already shares does not stop a change that leaves the email alone',
+        () async {
+          await seed(
+            baseline()..tipper(
+              't3',
+              name: 'Stray',
+              logon: 'kim.relay@example.com',
+              email: 'sam@example.com', // Sam's address, from before the check
+              claimLogon: false,
+            ),
+          );
+          final result = await update(
+            const AdminUpdateTipperRequest(
+              tipperId: 't2',
+              email: 'sam@example.com',
+              role: TipperRole.admin,
+            ),
+          );
+          expect(result.changed, ['role']);
         },
         skip: skip,
       );

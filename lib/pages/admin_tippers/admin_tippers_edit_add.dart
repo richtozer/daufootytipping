@@ -200,35 +200,6 @@ class _FormEditTipperState extends State<TipperAdminEditPage> {
 
   Future<_SaveOutcome> _saveTipper(BuildContext context) async {
     try {
-      // make sure the email and logon are not assigned to another tipper
-      Tipper? tipperWithDupEmail = await tippersViewModel
-          .isEmailOrLogonAlreadyAssigned(
-            _tipperEmailController.text,
-            _tipperLogonController.text,
-            tipper,
-          );
-      if (tipperWithDupEmail != null) {
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              content: Text(
-                'The email ${tipperWithDupEmail.email} or logon ${tipperWithDupEmail.logon} is already assigned to tipper ${tipperWithDupEmail.name}',
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-        return _SaveOutcome.notSaved;
-      }
-
       if (tipper.dbkey == null) {
         return _SaveOutcome.notSaved;
       }

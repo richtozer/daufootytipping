@@ -93,6 +93,23 @@ Future<AdminUpdateTipperResult> adminUpdateTipper({
         );
       }
 
+      // Sign-in links an account to every record holding its address as login
+      // or contact email, so a second holder would lock that person out. Only a
+      // changed email is checked: duplicates made before this check must not
+      // stop an unrelated change.
+      if (email != null && target.email != email) {
+        final wanted = normaliseEmail(email);
+        final taken = records.values.any(
+          (record) => record.id != tipperId && record.matchesEmail(wanted),
+        );
+        if (taken) {
+          throw FailedPreconditionError(
+            'Another tipper already has that email address.',
+            reason: identityReasonEmailTaken,
+          );
+        }
+      }
+
       final currentRole = target.fields['tipperRole'];
       final demoting =
           role == TipperRole.tipper && currentRole == TipperRole.admin.name;

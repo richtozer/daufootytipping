@@ -13,6 +13,9 @@ String adminFailureMessage(IdentityFailure failure) {
           'punctuation.';
     case reasons.identityReasonInvalidEmail:
       return 'That email address is not valid.';
+    case reasons.identityReasonEmailTaken:
+      return 'Another tipper already uses that email address to sign in or as '
+          'their contact email.';
     case reasons.identityReasonLastAdmin:
       return 'There must be at least one administrator, so the last one cannot '
           'be changed to an ordinary tipper.';

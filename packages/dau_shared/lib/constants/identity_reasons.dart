@@ -47,6 +47,9 @@ const String identityReasonNotAdmin = 'not_admin';
 /// The contact email is not a usable address.
 const String identityReasonInvalidEmail = 'invalid_email';
 
+/// Another tipper already has the email as its login or contact email.
+const String identityReasonEmailTaken = 'email_taken';
+
 /// The change would leave no administrator.
 const String identityReasonLastAdmin = 'last_admin';
 

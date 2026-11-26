@@ -16,6 +16,7 @@ void main() {
       reasons.identityReasonAliasTaken: 'already used',
       reasons.identityReasonInvalidAlias: 'not allowed',
       reasons.identityReasonInvalidEmail: 'not valid',
+      reasons.identityReasonEmailTaken: 'Another tipper already uses',
       reasons.identityReasonLastAdmin: 'at least one administrator',
       reasons.identityReasonClaimed: 'already belongs',
       reasons.identityReasonNotAdmin: 'Only administrators',

@@ -184,6 +184,7 @@ void main() {
         identityReasonInvalidToken,
         identityReasonNotAdmin,
         identityReasonInvalidEmail,
+        identityReasonEmailTaken,
         identityReasonLastAdmin,
       ]) {
         expect(

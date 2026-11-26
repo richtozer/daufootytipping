@@ -184,7 +184,7 @@ class TippersViewModel extends ChangeNotifier {
   }
 
   /// An administrator reads every private record, so that the admin screens can
-  /// show and check logins, emails and roles. Anyone else does not listen (the
+  /// show logins, emails and roles. Anyone else does not listen (the
   /// rules would refuse), and what an administrator read is dropped as soon as
   /// the signed-in tipper is no longer one. Called whenever that may have changed.
   void _syncAdminPrivateListener() {
@@ -560,36 +560,6 @@ class TippersViewModel extends ChangeNotifier {
       return;
     }
     await di<FirebaseMessagingService>().unregisterCurrentToken();
-  }
-
-  Future<Tipper?> isEmailOrLogonAlreadyAssigned(
-    String email1,
-    String email2,
-    Tipper? tipper,
-  ) async {
-    await _initialLoadCompleter.future;
-    // if the tipper is supplied then we are checking if the email or logon is already assigned to another tipper
-    // if the tipper is null then we are checking if the email or logon is already assigned to any tipper
-    Tipper? foundTipper;
-    if (tipper != null) {
-      foundTipper = _tippers.firstWhereOrNull(
-        (otherTipper) =>
-            (otherTipper.email == email1 ||
-                otherTipper.email == email2 ||
-                otherTipper.logon == email1 ||
-                otherTipper.logon == email2) &&
-            otherTipper.dbkey != tipper.dbkey,
-      );
-    } else {
-      foundTipper = _tippers.firstWhereOrNull(
-        (otherTipper) =>
-            otherTipper.email == email1 ||
-            otherTipper.email == email2 ||
-            otherTipper.logon == email1 ||
-            otherTipper.logon == email2,
-      );
-    }
-    return foundTipper;
   }
 
   @override
