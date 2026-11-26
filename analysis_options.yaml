@@ -45,13 +45,3 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
-
-
-dart_code_metrics:
-  # Presets (for example `recommended`) are plan-gated in DCM.
-  # Keep configuration explicit and local for compatibility.
-  rules:
-    - avoid-assignments-as-conditions
-    - avoid-empty-spread
-    - avoid-misused-set-literals
-    - avoid-self-assignment
